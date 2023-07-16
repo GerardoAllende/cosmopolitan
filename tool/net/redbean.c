@@ -4449,13 +4449,54 @@ static int LuaGetParams(lua_State *L) {
   return 1;
 }
 
+static int myformat (lua_State *L) {
+    char *p;
+    luaL_Buffer buf;
+    size_t size;
+    size_t sizedest;
+    const char *s;
+    s = luaL_checklstring (L, 1, &size);
+    if (size<4){
+        sizedest=4;
+    } else {
+        sizedest=size+1+((size-3)/3);
+    }
+    p = luaL_buffinitsize(L, &buf, sizedest);
+    memcpy(p+sizedest-4, "0,00", 4);
+    int i,j;
+    i=size-1;
+    j=sizedest-1;
+    for(int k=2;k && i>=0;k--) p[j--]=s[i--];
+    j--; /* ',' */
+    for(;i>=0;i--){
+        p[j--]=s[i];
+        if (i && !((size-i-2)%3)) p[j--]='.';
+    }
+    luaL_pushresultsize(&buf, sizedest);
+    return 1;
+}
+
 static int LuaWrite(lua_State *L) {
   size_t size;
   const char *data;
-  OnlyCallDuringRequest(L, "Write");
-  if (!lua_isnil(L, 1)) {
-    data = luaL_checklstring(L, 1, &size);
-    appendd(&cpm.outbuf, data, size);
+  /* Write with variable number of arguments */
+  int n = lua_gettop(L);  /* number of arguments */
+  int i;
+  for (i = 1; i <= n; i++) {  /* for each argument */
+    if (!lua_isnil(L, i)) {
+      data = luaL_checklstring(L, i, &size);
+      if (!size) continue;
+      if (ishandlingrequest) {
+        appendd(&cpm.outbuf, data, size);
+      } else {
+        /* Instead of refusing to work when not handling a request,
+         * print it */
+        lua_writestring(data, size);
+      }
+    }
+  }
+  if (!ishandlingrequest) {
+    lua_writeline();
   }
   return 0;
 }
@@ -5274,6 +5315,7 @@ static const luaL_Reg kLuaFuncs[] = {
     {"Underlong", LuaUnderlong},                                //
     {"VisualizeControlCodes", LuaVisualizeControlCodes},        //
     {"Write", LuaWrite},                                        //
+    {"MyFormatNum", LuaMyFormatNumber},                                        //
     {"bin", LuaBin},                                            //
     {"hex", LuaHex},                                            //
     {"oct", LuaOct},                                            //

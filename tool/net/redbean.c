@@ -4449,7 +4449,7 @@ static int LuaGetParams(lua_State *L) {
   return 1;
 }
 
-static int myformat (lua_State *L) {
+static int LuaMyFormatNumber (lua_State *L) {
     char *p;
     luaL_Buffer buf;
     size_t size;

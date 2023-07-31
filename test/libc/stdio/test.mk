@@ -43,6 +43,7 @@ TEST_LIBC_STDIO_DIRECTDEPS =					\
 	THIRD_PARTY_MBEDTLS					\
 	THIRD_PARTY_MUSL					\
 	THIRD_PARTY_TR						\
+	THIRD_PARTY_NSYNC					\
 	THIRD_PARTY_ZLIB					\
 	THIRD_PARTY_ZLIB_GZ
 
@@ -57,7 +58,7 @@ o/$(MODE)/test/libc/stdio/%.com.dbg:				\
 		$(TEST_LIBC_STDIO_DEPS)				\
 		o/$(MODE)/test/libc/stdio/%.o			\
 		o/$(MODE)/test/libc/stdio/stdio.pkg		\
-		o/$(MODE)/tool/build/echo.zip.o			\
+		o/$(MODE)/tool/build/echo.com.zip.o		\
 		$(LIBC_TESTMAIN)				\
 		$(CRT)						\
 		$(APE_NO_MODIFY_SELF)

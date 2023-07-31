@@ -45,7 +45,7 @@
 #endif
 
 #undef assert
-#define assert(x) _npassert(x)
+#define assert(x) npassert(x)
 
 #include "third_party/dlmalloc/platform.inc"
 #include "third_party/dlmalloc/locks.inc"
@@ -1326,20 +1326,6 @@ void dlmalloc_atfork(void) {
   bzero(&malloc_global_mutex, sizeof(malloc_global_mutex));
 }
 #endif
-
-void* dlvalloc(size_t bytes) {
-  size_t pagesz;
-  ensure_initialization();
-  pagesz = mparams.page_size;
-  return dlmemalign(pagesz, bytes);
-}
-
-void* dlpvalloc(size_t bytes) {
-  size_t pagesz;
-  ensure_initialization();
-  pagesz = mparams.page_size;
-  return dlmemalign(pagesz, (bytes + pagesz - SIZE_T_ONE) & ~(pagesz - SIZE_T_ONE));
-}
 
 void** dlindependent_calloc(size_t n_elements, size_t elem_size,
                             void* chunks[]) {

@@ -43,7 +43,7 @@
 #include "third_party/xed/x86.h"
 #include "tool/build/lib/getargs.h"
 
-STATIC_YOINK("realloc");
+__static_yoink("realloc");
 
 /**
  * @fileoverview Build Package Script.
@@ -651,9 +651,9 @@ int main(int argc, char *argv[]) {
   if (argc == 2 && !strcmp(argv[1], "-n")) {
     exit(0);
   }
-  if (!IsOptimized()) {
-    ShowCrashReports();
-  }
+#ifndef NDEBUG
+  ShowCrashReports();
+#endif
   bzero(&pkg, sizeof(pkg));
   bzero(&deps, sizeof(deps));
   Package(argc, argv, &pkg, &deps);

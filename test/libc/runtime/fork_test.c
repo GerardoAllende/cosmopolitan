@@ -16,15 +16,19 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#include "libc/atomic.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/sigaction.h"
+#include "libc/calls/struct/sigset.h"
 #include "libc/calls/struct/timespec.h"
 #include "libc/dce.h"
+#include "libc/errno.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/log/check.h"
 #include "libc/macros.internal.h"
 #include "libc/nexgen32e/rdtsc.h"
 #include "libc/runtime/runtime.h"
+#include "libc/str/str.h"
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/msync.h"
 #include "libc/sysv/consts/prot.h"
@@ -109,6 +113,7 @@ TEST(fork, childToChild) {
   signal(SIGUSR1, OnSigusr1);
   signal(SIGUSR2, OnSigusr2);
   sigemptyset(&mask);
+  sigaddset(&mask, SIGUSR1);
   sigaddset(&mask, SIGUSR2);
   sigprocmask(SIG_BLOCK, &mask, &oldmask);
   ASSERT_NE(-1, (child1 = fork()));
@@ -117,19 +122,16 @@ TEST(fork, childToChild) {
     sigsuspend(0);
     _Exit(!gotsigusr1);
   }
-  sigdelset(&mask, SIGUSR2);
-  sigsuspend(&mask);
+  sigsuspend(0);
   ASSERT_NE(-1, (child2 = fork()));
   if (!child2) {
     kill(child1, SIGUSR1);
     _Exit(0);
   }
   ASSERT_NE(-1, wait(&ws));
-  EXPECT_TRUE(WIFEXITED(ws));
-  EXPECT_EQ(0, WEXITSTATUS(ws));
+  EXPECT_EQ(0, ws);
   ASSERT_NE(-1, wait(&ws));
-  EXPECT_TRUE(WIFEXITED(ws));
-  EXPECT_EQ(0, WEXITSTATUS(ws));
+  EXPECT_EQ(0, ws);
   sigprocmask(SIG_SETMASK, &oldmask, 0);
 }
 

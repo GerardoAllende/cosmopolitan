@@ -30,8 +30,8 @@
 #include "libc/x/x.h"
 #ifdef __x86_64__
 
-STATIC_YOINK("_tr");
-STATIC_YOINK("glob");
+__static_yoink("_tr");
+__static_yoink("glob");
 
 char testlib_enable_tmp_setup_teardown;
 
@@ -105,13 +105,6 @@ TEST(system, testStderrRedirect_toStdout) {
   ASSERT_NE(-1, dup2(stdoutBack, 1));
   ASSERT_EQ(0, close(pipefd[1]));
   ASSERT_EQ(0, close(pipefd[0]));
-}
-
-BENCH(system, bench) {
-  testlib_extract("/zip/echo.com", "echo.com", 0755);
-  EZBENCH2("system cmd", donothing, system("./echo.com hi >/dev/null"));
-  EZBENCH2("cocmd echo", donothing, system("echo hi >/dev/null"));
-  EZBENCH2("cocmd exit", donothing, system("exit"));
 }
 
 TEST(system, and) {
@@ -243,6 +236,15 @@ TEST(system, env) {
 TEST(system, tr) {
   ASSERT_EQ(0, system("echo hello | tr a-z A-Z >res"));
   ASSERT_STREQ("HELLO\n", gc(xslurp("res", 0)));
+}
+
+int system2(const char *);
+
+BENCH(system, bench) {
+  testlib_extract("/zip/echo.com", "echo.com", 0755);
+  EZBENCH2("system cmd", donothing, system("./echo.com hi >/dev/null"));
+  EZBENCH2("cocmd echo", donothing, system("echo hi >/dev/null"));
+  EZBENCH2("cocmd exit", donothing, system("exit"));
 }
 
 #endif /* __x86_64__ */

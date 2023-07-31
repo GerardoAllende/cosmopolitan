@@ -49,13 +49,13 @@
 #include "libc/sysv/errfuns.h"
 
 #ifdef SYSDEBUG
-STATIC_YOINK("strsignal");  // for kprintf()
+__static_yoink("strsignal");  // for kprintf()
 #endif
 
 #if SupportsWindows()
-STATIC_YOINK("_init_onntconsoleevent");
-STATIC_YOINK("_check_sigwinch");
-STATIC_YOINK("_init_wincrash");
+__static_yoink("_init_onntconsoleevent");
+__static_yoink("_check_sigwinch");
+__static_yoink("_init_wincrash");
 #endif
 
 #define SA_RESTORER 0x04000000
@@ -478,6 +478,15 @@ static int __sigaction(int sig, const struct sigaction *act,
  * know that signals are in play. That way code which would otherwise be
  * frequently calling sigprocmask() out of an abundance of caution, will
  * no longer need to pay its outrageous cost.
+ *
+ * Signal handlers should avoid clobbering global variables like `errno`
+ * because most signals are asynchronous, i.e. the signal handler might
+ * be called at any assembly instruction. If something like a `SIGCHLD`
+ * handler doesn't save / restore the `errno` global when calling wait,
+ * then any i/o logic in the main program that checks `errno` will most
+ * likely break. This is rare in practice, since systems usually design
+ * signals to favor delivery from cancellation points before they block
+ * however that's not guaranteed.
  *
  * @return 0 on success or -1 w/ errno
  * @see xsigaction() for a much better api

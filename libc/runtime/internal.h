@@ -48,10 +48,10 @@ int GetDosEnviron(const char16_t *, char *, size_t, char **, size_t);
 bool __intercept_flag(int *, char *[], const char *);
 int sys_mprotect_nt(void *, size_t, int);
 int __inflate(void *, size_t, const void *, size_t);
-noasan void *_Mmap(void *, size_t, int, int, int, int64_t);
-noasan int _Munmap(char *, size_t);
+void *_Mmap(void *, size_t, int, int, int, int64_t) dontasan;
+int _Munmap(char *, size_t) dontasan;
 void __on_arithmetic_overflow(void);
-void __init_fds(void);
+void __init_fds(int, char **, char **);
 
 COSMOPOLITAN_C_END_
 #endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */

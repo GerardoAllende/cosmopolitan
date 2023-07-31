@@ -66,6 +66,10 @@
 #include "libc/x/x.h"
 #include "third_party/getopt/getopt.internal.h"
 
+#ifndef NDEBUG
+__static_yoink("zipos");
+#endif
+
 #define MANUAL \
   "\
 SYNOPSIS\n\
@@ -196,22 +200,26 @@ struct itimerval timer;
 struct timespec signalled;
 
 sigset_t mask;
+char buf[4096];
 sigset_t savemask;
-char buf[PAGESIZE];
 char tmpout[PATH_MAX];
 
+char *g_tmpout;
+const char *g_tmpout_original;
+
 const char *const kSafeEnv[] = {
-    "ADDR2LINE",  // needed by GetAddr2linePath
-    "HOME",       // needed by ~/.runit.psk
-    "HOMEDRIVE",  // needed by ~/.runit.psk
-    "HOMEPATH",   // needed by ~/.runit.psk
-    "MAKEFLAGS",  // needed by IsRunningUnderMake
-    "MODE",       // needed by test scripts
-    "PATH",       // needed by clang
-    "PWD",        // just seems plain needed
-    "STRACE",     // useful for troubleshooting
-    "TERM",       // needed to detect colors
-    "TMPDIR",     // needed by compiler
+    "ADDR2LINE",   // needed by GetAddr2linePath
+    "HOME",        // needed by ~/.runit.psk
+    "HOMEDRIVE",   // needed by ~/.runit.psk
+    "HOMEPATH",    // needed by ~/.runit.psk
+    "MAKEFLAGS",   // needed by IsRunningUnderMake
+    "MODE",        // needed by test scripts
+    "PATH",        // needed by clang
+    "PWD",         // just seems plain needed
+    "STRACE",      // useful for troubleshooting
+    "TERM",        // needed to detect colors
+    "TMPDIR",      // needed by compiler
+    "SYSTEMROOT",  // needed by socket()
 };
 
 const char *const kGccOnlyFlags[] = {
@@ -373,7 +381,11 @@ bool IsSafeEnv(const char *s) {
   r = ARRAYLEN(kSafeEnv) - 1;
   while (l <= r) {
     m = (l & r) + ((l ^ r) >> 1);  // floor((a+b)/2)
-    x = strncmp(s, kSafeEnv[m], n);
+    if (IsWindows()) {
+      x = strncasecmp(s, kSafeEnv[m], n);
+    } else {
+      x = strncmp(s, kSafeEnv[m], n);
+    }
     if (x < 0) {
       r = m - 1;
     } else if (x > 0) {
@@ -449,7 +461,13 @@ char *StripPrefix(char *s, char *p) {
   }
 }
 
-void AddArg(char *s) {
+void AddArg(char *actual) {
+  const char *s;
+  if (actual == g_tmpout) {
+    s = g_tmpout_original;
+  } else {
+    s = actual;
+  }
   if (args.n) {
     appendw(&command, ' ');
   }
@@ -482,7 +500,7 @@ void AddArg(char *s) {
     appendw(&shortened, ' ');
     appends(&shortened, s);
   }
-  AddStr(&args, s);
+  AddStr(&args, actual);
 }
 
 static int GetBaseCpuFreqMhz(void) {
@@ -643,10 +661,6 @@ int Launch(void) {
   close(pipefds[1]);
 
   for (;;) {
-    if (gotchld) {
-      rc = 0;
-      break;
-    }
     if (gotalrm) {
       PrintRed();
       appends(&output, "\n\n`");
@@ -809,6 +823,7 @@ char *MakeTmpOut(const char *path) {
   int c;
   char *p = tmpout;
   char *e = tmpout + sizeof(tmpout) - 1;
+  g_tmpout_original = path;
   p = stpcpy(p, kTmpPath);
   while ((c = *path++)) {
     if (c == '/') c = '_';
@@ -819,6 +834,7 @@ char *MakeTmpOut(const char *path) {
     *p++ = c;
   }
   *p = 0;
+  g_tmpout = tmpout;
   return tmpout;
 }
 
@@ -830,6 +846,10 @@ int main(int argc, char *argv[]) {
   bool isproblematic;
   int ws, opt, exitcode;
   char *s, *p, *q, **envp;
+
+#ifndef NDEBUG
+  ShowCrashReports();
+#endif
 
   mode = firstnonnull(getenv("MODE"), MODE);
 

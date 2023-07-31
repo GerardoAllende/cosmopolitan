@@ -57,6 +57,7 @@
 #include "libc/str/str.h"
 #include "libc/str/tab.internal.h"
 #include "libc/str/utf16.h"
+#include "libc/sysv/consts/auxv.h"
 #include "libc/sysv/consts/nr.h"
 #include "libc/sysv/consts/prot.h"
 #include "libc/thread/tls.h"
@@ -187,7 +188,7 @@ privileged bool kisdangerous(const void *p) {
     if (IsStackFrame(frame)) return false;
     if (kismapped(frame)) return false;
   }
-  if (GetStackAddr() + APE_GUARDSIZE <= (uintptr_t)p &&
+  if (GetStackAddr() + 16384 <= (uintptr_t)p &&
       (uintptr_t)p < GetStackAddr() + GetStackSize()) {
     return false;
   }
@@ -388,6 +389,9 @@ privileged static size_t kformat(char *b, size_t n, const char *fmt,
           if (!(tib && (tib->tib_flags & TIB_FLAG_VFORKED))) {
             if (tib) {
               x = atomic_load_explicit(&tib->tib_tid, memory_order_relaxed);
+              if (IsNetbsd() && x == 1) {
+                x = __pid;
+              }
             } else {
               x = __pid;
             }
@@ -624,7 +628,7 @@ privileged static size_t kformat(char *b, size_t n, const char *fmt,
             ++p;
           }
           for (i = j = 0; !pdot || j < prec; ++j) {
-            if (UNLIKELY(!((intptr_t)s & (PAGESIZE - 1)))) {
+            if (UNLIKELY(!((intptr_t)s & 4095))) {
               if (!dang && kisdangerous(s)) break;
             }
             if (!type) {
@@ -686,7 +690,7 @@ privileged static size_t kformat(char *b, size_t n, const char *fmt,
               s += sizeof(char16_t);
               if (IsHighSurrogate(t)) {
                 if (!pdot || j + 1 < prec) {
-                  if (UNLIKELY(!((intptr_t)s & (PAGESIZE - 1)))) {
+                  if (UNLIKELY(!((intptr_t)s & 4095))) {
                     if (!dang && kisdangerous(s)) break;
                   }
                   u = *(const char16_t *)s;

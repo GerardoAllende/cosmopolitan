@@ -29,8 +29,8 @@
 #include "libc/x/xasprintf.h"
 #include "libc/x/xiso8601.h"
 
-STATIC_YOINK("zipos");
-STATIC_YOINK("usr/share/zoneinfo/New_York");
+__static_yoink("zipos");
+__static_yoink("usr/share/zoneinfo/New_York");
 
 char testlib_enable_tmp_setup_teardown;
 
@@ -61,7 +61,7 @@ TEST(opendir, enotdir) {
 TEST(opendir, zipTest_fake) {
   ASSERT_NE(NULL, (dir = opendir("/zip")));
   EXPECT_NE(NULL, (ent = readdir(dir)));
-  EXPECT_STREQ("echo", ent->d_name);
+  EXPECT_STREQ("echo.com", ent->d_name);
   EXPECT_NE(NULL, (ent = readdir(dir)));
   EXPECT_STREQ("usr", ent->d_name);
   EXPECT_NE(NULL, (ent = readdir(dir)));
@@ -70,7 +70,7 @@ TEST(opendir, zipTest_fake) {
   EXPECT_EQ(0, closedir(dir));
   ASSERT_NE(NULL, (dir = opendir("/zip/")));
   EXPECT_NE(NULL, (ent = readdir(dir)));
-  EXPECT_STREQ("echo", ent->d_name);
+  EXPECT_STREQ("echo.com", ent->d_name);
   EXPECT_NE(NULL, (ent = readdir(dir)));
   EXPECT_STREQ("usr", ent->d_name);
   EXPECT_NE(NULL, (ent = readdir(dir)));

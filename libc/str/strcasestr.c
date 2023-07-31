@@ -35,8 +35,8 @@ typedef char xmm_t __attribute__((__vector_size__(16), __aligned__(16)));
  * @asyncsignalsafe
  * @see strstr()
  */
-noasan char *strcasestr(const char *haystack, const char *needle) {
-#ifdef __x86_64__
+dontasan char *strcasestr(const char *haystack, const char *needle) {
+#if defined(__x86_64__) && !defined(__chibicc__)
   char c;
   xmm_t *p;
   size_t i;

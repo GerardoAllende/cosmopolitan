@@ -145,7 +145,7 @@ restart:
 			l++;
 		}
 		if (q+l >= PATH_MAX) goto toolong;
-		memcpy(output+q, stack+p, l);
+		if (l) memcpy(output+q, stack+p, l);
 		output[q+l] = 0;
 		p += l;
 
@@ -181,7 +181,7 @@ skip_readlink:
 			continue;
 		}
 		k = rc;
-		_npassert(k <= p);
+		npassert(k <= p);
 		if (k==p)
 			goto toolong;
 		if (!k) {
@@ -223,7 +223,7 @@ skip_readlink:
 		if (q-p && !IsSlash(stack[l-1])) stack[l++] = '/';
 		if (l + (q-p) + 1 >= PATH_MAX) goto toolong;
 		memmove(output + l, output + p, q - p + 1);
-		memcpy(output, stack, l);
+		if (l) memcpy(output, stack, l);
 		q = l + q-p;
 	}
 

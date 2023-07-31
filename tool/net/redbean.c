@@ -141,16 +141,16 @@
 
 STATIC_STACK_SIZE(0x80000);
 
-STATIC_YOINK("zipos");
+__static_yoink("zipos");
 
 #ifdef USE_BLINK
-STATIC_YOINK("blink_linux_aarch64");  // for raspberry pi
-STATIC_YOINK("blink_xnu_aarch64");    // is apple silicon
+__static_yoink("blink_linux_aarch64");  // for raspberry pi
+__static_yoink("blink_xnu_aarch64");    // is apple silicon
 #endif
 
 #if !IsTiny()
 #ifdef __x86_64__
-STATIC_YOINK("ShowCrashReportsEarly");
+__static_yoink("ShowCrashReportsEarly");
 #endif
 #endif
 
@@ -2134,6 +2134,10 @@ static void FreeStrings(struct Strings *l) {
   l->n = 0;
 }
 
+static unsigned long roundup2pow(unsigned long x) {
+  return x > 1 ? 2ul << _bsrl(x - 1) : x ? 1 : 0;
+}
+
 static void IndexAssets(void) {
   uint64_t cf;
   struct Asset *p;
@@ -2145,7 +2149,7 @@ static void IndexAssets(void) {
   CHECK(READ32LE(zcdir) == kZipCdir64HdrMagic ||
         READ32LE(zcdir) == kZipCdirHdrMagic);
   n = GetZipCdirRecords(zcdir);
-  m = _roundup2pow(MAX(1, n) * HASH_LOAD_FACTOR);
+  m = roundup2pow(MAX(1, n) * HASH_LOAD_FACTOR);
   p = xcalloc(m, sizeof(struct Asset));
   for (cf = GetZipCdirOffset(zcdir); n--; cf += ZIP_CFILE_HDRSIZE(zmap + cf)) {
     CHECK_EQ(kZipCfileHdrMagic, ZIP_CFILE_MAGIC(zmap + cf));
@@ -4989,7 +4993,7 @@ static int LuaProgramTokenBucket(lua_State *L) {
   tokenbucket.ban = ban;
   tokenbucket.replenish = timespec_fromnanos(1 / replenish * 1e9);
   int pid = fork();
-  _npassert(pid != -1);
+  npassert(pid != -1);
   if (!pid) Replenisher();
   return 0;
 }
@@ -6717,9 +6721,10 @@ static int MemoryMonitor(void *arg, int tid) {
           addr = (char *)((int64_t)((uint64_t)mi[i].x << 32) >> 16);
           color = 0;
           appendf(&b, "\e[0m%lx", addr);
-          pages = (mi[i].size + PAGESIZE - 1) / PAGESIZE;
+          int pagesz = getauxval(AT_PAGESZ);
+          pages = (mi[i].size + pagesz - 1) / pagesz;
           for (j = 0; j < pages; ++j) {
-            rc = mincore(addr + j * PAGESIZE, PAGESIZE, &rez);
+            rc = mincore(addr + j * pagesz, pagesz, &rez);
             if (!rc) {
               if (rez & 1) {
                 if (mi[i].flags & MAP_SHARED) {

@@ -54,7 +54,7 @@
  *
  * If your main() source file has this statement:
  *
- *     STATIC_YOINK("zipos");
+ *     __static_yoink("zipos");
  *
  * Then you can read zip assets by adding a `"/zip/..."` prefix to `file`, e.g.
  *
@@ -132,6 +132,7 @@
  * @raise ENOTSUP if `file` is on zip file system and process is vfork()'d
  * @raise ENOSPC if file system is full when `file` would be `O_CREAT`ed
  * @raise EINTR if we needed to block and a signal was delivered instead
+ * @raise EEXIST if `O_CREAT|O_EXCL` are used and `file` already existed
  * @raise ECANCELED if thread was cancelled in masked mode
  * @raise ENOENT if `file` doesn't exist when `O_CREAT` isn't in `flags`
  * @raise ENOENT if `file` points to a string that's empty

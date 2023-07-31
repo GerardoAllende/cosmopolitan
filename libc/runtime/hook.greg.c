@@ -18,6 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ape/sections.internal.h"
 #include "libc/calls/struct/sigset.h"
+#include "libc/intrin/kprintf.h"
 #include "libc/limits.h"
 #include "libc/macros.internal.h"
 #include "libc/runtime/runtime.h"
@@ -106,8 +107,7 @@ static privileged void HookFunction(code_t *func, void *dest) {
  * @param st can be obtained using `GetSymbolTable()`
  * @see ape/ape.lds
  */
-privileged dontinstrument noasan int __hook(void *dest,
-                                            struct SymbolTable *st) {
+privileged int __hook(void *dest, struct SymbolTable *st) {
   long i;
   code_t *p, *pe;
   intptr_t lowest;

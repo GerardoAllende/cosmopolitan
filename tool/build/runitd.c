@@ -105,9 +105,9 @@
 bool use_ftrace;
 bool use_strace;
 char *g_exepath;
+unsigned char g_buf[4096];
 volatile bool g_interrupted;
 struct sockaddr_in g_servaddr;
-unsigned char g_buf[PAGESIZE];
 bool g_daemonize, g_sendready;
 int g_timeout, g_bogusfd, g_servfd, g_clifd, g_exefd;
 
@@ -116,8 +116,9 @@ void OnInterrupt(int sig) {
 }
 
 void OnChildTerminated(int sig) {
-  int ws, pid;
+  int e, ws, pid;
   sigset_t ss, oldss;
+  e = errno;  // SIGCHLD can be called asynchronously
   sigfillset(&ss);
   sigdelset(&ss, SIGTERM);
   sigprocmask(SIG_BLOCK, &ss, &oldss);
@@ -140,6 +141,7 @@ void OnChildTerminated(int sig) {
     }
   }
   sigprocmask(SIG_SETMASK, &oldss, 0);
+  errno = e;
 }
 
 wontreturn void ShowUsage(FILE *f, int rc) {

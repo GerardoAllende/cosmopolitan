@@ -78,12 +78,11 @@
 /* Programs should call GetStackSize() */
 #define APE_STACKSIZE 262144 /* default 256kb stack */
 #define FRAMESIZE     0x10000
-#define PAGESIZE      0x1000 /* i386+ */
+#define _PAGESIZE     0x1000 /* i386+ */
 #else
 #define APE_STACKSIZE 4194304 /* default 4mb stack */
 #endif
-#define APE_PAGESIZE  0x10000 /* i386+ */
-#define APE_GUARDSIZE 0x4000  /* b/c apple m1 */
+#define APE_PAGESIZE 0x10000 /* i386+ */
 
 #define BUFSIZ     0x1000 /* best stdio default */
 #define CHAR_BIT   8      /* b/c von neumann */

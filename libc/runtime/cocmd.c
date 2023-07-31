@@ -32,6 +32,7 @@
 #include "libc/macros.internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/stdio/stdio.h"
+#include "libc/stdio/temp.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/ok.h"
@@ -137,7 +138,7 @@ static void UnsetEnv(char **p, const char *k) {
 }
 
 static void Append(int c) {
-  _npassert(q + 1 < argbuf + sizeof(argbuf));
+  npassert(q + 1 < argbuf + sizeof(argbuf));
   *q++ = c;
 }
 
@@ -231,6 +232,72 @@ static int Echo(void) {
     Write(1, args[i]);
   }
   Write(1, "\n");
+  return 0;
+}
+
+static int Cat(void) {
+  int i, fd;
+  ssize_t rc;
+  char buf[512];
+  if (n < 2) {
+    for (;;) {
+      rc = read(0, buf, sizeof(buf));
+      if (rc == -1) {
+        perror("read");
+        return 1;
+      }
+      if (!rc) break;
+      rc = write(1, buf, rc);
+      if (rc == -1) {
+        perror("write");
+        return 1;
+      }
+    }
+  } else {
+    for (i = 1; i < n; ++i) {
+      if ((fd = open(args[i], O_RDONLY)) == -1) {
+        perror(args[i]);
+        return 1;
+      }
+      for (;;) {
+        rc = read(fd, buf, sizeof(buf));
+        if (rc == -1) {
+          perror(args[i]);
+          close(fd);
+          return 1;
+        }
+        if (!rc) break;
+        rc = write(1, buf, rc);
+        if (rc == -1) {
+          perror("write");
+          close(fd);
+          return 1;
+        }
+      }
+      if (close(fd)) {
+        perror(args[i]);
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+static int Mktemp(void) {
+  int fd;
+  char template[PATH_MAX + 1];
+  if (n == 2) {
+    strlcpy(template, args[1], sizeof(template));
+  } else {
+    strlcpy(template, kTmpPath, sizeof(template));
+    strlcat(template, "tmp.XXXXXX", sizeof(template));
+  }
+  if ((fd = mkstemp(template)) == -1) {
+    perror("mkstemp");
+    return 1;
+  }
+  Write(1, template);
+  close(fd);
   return 0;
 }
 
@@ -522,6 +589,7 @@ static int TryBuiltin(void) {
   if (!strcmp(args[0], "cd")) return Cd();
   if (!strcmp(args[0], "rm")) return Rm();
   if (!strcmp(args[0], "[")) return Test();
+  if (!strcmp(args[0], "cat")) return Cat();
   if (!strcmp(args[0], "env")) return Env();
   if (!strcmp(args[0], "exec")) return Exec();
   if (!strcmp(args[0], "wait")) return Wait();
@@ -534,6 +602,7 @@ static int TryBuiltin(void) {
   if (!strcmp(args[0], "rmdir")) return Rmdir();
   if (!strcmp(args[0], "mkdir")) return Mkdir();
   if (!strcmp(args[0], "false")) return False();
+  if (!strcmp(args[0], "mktemp")) return Mktemp();
   if (!strcmp(args[0], "usleep")) return Usleep();
   if (!strcmp(args[0], "toupper")) return Toupper();
   if (_weaken(_tr) && !strcmp(args[0], "tr")) return Fake(_weaken(_tr));
@@ -562,14 +631,14 @@ static void Pipe(void) {
     _Exit(127);
   }
   if (!pid) {
-    _unassert(dup2(pfds[1], 1) == 1);
+    unassert(dup2(pfds[1], 1) == 1);
     // we can't rely on cloexec because builtins
-    if (pfds[0] != 1) _unassert(!close(pfds[0]));
-    if (pfds[1] != 1) _unassert(!close(pfds[1]));
+    if (pfds[0] != 1) unassert(!close(pfds[0]));
+    if (pfds[1] != 1) unassert(!close(pfds[1]));
     _Exit(ShellExec());
   }
-  _unassert(!dup2(pfds[0], 0));
-  if (pfds[1]) _unassert(!close(pfds[1]));
+  unassert(!dup2(pfds[0], 0));
+  if (pfds[1]) unassert(!close(pfds[1]));
   n = 0;
 }
 
@@ -619,7 +688,7 @@ static const char *GetVar(const char *key) {
   } else if (key[0] == '?' && !key[1]) {
     return IntToStr(exitstatus);
   } else if (!strcmp(key, "PWD")) {
-    _npassert(getcwd(vbuf, sizeof(vbuf)));
+    npassert(getcwd(vbuf, sizeof(vbuf)));
     return vbuf;
   } else if (!strcmp(key, "UID")) {
     FormatInt32(vbuf, getuid());
@@ -644,14 +713,14 @@ static bool CopyVar(void) {
   size_t j;
   const char *s;
   if (IsVarName(*p)) {
-    _npassert(vari + 1 < sizeof(var));
+    npassert(vari + 1 < sizeof(var));
     var[vari++] = *p;
     var[vari] = 0;
     return false;
   }
   if ((s = GetVar(var))) {
     if ((j = strlen(s))) {
-      _npassert(q + j < argbuf + sizeof(argbuf));
+      npassert(q + j < argbuf + sizeof(argbuf));
       q = mempcpy(q, s, j);
     }
   }
@@ -855,7 +924,7 @@ int _cocmd(int argc, char **argv, char **envp) {
   int envi = 0;
   if (envp) {
     for (; envp[envi]; ++envi) {
-      _npassert(envi + 1 < ARRAYLEN(envs));
+      npassert(envi + 1 < ARRAYLEN(envs));
       envs[envi] = envp[envi];
     }
   }

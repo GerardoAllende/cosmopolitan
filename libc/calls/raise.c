@@ -31,7 +31,7 @@ static textwindows inline bool HasWorkingConsole(void) {
   return !!(__ntconsolemode[0] | __ntconsolemode[1] | __ntconsolemode[2]);
 }
 
-static noubsan void RaiseSigFpe(void) {
+static dontubsan void RaiseSigFpe(void) {
   volatile int x = 0;
   x = 1 / x;
 }
@@ -49,10 +49,6 @@ static noubsan void RaiseSigFpe(void) {
  * example, we raise `SIGTRAP` and `SIGFPE` the natural way, since that
  * helps us support Windows. So if the raised signal has a signal
  * handler, then the reported `si_code` might not be `SI_TKILL`.
- *
- * On Windows, if a signal results in the termination of the process
- * then we use the convention `_Exit(128 + sig)` to notify the parent of
- * the signal number.
  *
  * @param sig can be SIGALRM, SIGINT, SIGTERM, SIGKILL, etc.
  * @return 0 if signal was delivered and returned, or -1 w/ errno

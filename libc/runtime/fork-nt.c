@@ -48,11 +48,14 @@
 #include "libc/nt/runtime.h"
 #include "libc/nt/signals.h"
 #include "libc/nt/struct/ntexceptionpointers.h"
+#include "libc/nt/synchronization.h"
 #include "libc/runtime/internal.h"
 #include "libc/runtime/memtrack.internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/symbols.internal.h"
+#include "libc/sock/internal.h"
 #include "libc/str/str.h"
+#include "libc/sysv/consts/limits.h"
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/prot.h"
@@ -61,15 +64,17 @@
 
 #ifdef __x86_64__
 
-STATIC_YOINK("_check_sigchld");
+__static_yoink("_check_sigchld");
 
 extern int64_t __wincrashearly;
 bool32 __onntconsoleevent_nt(uint32_t);
 void kmalloc_unlock(void);
 
 static textwindows wontreturn void AbortFork(const char *func) {
-  STRACE("fork() %s() failed %d", func, GetLastError());
-  ExitProcess(177);
+#ifdef SYSDEBUG
+  kprintf("fork() %s() failed with win32 error %d\n", func, GetLastError());
+#endif
+  ExitProcess(11);
 }
 
 static textwindows char16_t *ParseInt(char16_t *p, int64_t *x) {
@@ -104,13 +109,37 @@ static dontinline textwindows bool ForkIo2(int64_t h, void *buf, size_t n,
 }
 
 static dontinline textwindows bool WriteAll(int64_t h, void *buf, size_t n) {
-  return ForkIo2(h, buf, n, WriteFile, "WriteFile", false);
+  bool ok;
+  // kprintf("WriteAll(%ld, %p, %zu);\n", h, buf, n);
+  ok = ForkIo2(h, buf, n, WriteFile, "WriteFile", false);
+#ifndef NDEBUG
+  if (ok) ok = ForkIo2(h, &n, sizeof(n), WriteFile, "WriteFile", false);
+#endif
+#ifdef SYSDEBUG
+  if (!ok) {
+    kprintf("failed to write %zu bytes to forked child: %d\n", n,
+            GetLastError());
+  }
+#endif
+  // Sleep(10);
+  return ok;
 }
 
 static textwindows dontinline void ReadOrDie(int64_t h, void *buf, size_t n) {
+  // kprintf("ReadOrDie(%ld, %p, %zu);\n", h, buf, n);
   if (!ForkIo2(h, buf, n, ReadFile, "ReadFile", true)) {
-    AbortFork("ReadFile");
+    AbortFork("ReadFile1");
   }
+#ifndef NDEBUG
+  size_t got;
+  if (!ForkIo2(h, &got, sizeof(got), ReadFile, "ReadFile", true)) {
+    AbortFork("ReadFile2");
+  }
+  if (got != n) {
+    AbortFork("ReadFile_SIZE_CHECK");
+  }
+#endif
+  // Sleep(10);
 }
 
 static textwindows int64_t MapOrDie(uint32_t prot, uint64_t size) {
@@ -137,7 +166,7 @@ static textwindows int OnForkCrash(struct NtExceptionPointers *ep) {
           "\tRip = %x%n",
           ep->ExceptionRecord->ExceptionCode,
           ep->ContextRecord ? ep->ContextRecord->Rip : -1);
-  ExitProcess(73);
+  ExitProcess(11);
 }
 
 textwindows void WinMainForked(void) {
@@ -231,7 +260,7 @@ textwindows void WinMainForked(void) {
 
   // rewrap the stdin named pipe hack
   // since the handles closed on fork
-  struct Fds *fds = VEIL("r", &g_fds);
+  struct Fds *fds = __veil("r", &g_fds);
   fds->p[0].handle = GetStdHandle(kNtStdInputHandle);
   fds->p[1].handle = GetStdHandle(kNtStdOutputHandle);
   fds->p[2].handle = GetStdHandle(kNtStdErrorHandle);
@@ -265,6 +294,7 @@ textwindows void WinMainForked(void) {
 
 textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
   jmp_buf jb;
+  uint32_t op;
   uint32_t oldprot;
   char ok, threaded;
   char **args, **args2;
@@ -279,12 +309,10 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
   tib = __tls_enabled ? __get_tls() : 0;
   if (!setjmp(jb)) {
     pid = untrackpid = __reservefd_unlocked(-1);
-    reader = CreateNamedPipe(CreatePipeName(pipename),
-                             kNtPipeAccessInbound | kNtFileFlagOverlapped,
-                             kNtPipeTypeMessage | kNtPipeReadmodeMessage, 1,
-                             65536, 65536, 0, &kNtIsInheritable);
-    writer = CreateFile(pipename, kNtGenericWrite, 0, 0, kNtOpenExisting,
-                        kNtFileFlagOverlapped, 0);
+    reader = CreateNamedPipe(CreatePipeName(pipename), kNtPipeAccessInbound,
+                             kNtPipeTypeByte | kNtPipeReadmodeByte, 1, PIPE_BUF,
+                             PIPE_BUF, 0, &kNtIsInheritable);
+    writer = CreateFile(pipename, kNtGenericWrite, 0, 0, kNtOpenExisting, 0, 0);
     if (pid != -1 && reader != -1 && writer != -1) {
       p = stpcpy(forkvar, "_FORK=");
       p = FormatUint64(p, reader);
@@ -320,8 +348,12 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
         }
         for (i = 0; i < _mmi.i && ok; ++i) {
           if ((_mmi.p[i].flags & MAP_TYPE) != MAP_SHARED) {
-            ok = WriteAll(writer, (void *)((uint64_t)_mmi.p[i].x << 16),
-                          _mmi.p[i].size);
+            char *p = (char *)((uint64_t)_mmi.p[i].x << 16);
+            // XXX: forking destroys thread guard pages currently
+            VirtualProtect(
+                p, _mmi.p[i].size,
+                __prot2nt(_mmi.p[i].prot | PROT_READ, _mmi.p[i].iscow), &op);
+            ok = WriteAll(writer, p, _mmi.p[i].size);
           }
         }
         if (ok) ok = WriteAll(writer, __data_start, __data_end - __data_start);
@@ -338,7 +370,7 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
           untrackpid = -1;
           rc = pid;
         } else {
-          TerminateProcess(procinfo.hProcess, 127);
+          TerminateProcess(procinfo.hProcess, 9);
           CloseHandle(procinfo.hProcess);
         }
       }

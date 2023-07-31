@@ -88,21 +88,21 @@ textwindows int sys_kill_nt(int pid, int sig) {
     // since windows can't execve we need to kill the grandchildren
     // TODO(jart): should we just kill the whole tree too? there's
     //             no obvious way to tell if it's the execve shell
-    int64_t hSnap, hProc, hChildProc;
     struct NtProcessEntry32 pe = {.dwSize = sizeof(struct NtProcessEntry32)};
     ntpid = GetProcessId(g_fds.p[pid].handle);
-    hSnap = CreateToolhelp32Snapshot(kNtTh32csSnapprocess, 0);
+    int64_t hSnap = CreateToolhelp32Snapshot(kNtTh32csSnapprocess, 0);
     if (Process32First(hSnap, &pe)) {
       do {
         if (pe.th32ParentProcessID == ntpid) {
           if ((h = OpenProcess(kNtProcessTerminate, false, pe.th32ProcessID))) {
-            TerminateProcess(h, 128 + sig);
+            TerminateProcess(h, sig);
             CloseHandle(h);
           }
         }
       } while (Process32Next(hSnap, &pe));
     }
-    ok = TerminateProcess(g_fds.p[pid].handle, 128 + sig);
+    CloseHandle(hSnap);
+    ok = TerminateProcess(g_fds.p[pid].handle, sig);
     if (!ok && GetLastError() == kNtErrorAccessDenied) ok = true;
     return 0;
   }
@@ -110,7 +110,7 @@ textwindows int sys_kill_nt(int pid, int sig) {
   // XXX: Is this a raw new technology pid? Because that's messy.
   if ((h = OpenProcess(kNtProcessTerminate, false, pid))) {
     if (sig) {
-      ok = TerminateProcess(h, 128 + sig);
+      ok = TerminateProcess(h, sig);
       if (!ok && GetLastError() == kNtErrorAccessDenied) {
         ok = true;  // cargo culting other codebases here
       }

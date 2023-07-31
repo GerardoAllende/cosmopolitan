@@ -26,13 +26,16 @@
 #include "libc/intrin/asan.internal.h"
 #include "libc/intrin/atomic.h"
 #include "libc/intrin/bits.h"
+#include "libc/intrin/bsr.h"
 #include "libc/intrin/dll.h"
+#include "libc/intrin/kprintf.h"
 #include "libc/log/internal.h"
 #include "libc/macros.internal.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/stack.h"
 #include "libc/str/str.h"
+#include "libc/sysv/consts/auxv.h"
 #include "libc/sysv/consts/clone.h"
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/prot.h"
@@ -44,12 +47,16 @@
 #include "libc/thread/tls.h"
 #include "libc/thread/wait0.internal.h"
 
-STATIC_YOINK("nsync_mu_lock");
-STATIC_YOINK("nsync_mu_unlock");
-STATIC_YOINK("_pthread_atfork");
+__static_yoink("nsync_mu_lock");
+__static_yoink("nsync_mu_unlock");
+__static_yoink("_pthread_atfork");
 
 #define MAP_ANON_OPENBSD  0x1000
 #define MAP_STACK_OPENBSD 0x4000
+
+static unsigned long roundup2pow(unsigned long x) {
+  return x > 1 ? 2ul << _bsrl(x - 1) : x ? 1 : 0;
+}
 
 void _pthread_free(struct PosixThread *pt) {
   if (pt->flags & PT_STATIC) return;
@@ -57,7 +64,7 @@ void _pthread_free(struct PosixThread *pt) {
   if ((pt->flags & PT_OWNSTACK) &&  //
       pt->attr.__stackaddr &&       //
       pt->attr.__stackaddr != MAP_FAILED) {
-    _npassert(!munmap(pt->attr.__stackaddr, pt->attr.__stacksize));
+    npassert(!munmap(pt->attr.__stackaddr, pt->attr.__stacksize));
   }
   if (pt->altstack) {
     free(pt->altstack);
@@ -70,7 +77,7 @@ static int PosixThread(void *arg, int tid) {
   struct sigaltstack ss;
   struct PosixThread *pt = arg;
   enum PosixThreadStatus status;
-  _unassert(__get_tls()->tib_tid > 0);
+  unassert(__get_tls()->tib_tid > 0);
   if (pt->altstack) {
     ss.ss_flags = 0;
     ss.ss_size = SIGSTKSZ;
@@ -85,10 +92,10 @@ static int PosixThread(void *arg, int tid) {
   // set long jump handler so pthread_exit can bring control back here
   if (!setjmp(pt->exiter)) {
     __get_tls()->tib_pthread = (pthread_t)pt;
-    _npassert(!sigprocmask(SIG_SETMASK, (sigset_t *)pt->attr.__sigmask, 0));
+    npassert(!sigprocmask(SIG_SETMASK, (sigset_t *)pt->attr.__sigmask, 0));
     rc = pt->start(pt->arg);
     // ensure pthread_cleanup_pop(), and pthread_exit() popped cleanup
-    _npassert(!pt->cleanup);
+    npassert(!pt->cleanup);
     // calling pthread_exit() will either jump back here, or call exit
     pthread_exit(rc);
   }
@@ -102,13 +109,14 @@ static int FixupCustomStackOnOpenbsd(pthread_attr_t *attr) {
   // in order to successfully call mmap(), which will return EINVAL if
   // these calculations should overflow.
   size_t n;
-  int e, rc;
   uintptr_t x, y;
+  int e, rc, pagesz;
+  pagesz = getauxval(AT_PAGESZ);
   n = attr->__stacksize;
   x = (uintptr_t)attr->__stackaddr;
-  y = ROUNDUP(x, PAGESIZE);
+  y = ROUNDUP(x, pagesz);
   n -= y - x;
-  n = ROUNDDOWN(n, PAGESIZE);
+  n = ROUNDDOWN(n, pagesz);
   e = errno;
   if (__sys_mmap((void *)y, n, PROT_READ | PROT_WRITE,
                  MAP_PRIVATE | MAP_FIXED | MAP_ANON_OPENBSD | MAP_STACK_OPENBSD,
@@ -170,15 +178,17 @@ static errno_t pthread_create_impl(pthread_t *thread,
     // cosmo is managing the stack
     // 1. in mono repo optimize for tiniest stack possible
     // 2. in public world optimize to *work* regardless of memory
+    unsigned long default_guardsize;
+    default_guardsize = getauxval(AT_PAGESZ);
     pt->flags = PT_OWNSTACK;
     pt->attr.__stacksize = MAX(pt->attr.__stacksize, GetStackSize());
-    pt->attr.__stacksize = _roundup2pow(pt->attr.__stacksize);
-    pt->attr.__guardsize = ROUNDUP(pt->attr.__guardsize, APE_GUARDSIZE);
-    if (pt->attr.__guardsize + APE_GUARDSIZE >= pt->attr.__stacksize) {
+    pt->attr.__stacksize = roundup2pow(pt->attr.__stacksize);
+    pt->attr.__guardsize = ROUNDUP(pt->attr.__guardsize, default_guardsize);
+    if (pt->attr.__guardsize + default_guardsize >= pt->attr.__stacksize) {
       _pthread_free(pt);
       return EINVAL;
     }
-    if (pt->attr.__guardsize == APE_GUARDSIZE) {
+    if (pt->attr.__guardsize == default_guardsize) {
       // user is wisely using smaller stacks with default guard size
       pt->attr.__stackaddr =
           mmap(0, pt->attr.__stacksize, PROT_READ | PROT_WRITE,

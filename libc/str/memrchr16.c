@@ -34,9 +34,9 @@ static inline const char16_t *memrchr16_pure(const char16_t *s, char16_t c,
   return 0;
 }
 
-#ifdef __x86_64__
-noasan static inline const char16_t *memrchr16_sse(const char16_t *s,
-                                                   char16_t c, size_t n) {
+#if defined(__x86_64__) && !defined(__chibicc__)
+dontasan static inline const char16_t *memrchr16_sse(const char16_t *s,
+                                                     char16_t c, size_t n) {
   size_t i;
   unsigned k, m;
   xmm_t v, t = {c, c, c, c, c, c, c, c};
@@ -67,7 +67,7 @@ noasan static inline const char16_t *memrchr16_sse(const char16_t *s,
  * @asyncsignalsafe
  */
 void *memrchr16(const void *s, int c, size_t n) {
-#ifdef __x86_64__
+#if defined(__x86_64__) && !defined(__chibicc__)
   const void *r;
   if (!IsTiny() && X86_HAVE(SSE)) {
     if (IsAsan()) __asan_verify(s, n * 2);

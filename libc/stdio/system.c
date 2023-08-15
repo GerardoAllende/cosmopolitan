@@ -34,20 +34,37 @@
 /**
  * Launches program with system command interpreter.
  *
- * This embeds the Cosmopolitan Command Interpreter which provides
- * Bourne-like syntax on all platforms including Windows.
+ * This implementation embeds the Cosmopolitan Command Interpreter which
+ * provides Bourne-like syntax on all platforms, including Windows. Many
+ * builtin commands are included, e.g. exit, cd, rm, [, cat, wait, exec,
+ * env, echo, read, true, test, kill, touch, rmdir, mkdir, false, mktemp
+ * and usleep. It's also possible to __static_yoink() the symbols `_tr`,
+ * `_sed`, `_awk`, and `_curl` for the tr, sed, awk and curl commands if
+ * you're using the Cosmopolitan mono-repo.
+ *
+ * If you just have a program name and arguments, and you don't need the
+ * full power of a UNIX-like shell, then consider using the Cosmopolitan
+ * provided API systemvpe() instead. It provides a safer alternative for
+ * variable arguments than shell script escaping. It lets you clean your
+ * environment variables, for even more safety. Finally it's 10x faster.
+ *
+ * It's important to check the returned status code. For example, if you
+ * press CTRL-C while running your program you'll expect it to terminate
+ * however that won't be the case if the SIGINT gets raised while inside
+ * the system() function. If the child process doesn't handle the signal
+ * then this will return e.g. WIFSIGNALED(ws) && WTERMSIG(ws) == SIGINT.
  *
  * @param cmdline is a unix shell script
  * @return -1 if child process couldn't be created, otherwise a wait
  *     status that can be accessed using macros like WEXITSTATUS(s),
  *     WIFSIGNALED(s), WTERMSIG(s), etc.
+ * @see systemve()
  * @threadsafe
  */
 int system(const char *cmdline) {
   int pid, wstatus;
   sigset_t chldmask, savemask;
   if (!cmdline) return 1;
-  BLOCK_CANCELLATIONS;
   sigemptyset(&chldmask);
   sigaddset(&chldmask, SIGINT);
   sigaddset(&chldmask, SIGQUIT);
@@ -65,16 +82,17 @@ int system(const char *cmdline) {
     sigemptyset(&ignore.sa_mask);
     sigaction(SIGINT, &ignore, &saveint);
     sigaction(SIGQUIT, &ignore, &savequit);
+    BLOCK_CANCELLATIONS;
     while (wait4(pid, &wstatus, 0, 0) == -1) {
       if (errno != EINTR) {
         wstatus = -1;
         break;
       }
     }
-    sigaction(SIGINT, &saveint, 0);
+    ALLOW_CANCELLATIONS;
     sigaction(SIGQUIT, &savequit, 0);
+    sigaction(SIGINT, &saveint, 0);
   }
   sigprocmask(SIG_SETMASK, &savemask, 0);
-  ALLOW_CANCELLATIONS;
   return wstatus;
 }

@@ -137,7 +137,7 @@ extern const char16_t kRunes[];
  */
 static char *tptoa(char *p, wchar_t x) {
   unsigned long w;
-  for (w = _tpenc(x); w; w >>= 010) *p++ = w & 0xff;
+  for (w = tpenc(x); w; w >>= 010) *p++ = w & 0xff;
   return p;
 }
 
@@ -614,6 +614,11 @@ int main(int argc, char *argv[]) {
   }
   munmap(rgb, ROUNDUP(size, FRAMESIZE));
   return 0;
+}
+
+#else
+
+int main(int argc, char *argv[]) {
 }
 
 #endif /* __x86_64__ */

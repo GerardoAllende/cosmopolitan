@@ -75,6 +75,7 @@ PKG = build/bootstrap/package.com
 MKDEPS = build/bootstrap/mkdeps.com
 ZIPOBJ = build/bootstrap/zipobj.com
 ZIPCOPY = build/bootstrap/zipcopy.com
+PECHECK = build/bootstrap/pecheck.com
 FIXUPOBJ = build/bootstrap/fixupobj.com
 MKDIR = build/bootstrap/mkdir.com -p
 COMPILE = build/bootstrap/compile.com -V9 -P4096 $(QUOTA)
@@ -82,7 +83,6 @@ COMPILE = build/bootstrap/compile.com -V9 -P4096 $(QUOTA)
 COMMA := ,
 PWD := $(shell build/bootstrap/pwd.com)
 
-IGNORE := $(shell $(ECHO) -2 ♥cosmo)
 IGNORE := $(shell $(MKDIR) $(TMPDIR))
 
 ifneq ($(findstring aarch64,$(MODE)),)
@@ -91,7 +91,7 @@ VM = o/third_party/qemu/qemu-aarch64
 HOSTS ?= pi silicon
 else
 ARCH = x86_64
-HOSTS ?= freebsd openbsd openbsd73 netbsd rhel7 rhel5 xnu win10
+HOSTS ?= freebsd openbsd netbsd rhel7 rhel5 xnu win10
 endif
 
 ifeq ($(PREFIX),)
@@ -187,6 +187,10 @@ DEFAULT_COPTS ?=							\
 	-fno-asynchronous-unwind-tables
 
 ifeq ($(ARCH), x86_64)
+# Microsoft says "[a]ny memory below the stack beyond the red zone
+# [note: Windows defines the x64 red zone size as 0] is considered
+# volatile and may be modified by the operating system at any time."
+# https://devblogs.microsoft.com/oldnewthing/20190111-00/?p=100685
 DEFAULT_COPTS +=							\
 	-mno-red-zone							\
 	-mno-tls-direct-seg-refs
@@ -200,6 +204,9 @@ ifeq ($(ARCH), aarch64)
 # - Cosmopolitan Libc uses x28 for thread-local storage because Apple
 #   forbids us from using tpidr_el0 too.
 #
+# - Cosmopolitan currently lacks an implementation of the runtime
+#   libraries needed by the -moutline-atomics flag
+#
 DEFAULT_COPTS +=							\
 	-ffixed-x18							\
 	-ffixed-x28							\
@@ -211,7 +218,7 @@ MATHEMATICAL =								\
 	-fwrapv
 
 DEFAULT_CPPFLAGS +=							\
-	-DCOSMO								\
+	-D_COSMO_SOURCE							\
 	-DMODE='"$(MODE)"'						\
 	-DIMAGE_BASE_VIRTUAL=$(IMAGE_BASE_VIRTUAL)			\
 	-nostdinc							\
@@ -224,7 +231,6 @@ DEFAULT_CXXFLAGS =							\
 	-fno-rtti							\
 	-fno-exceptions							\
 	-fuse-cxa-atexit						\
-	-fno-threadsafe-statics						\
 	-Wno-int-in-bool-context					\
 	-Wno-narrowing							\
 	-Wno-literal-suffix
@@ -252,7 +258,7 @@ DEFAULT_LDFLAGS +=							\
 	-znorelro
 else
 DEFAULT_LDFLAGS +=							\
-	-zmax-page-size=0x10000						\
+	-zmax-page-size=0x1000						\
 	-zcommon-page-size=0x1000
 endif
 

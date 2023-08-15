@@ -17,6 +17,7 @@
 #include "third_party/mbedtls/test/lib.h"
 #include "libc/calls/calls.h"
 #include "libc/dce.h"
+#include "libc/errno.h"
 #include "libc/fmt/conv.h"
 #include "libc/fmt/fmt.h"
 #include "libc/intrin/bits.h"
@@ -97,6 +98,7 @@ void mbedtls_test_platform_teardown(void) {
 }
 
 wontreturn void exit(int rc) {
+  if (rc) fprintf(stderr, "mbedtls test exit() called with %d\n", rc);
   if (rc) xwrite(1, output, appendz(output).i);
   free(output);
   output = 0;

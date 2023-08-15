@@ -99,6 +99,7 @@ endif
 .PLEDGE = stdio rpath wpath cpath fattr proc
 .UNVEIL =			\
 	libc/integral		\
+	libc/stdbool.h		\
 	libc/disclaimer.inc	\
 	rwc:/dev/shm		\
 	rx:build/bootstrap	\
@@ -131,22 +132,21 @@ include libc/str/str.mk				# │
 include third_party/xed/xed.mk			# │
 include third_party/puff/puff.mk		# │
 include third_party/zlib/zlib.mk		# │
-include third_party/double-conversion/dc.mk	# │
 include libc/elf/elf.mk				# │
 include ape/ape.mk				# │
 include libc/fmt/fmt.mk				# │
 include libc/vga/vga.mk				#─┘
 include libc/calls/calls.mk			#─┐
-include libc/runtime/runtime.mk			# ├──SYSTEMS RUNTIME
-include libc/crt/crt.mk				# │  You can issue system calls
-include tool/hello/hello.mk			# │
 include third_party/nsync/nsync.mk		# │
+include libc/runtime/runtime.mk			# ├──SYSTEMS RUNTIME
+include third_party/double-conversion/dc.mk	# │  You can issue system calls
+include libc/crt/crt.mk				# │
 include third_party/dlmalloc/dlmalloc.mk	#─┘
 include libc/mem/mem.mk				#─┐
 include third_party/gdtoa/gdtoa.mk		# ├──DYNAMIC RUNTIME
 include third_party/nsync/mem/mem.mk		# │  You can now use stdio
 include libc/thread/thread.mk			# │  You can finally call malloc()
-include libc/zipos/zipos.mk			# │
+include tool/hello/hello.mk			# │
 include libc/stdio/stdio.mk			# │
 include libc/time/time.mk			# │
 include net/net.mk				# │
@@ -210,7 +210,6 @@ include third_party/chibicc/test/test.mk
 include third_party/python/python.mk
 include tool/build/build.mk
 include tool/curl/curl.mk
-include tool/ape/ape.mk
 include third_party/qemu/qemu.mk
 include examples/examples.mk
 include examples/pyapp/pyapp.mk
@@ -243,7 +242,6 @@ include test/libc/fmt/test.mk
 include test/libc/dns/test.mk
 include test/libc/time/test.mk
 include test/libc/stdio/test.mk
-include test/libc/zipos/test.mk
 include test/libc/release/test.mk
 include test/libc/test.mk
 include test/net/http/test.mk
@@ -325,7 +323,6 @@ COSMOPOLITAN_OBJECTS =			\
 	THIRD_PARTY_GETOPT		\
 	LIBC_LOG			\
 	LIBC_TIME			\
-	LIBC_ZIPOS			\
 	THIRD_PARTY_MUSL		\
 	LIBC_STDIO			\
 	THIRD_PARTY_GDTOA		\
@@ -383,7 +380,6 @@ COSMOPOLITAN_HEADERS =			\
 	LIBC_TIME			\
 	LIBC_TINYMATH			\
 	LIBC_X				\
-	LIBC_ZIPOS			\
 	LIBC_VGA			\
 	NET_HTTP			\
 	TOOL_ARGS			\
@@ -402,7 +398,9 @@ o/cosmopolitan.h:							\
 		$(foreach x,$(COSMOPOLITAN_HEADERS),$($(x)_HDRS))	\
 		$(foreach x,$(COSMOPOLITAN_HEADERS),$($(x)_INCS))
 	$(file >$(TMPDIR)/$(subst /,_,$@),libc/integral/normalize.inc $(foreach x,$(COSMOPOLITAN_HEADERS),$($(x)_HDRS)))
-	@$(ECHO) '#define COSMO' >$@
+	@$(ECHO) '#ifndef __STRICT_ANSI__' >$@
+	@$(ECHO) '#define _COSMO_SOURCE' >>$@
+	@$(ECHO) '#endif' >>$@
 	@$(COMPILE) -AROLLUP -T$@ o/$(MODE)/tool/build/rollup.com @$(TMPDIR)/$(subst /,_,$@) >>$@
 
 o/cosmopolitan.html: private .UNSANDBOXED = 1
@@ -424,26 +422,42 @@ $(SRCS):					\
 	libc/integral/lp64arg.inc		\
 	libc/integral/lp64.inc
 
-.PHONY: toolchain
 ifeq ($(ARCH), x86_64)
-toolchain:	o/cosmopolitan.h				\
-		o/$(MODE)/ape/public/ape.lds			\
-		o/$(MODE)/libc/crt/crt.o			\
-		o/$(MODE)/ape/ape.o				\
-		o/$(MODE)/ape/ape-copy-self.o			\
-		o/$(MODE)/ape/ape-no-modify-self.o		\
-		o/$(MODE)/cosmopolitan.a			\
-		o/$(MODE)/third_party/libcxx/libcxx.a		\
-		o/$(MODE)/tool/build/fixupobj.com		\
-		o/$(MODE)/tool/build/zipcopy.com
+TOOLCHAIN_ARTIFACTS =				\
+	o/cosmopolitan.h			\
+	o/$(MODE)/ape/public/ape.lds		\
+	o/$(MODE)/libc/crt/crt.o		\
+	o/$(MODE)/ape/ape.elf			\
+	o/$(MODE)/ape/ape.o			\
+	o/$(MODE)/ape/ape-copy-self.o		\
+	o/$(MODE)/ape/ape-no-modify-self.o	\
+	o/$(MODE)/cosmopolitan.a		\
+	o/$(MODE)/third_party/libcxx/libcxx.a	\
+	o/$(MODE)/tool/build/march-native.com	\
+	o/$(MODE)/tool/build/ar.com		\
+	o/$(MODE)/tool/build/mktemper.com	\
+	o/$(MODE)/tool/build/fixupobj.com	\
+	o/$(MODE)/tool/build/zipcopy.com	\
+	o/$(MODE)/tool/build/apelink.com	\
+	o/$(MODE)/tool/build/pecheck.com
 else
-toolchain:	o/$(MODE)/ape/aarch64.lds			\
-		o/$(MODE)/libc/crt/crt.o			\
-		o/$(MODE)/cosmopolitan.a			\
-		o/$(MODE)/third_party/libcxx/libcxx.a		\
-		o/$(MODE)/tool/build/fixupobj.com		\
-		o/$(MODE)/tool/build/zipcopy.com
+TOOLCHAIN_ARTIFACTS =				\
+	o/$(MODE)/ape/ape.elf			\
+	o/$(MODE)/ape/aarch64.lds		\
+	o/$(MODE)/libc/crt/crt.o		\
+	o/$(MODE)/cosmopolitan.a		\
+	o/$(MODE)/third_party/libcxx/libcxx.a	\
+	o/$(MODE)/tool/build/march-native.com	\
+	o/$(MODE)/tool/build/fixupobj.com	\
+	o/$(MODE)/tool/build/zipcopy.com
 endif
+
+.PHONY: toolchain
+toolchain: $(TOOLCHAIN_ARTIFACTS)
+
+.PHONY: clean_toolchain
+clean_toolchain:
+	$(RM) $(TOOLCHAIN_ARTIFACTS)
 
 aarch64: private .INTERNET = true
 aarch64: private .UNSANDBOXED = true

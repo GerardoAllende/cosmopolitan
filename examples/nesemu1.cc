@@ -28,6 +28,7 @@
 #include "libc/mem/arraylist2.internal.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
+#include "libc/runtime/zipos.internal.h"
 #include "libc/sock/sock.h"
 #include "libc/sock/struct/pollfd.h"
 #include "libc/stdio/stdio.h"
@@ -43,7 +44,6 @@
 #include "libc/x/xasprintf.h"
 #include "libc/x/xsigaction.h"
 #include "libc/zip.internal.h"
-#include "libc/zipos/zipos.internal.h"
 #include "third_party/getopt/getopt.internal.h"
 #include "third_party/libcxx/vector"
 #include "tool/viz/lib/knobs.h"
@@ -294,7 +294,7 @@ void GetTermSize(void) {
   tyn_ = wsize_.ws_row * 2;
   txn_ = wsize_.ws_col * 2;
   ssy_ = ComputeSamplingSolution(tyn_, ChopAxis(tyn_, DYN), 0, 0, 2);
-  ssx_ = ComputeSamplingSolution(txn_, ChopAxis(txn_, DXN), 0, 0, 0);
+  ssx_ = ComputeSamplingSolution(txn_, ChopAxis(txn_, DXN), 0, 0, 2);
   R = (unsigned char*)realloc(R, tyn_ * txn_);
   G = (unsigned char*)realloc(G, tyn_ * txn_);
   B = (unsigned char*)realloc(B, tyn_ * txn_);
@@ -1676,7 +1676,7 @@ char* GetLine(void) {
   static char* line;
   static size_t linesize;
   if (getline(&line, &linesize, stdin) > 0) {
-    return _chomp(line);
+    return chomp(line);
   } else {
     return NULL;
   }

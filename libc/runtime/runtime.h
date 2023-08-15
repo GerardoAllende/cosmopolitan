@@ -20,10 +20,6 @@ typedef unsigned long jmp_buf[26];
 
 typedef long sigjmp_buf[12];
 
-extern char **environ;
-extern char *program_invocation_name;
-extern char *program_invocation_short_name;
-
 void mcount(void);
 int daemon(int, int);
 unsigned long getauxval(unsigned long);
@@ -67,7 +63,11 @@ int getdtablesize(void);
 int sethostname(const char *, size_t);
 int acct(const char *);
 
-#ifdef COSMO
+#if defined(_GNU_SOURCE) || defined(_COSMO_SOURCE)
+extern char **environ;
+#endif
+
+#ifdef _COSMO_SOURCE
 extern int __argc;
 extern char **__argv;
 extern char **__envp;
@@ -102,7 +102,7 @@ int _cocmd(int, char **, char **);
 /* executable program */
 char *GetProgramExecutableName(void);
 char *GetInterpreterExecutableName(char *, size_t);
-int _OpenExecutable(void);
+int __open_executable(void);
 /* execution control */
 int verynice(void);
 axdx_t setlongerjmp(jmp_buf)
@@ -113,7 +113,6 @@ void _Exitr(int) libcesque wontreturn;
 void _Exit1(int) libcesque wontreturn;
 void _restorewintty(void);
 void __paginate(int, const char *);
-long _missingno();
 /* memory management */
 void _weakfree(void *);
 void *_mapanon(size_t) attributeallocsize((1)) mallocesque;
@@ -133,7 +132,7 @@ void GetCpuidBrand(char[13], uint32_t);
 long _GetResourceLimit(int);
 const char *__describe_os(void);
 int __arg_max(void);
-#endif
+#endif /* _COSMO_SOURCE */
 
 COSMOPOLITAN_C_END_
 #endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */

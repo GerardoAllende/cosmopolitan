@@ -25,6 +25,8 @@
     "__NetBSD_Version__"
     "__OpenBSD__"
     "__COSMOPOLITAN__"
+    "__COSMOCC__"
+    "__FATCOSMOCC__"
     "__GLIBC__"
     "__linux"
     "__MACH__"
@@ -172,6 +174,7 @@
     "__TIMESTAMP__"
     "_GNU_SOURCE"
     "_BSD_SOURCE"
+    "_COSMO_SOURCE"
     "_XOPEN_SOURCE"))
 
 (defconst cosmo-cpp-constants-cosmopolitan

@@ -97,14 +97,6 @@
 #pragma GCC push_options
 #pragma GCC diagnostic ignored "-Wc++-compat"
 #endif
-#define HAVE_STDBOOL_H 1
-#if __STDC_VERSION__ + 0 >= 201112
-typedef _Bool bool;
-#else
-#define bool int
-#endif
-#define true 1
-#define false 0
 typedef __WCHAR_TYPE__ wchar_t;
 typedef __CHAR16_TYPE__ char16_t;
 typedef __CHAR32_TYPE__ char32_t;
@@ -112,6 +104,10 @@ typedef __CHAR32_TYPE__ char32_t;
 #pragma GCC pop_options
 #endif
 #endif /* __cplusplus */
+
+#ifndef __COSMOCC__
+#include "libc/stdbool.h"
+#endif
 
 #define _LIBCPP_STDINT_H
 
@@ -122,11 +118,11 @@ typedef __INTPTR_TYPE__ intptr_t;
 typedef __UINTPTR_TYPE__ uintptr_t;
 typedef __PTRDIFF_TYPE__ ptrdiff_t;
 typedef __WINT_TYPE__ wint_t; /* uint32_t on linux but int32_t on xnu */
-typedef __INT32_TYPE__ bool32;
 typedef __INT8_TYPE__ int8_t;
 typedef __UINT8_TYPE__ uint8_t;
 typedef __INT16_TYPE__ int16_t;
 typedef __UINT16_TYPE__ uint16_t;
+typedef __INT32_TYPE__ bool32;
 typedef __INT32_TYPE__ int32_t;
 typedef __UINT32_TYPE__ uint32_t;
 typedef __INT64_TYPE__ int64_t;
@@ -140,7 +136,6 @@ typedef __UINTMAX_TYPE__ uintmax_t;
 typedef signed __int128 int128_t;
 typedef unsigned __int128 uint128_t;
 #endif
-
 typedef struct {
   intptr_t ax, dx;
 } axdx_t;
@@ -611,8 +606,8 @@ void abort(void) wontreturn;
   } while (0)
 
 #ifndef __STRICT_ANSI__
-#define textstartup _Section(".text.startup") dontinstrument
-#define textexit    _Section(".text.exit") dontinstrument
+#define textstartup _Section(".text.startup")
+#define textexit    _Section(".text.exit")
 #define textreal    _Section(".text.real")
 #define texthead    _Section(".text.head")
 #define textwindows _Section(".text.windows")
@@ -747,7 +742,8 @@ void abort(void) wontreturn;
 #pragma GCC diagnostic error "-Wtrampolines"
 #if __GNUC__ >= 6
 #pragma GCC diagnostic error "-Wnonnull-compare"
-#if defined(COSMO) && !defined(MODE_DBG) && !defined(STACK_FRAME_UNLIMITED)
+#if defined(_COSMO_SOURCE) && !defined(MODE_DBG) && \
+    !defined(STACK_FRAME_UNLIMITED)
 #pragma GCC diagnostic error "-Wframe-larger-than=131072"
 #if __GNUC__ >= 9
 // #pragma GCC diagnostic error "-Walloca-larger-than=1024"

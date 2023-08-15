@@ -32,6 +32,8 @@
 #include "libc/nt/runtime.h"
 #include "libc/nt/struct/pollfd.h"
 #include "libc/nt/synchronization.h"
+#include "libc/nt/thread.h"
+#include "libc/nt/thunk/msabi.h"
 #include "libc/nt/winsock.h"
 #include "libc/sock/internal.h"
 #include "libc/sock/struct/pollfd.h"
@@ -42,6 +44,8 @@
 #include "libc/sysv/errfuns.h"
 
 #ifdef __x86_64__
+
+__static_yoink("WinMainStdin");
 
 /*
  * Polls on the New Technology.
@@ -92,7 +96,7 @@ textwindows int sys_poll_nt(struct pollfd *fds, uint64_t nfds, uint64_t *ms,
         }
       } else if (pn < ARRAYLEN(pipefds)) {
         pipeindices[pn] = i;
-        pipefds[pn].handle = g_fds.p[fds[i].fd].handle;
+        pipefds[pn].handle = __resolve_stdin_handle(g_fds.p[fds[i].fd].handle);
         pipefds[pn].events = 0;
         pipefds[pn].revents = 0;
         switch (g_fds.p[fds[i].fd].flags & O_ACCMODE) {
@@ -131,7 +135,7 @@ textwindows int sys_poll_nt(struct pollfd *fds, uint64_t nfds, uint64_t *ms,
       if (pipefds[i].events & POLLOUT) {
         // we have no way of polling if a non-socket is writeable yet
         // therefore we assume that if it can happen, it shall happen
-        pipefds[i].revents = POLLOUT;
+        pipefds[i].revents |= POLLOUT;
       }
       if (pipefds[i].events & POLLIN) {
         if (GetFileType(pipefds[i].handle) == kNtFileTypePipe) {
@@ -140,15 +144,15 @@ textwindows int sys_poll_nt(struct pollfd *fds, uint64_t nfds, uint64_t *ms,
                     pipefds[i].handle, avail, ok);
           if (ok) {
             if (avail) {
-              pipefds[i].revents = POLLIN;
+              pipefds[i].revents |= POLLIN;
             }
           } else {
-            pipefds[i].revents = POLLERR;
+            pipefds[i].revents |= POLLERR;
           }
         } else {
           // we have no way of polling if a non-socket is readable yet
           // therefore we assume that if it can happen it shall happen
-          pipefds[i].revents = POLLIN;
+          pipefds[i].revents |= POLLIN;
         }
       }
       if (pipefds[i].revents) {

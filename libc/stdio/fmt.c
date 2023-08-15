@@ -244,15 +244,15 @@ static int __fmt_ntoa2(int out(const char *, void *, size_t), void *arg,
   unsigned len, count, digit;
   char buf[BUFFER_SIZE];
   len = 0;
-  /* we check for log2base != 3 because otherwise we'll print nothing for a
-   * value of 0 with precision 0 when # mandates that one be printed */
+  // we check for log2base!=3, since otherwise we'll print nothing for
+  // a value of 0 with precision 0 when # mandates that one be printed
   if (!value && log2base != 3) flags &= ~FLAGS_HASH;
   if (value || !(flags & FLAGS_PRECISION)) {
     count = 0;
     do {
       if (!log2base) {
         if (value <= UINT64_MAX) {
-          value = DivMod10(value, &digit);
+          value = __divmod10(value, &digit);
         } else {
           value = __udivmodti4(value, 10, &remainder);
           digit = remainder;
@@ -358,14 +358,14 @@ static int __fmt_stoa_byte(out_f out, void *a, uint64_t c) {
 
 static int __fmt_stoa_wide(out_f out, void *a, uint64_t w) {
   char buf[8];
-  if (!isascii(w)) w = _tpenc(w);
+  if (!isascii(w)) w = tpenc(w);
   WRITE64LE(buf, w);
   return out(buf, a, w ? (_bsr(w) >> 3) + 1 : 1);
 }
 
 static int __fmt_stoa_bing(out_f out, void *a, uint64_t w) {
   char buf[8];
-  w = _tpenc(kCp437[w & 0xFF]);
+  w = tpenc(kCp437[w & 0xFF]);
   WRITE64LE(buf, w);
   return out(buf, a, w ? (_bsr(w) >> 3) + 1 : 1);
 }
@@ -375,7 +375,7 @@ static int __fmt_stoa_quoted(out_f out, void *a, uint64_t w) {
   if (isascii(w)) {
     w = __fmt_cescapec(w);
   } else {
-    w = _tpenc(w);
+    w = tpenc(w);
   }
   WRITE64LE(buf, w);
   return out(buf, a, w ? (_bsr(w) >> 3) + 1 : 1);
@@ -705,6 +705,10 @@ haveinc:
   return prec;
 }
 
+static int __fmt_noop(const char *, void *, size_t) {
+  return 0;
+}
+
 /**
  * Implements {,v}{,s{,n},{,{,x}as},f,d}printf domain-specific language.
  *
@@ -797,7 +801,7 @@ int __fmt(void *fn, void *arg, const char *format, va_list va) {
 
   x = 0;
   lasterr = errno;
-  out = fn ? fn : (void *)_missingno;
+  out = fn ? fn : __fmt_noop;
 
   while (*format) {
     if (*format != '%') {

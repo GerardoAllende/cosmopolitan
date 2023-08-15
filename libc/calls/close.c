@@ -27,7 +27,7 @@
 #include "libc/intrin/weaken.h"
 #include "libc/sock/syscall_fd.internal.h"
 #include "libc/sysv/errfuns.h"
-#include "libc/zipos/zipos.internal.h"
+#include "libc/runtime/zipos.internal.h"
 
 /**
  * Closes file descriptor.
@@ -56,9 +56,7 @@
  */
 int close(int fd) {
   int rc;
-  if (fd == -1) {
-    rc = 0;
-  } else if (fd < 0) {
+  if (fd < 0) {
     rc = ebadf();
   } else {
     // for performance reasons we want to avoid holding __fds_lock()

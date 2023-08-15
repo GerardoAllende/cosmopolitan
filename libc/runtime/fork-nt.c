@@ -68,6 +68,7 @@ __static_yoink("_check_sigchld");
 
 extern int64_t __wincrashearly;
 bool32 __onntconsoleevent_nt(uint32_t);
+void sys_setitimer_nt_reset(void);
 void kmalloc_unlock(void);
 
 static textwindows wontreturn void AbortFork(const char *func) {
@@ -182,6 +183,10 @@ textwindows void WinMainForked(void) {
   uint32_t i, varlen, oldprot, savepid;
   long mapcount, mapcapacity, specialz;
 
+  struct StdinRelay stdin;
+  struct Fds *fds = __veil("r", &g_fds);
+  stdin = fds->stdin;
+
   // check to see if the process was actually forked
   // this variable should have the pipe handle numba
   varlen = GetEnvironmentVariable(u"_FORK", fvar, ARRAYLEN(fvar));
@@ -260,7 +265,7 @@ textwindows void WinMainForked(void) {
 
   // rewrap the stdin named pipe hack
   // since the handles closed on fork
-  struct Fds *fds = __veil("r", &g_fds);
+  fds->stdin = stdin;
   fds->p[0].handle = GetStdHandle(kNtStdInputHandle);
   fds->p[1].handle = GetStdHandle(kNtStdOutputHandle);
   fds->p[2].handle = GetStdHandle(kNtStdErrorHandle);
@@ -309,7 +314,7 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
   tib = __tls_enabled ? __get_tls() : 0;
   if (!setjmp(jb)) {
     pid = untrackpid = __reservefd_unlocked(-1);
-    reader = CreateNamedPipe(CreatePipeName(pipename), kNtPipeAccessInbound,
+    reader = CreateNamedPipe(__create_pipe_name(pipename), kNtPipeAccessInbound,
                              kNtPipeTypeByte | kNtPipeReadmodeByte, 1, PIPE_BUF,
                              PIPE_BUF, 0, &kNtIsInheritable);
     writer = CreateFile(pipename, kNtGenericWrite, 0, 0, kNtOpenExisting, 0, 0);
@@ -395,6 +400,10 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
     // re-apply code morphing for function tracing
     if (ftrace_stackdigs) {
       _weaken(__hook)(_weaken(ftrace_hook), _weaken(GetSymbolTable)());
+    }
+    // reset alarms
+    if (_weaken(sys_setitimer_nt_reset)) {
+      _weaken(sys_setitimer_nt_reset)();
     }
   }
   if (untrackpid != -1) {

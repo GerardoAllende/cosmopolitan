@@ -13,7 +13,7 @@ typedef uint64_t dev_t;  /* int32_t on xnu */
 typedef uint64_t fsblkcnt_t;
 typedef int64_t fsfilcnt_t; /* uint32_t on xnu */
 typedef uint32_t gid_t;
-typedef uint32_t id_t; /* int32_t on linux/freebsd/etc. */
+typedef int32_t id_t; /* int32_t on linux/freebsd/etc. */
 typedef uint32_t in_addr_t;
 typedef uint32_t in_addr_t;
 typedef uint16_t in_port_t;
@@ -48,6 +48,14 @@ typedef uint32_t nlink_t; /* uint16_t on xnu */
 
 #define TIME_T_MAX __INT64_MAX__
 #define TIME_T_MIN (-TIME_T_MAX - 1)
+
+#if defined(_LARGEFILE64_SOURCE) || defined(_GNU_SOURCE)
+#define blkcnt64_t   blkcnt_t
+#define fsblkcnt64_t fsblkcnt_t
+#define fsfilcnt64_t fsfilcnt_t
+#define ino64_t      ino_t
+#define off64_t      off_t
+#endif
 
 #endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */
 #endif /* COSMOPOLITAN_LIBC_CALLS_WEIRDTYPES_H_ */

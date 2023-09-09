@@ -23,7 +23,7 @@
 #include "libc/dce.h"
 #include "libc/sysv/consts/sig.h"
 
-sigset_t _sigsetmask(sigset_t neu) {
+dontasan sigset_t _sigsetmask(sigset_t neu) {
   sigset_t res;
   if (IsMetal() || IsWindows()) {
     __sig_mask(SIG_SETMASK, &neu, &res);

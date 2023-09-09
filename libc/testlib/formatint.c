@@ -16,16 +16,16 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/fmt/fmt.h"
 #include "libc/intrin/bits.h"
 #include "libc/macros.internal.h"
 #include "libc/mem/mem.h"
+#include "libc/stdio/stdio.h"
 #include "libc/testlib/testlib.h"
 
 static size_t sbufi_;
 static char sbufs_[2][256];
 
-dontdiscard char *testlib_formatint(intptr_t x) {
+char *testlib_formatint(intptr_t x) {
   char *str = sbufi_ < ARRAYLEN(sbufs_) ? sbufs_[sbufi_++] : malloc(256);
   char *p = str;
   p += sprintf(p, "%ld\t(or %#lx", x, x);

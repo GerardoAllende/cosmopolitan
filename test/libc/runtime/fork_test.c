@@ -23,7 +23,6 @@
 #include "libc/calls/struct/timespec.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/log/check.h"
 #include "libc/macros.internal.h"
 #include "libc/nexgen32e/rdtsc.h"
@@ -136,7 +135,6 @@ TEST(fork, childToChild) {
 }
 
 TEST(fork, preservesTlsMemory) {
-  int pid;
   __get_tls()->tib_errno = 31337;
   SPAWN(fork);
   ASSERT_EQ(31337, __get_tls()->tib_errno);

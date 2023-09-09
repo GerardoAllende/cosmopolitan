@@ -25,6 +25,7 @@
 #include "libc/mem/mem.h"
 #include "libc/runtime/internal.h"
 #include "libc/runtime/runtime.h"
+#include "libc/str/locale.h"
 #include "libc/str/str.h"
 #include "libc/thread/spawn.h"
 #include "libc/thread/tls.h"
@@ -41,6 +42,7 @@ static char *_mktls_finish(struct CosmoTib **out_tib, char *mem,
   tib->tib_ftrace = old->tib_ftrace;
   tib->tib_strace = old->tib_strace;
   tib->tib_sigmask = old->tib_sigmask;
+  tib->tib_locale = (intptr_t)&__c_dot_utf8_locale;
   atomic_store_explicit(&tib->tib_tid, -1, memory_order_relaxed);
   if (out_tib) {
     *out_tib = tib;
@@ -84,8 +86,8 @@ static char *_mktls_below(struct CosmoTib **out_tib) {
 
 static char *_mktls_above(struct CosmoTib **out_tib) {
   size_t hiz, siz;
+  struct CosmoTib *tib;
   char *mem, *dtv, *tls;
-  struct CosmoTib *tib, *old;
 
   // allocate memory for tdata, tbss, and tib
   hiz = ROUNDUP(sizeof(*tib) + 2 * sizeof(void *), I(_tls_align));

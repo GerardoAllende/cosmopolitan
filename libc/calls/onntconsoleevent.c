@@ -16,51 +16,109 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#include "libc/calls/calls.h"
 #include "libc/calls/sig.internal.h"
+#include "libc/calls/state.internal.h"
 #include "libc/intrin/atomic.h"
-#include "libc/intrin/strace.internal.h"
-#include "libc/nexgen32e/nt2sysv.h"
 #include "libc/nt/enum/ctrlevent.h"
-#include "libc/nt/thread.h"
-#include "libc/str/str.h"
+#include "libc/nt/runtime.h"
+#include "libc/nt/thunk/msabi.h"
 #include "libc/sysv/consts/sicode.h"
 #include "libc/sysv/consts/sig.h"
+#include "libc/thread/posixthread.internal.h"
+#include "libc/thread/thread.h"
 #include "libc/thread/tls.h"
-#include "libc/thread/tls2.h"
 
 #ifdef __x86_64__
 
-textwindows bool32 __onntconsoleevent(uint32_t dwCtrlType) {
-  struct CosmoTib tib;
-  struct StackFrame *fr;
+__msabi extern typeof(GetStdHandle) *const __imp_GetStdHandle;
+__msabi extern typeof(WriteFile) *const __imp_WriteFile;
 
-  // win32 spawns a thread on its own just to deliver sigint
-  // TODO(jart): make signal code lockless so we can delete!
-  if (__tls_enabled && !__get_tls_win32()) {
-    bzero(&tib, sizeof(tib));
-    tib.tib_self = &tib;
-    tib.tib_self2 = &tib;
-    atomic_store_explicit(&tib.tib_tid, GetCurrentThreadId(),
-                          memory_order_relaxed);
-    __set_tls_win32(&tib);
-  }
+static textwindows unsigned long StrLen(const char *s) {
+  unsigned long n = 0;
+  while (*s++) ++n;
+  return n;
+}
 
-  STRACE("__onntconsoleevent(%u)", dwCtrlType);
+static textwindows void Log(const char *s) {
+#ifndef NDEBUG
+  __imp_WriteFile(__imp_GetStdHandle(kNtStdErrorHandle), s, StrLen(s), 0, 0);
+#endif
+}
+
+static textwindows int GetSig(uint32_t dwCtrlType) {
   switch (dwCtrlType) {
     case kNtCtrlCEvent:
-      __sig_add(0, SIGINT, SI_KERNEL);
-      return true;
+      return SIGINT;
     case kNtCtrlBreakEvent:
-      __sig_add(0, SIGQUIT, SI_KERNEL);
-      return true;
+      return SIGQUIT;
     case kNtCtrlCloseEvent:
     case kNtCtrlLogoffEvent:    // only received by services
     case kNtCtrlShutdownEvent:  // only received by services
-      __sig_add(0, SIGHUP, SI_KERNEL);
-      return true;
+      return SIGHUP;
     default:
-      return false;
+      __builtin_unreachable();
   }
+}
+
+__msabi textwindows bool32 __onntconsoleevent(uint32_t dwCtrlType) {
+
+  // we're on a stack that's owned by win32. to make matters worse,
+  // win32 spawns a totally new thread just to invoke this handler.
+  int sig = GetSig(dwCtrlType);
+  if (__sighandrvas[sig] == (uintptr_t)SIG_IGN) {
+    return true;
+  }
+
+  // if we don't have tls, then we can't hijack a safe stack from a
+  // thread so just try our luck punting the signal to the next i/o
+  if (!__tls_enabled) {
+    __sig_add(0, sig, SI_KERNEL);
+    return true;
+  }
+
+  pthread_spin_lock(&_pthread_lock);
+
+  // before we get asynchronous, let's try to find a thread that is
+  // currently blocked on io which we can interrupt with our signal
+  // this is important, because if we we asynchronously interrupt a
+  // thread that's calling ReadFile() by suspending / resuming then
+  // the io operation will report end of file (why) upon resumation
+  struct Dll *e;
+  for (e = dll_first(_pthread_list); e; e = dll_next(_pthread_list, e)) {
+    struct PosixThread *pt = POSIXTHREAD_CONTAINER(e);
+    int tid = atomic_load_explicit(&pt->tib->tib_tid, memory_order_acquire);
+    if (tid <= 0) continue;  // -1 means spawning, 0 means terminated
+    if (pt->tib->tib_sigmask & (1ull << (sig - 1))) continue;  // masked
+    if (pt->flags & PT_BLOCKED) {
+      pthread_spin_unlock(&_pthread_lock);
+      __sig_add(0, sig, SI_KERNEL);
+      return true;
+    }
+  }
+
+  // limbo means most of the cosmo runtime is totally broken, which
+  // means we can't call the user signal handler safely. what we'll
+  // do instead is pick a posix thread at random to hijack, pretend
+  // to be that thread, use its stack, and then deliver this signal
+  // asynchronously if it isn't blocked. hopefully it won't longjmp
+  // because once the handler returns, we'll restore the old thread
+  // going asynchronous is heavy but it's the only way to stop code
+  // that does stuff like scientific computing, which are cpu-bound
+  for (e = dll_first(_pthread_list); e; e = dll_next(_pthread_list, e)) {
+    struct PosixThread *pt = POSIXTHREAD_CONTAINER(e);
+    int tid = atomic_load_explicit(&pt->tib->tib_tid, memory_order_acquire);
+    if (tid <= 0) continue;  // -1 means spawning, 0 means terminated
+    if (pt->tib->tib_sigmask & (1ull << (sig - 1))) continue;  // masked
+    pthread_spin_unlock(&_pthread_lock);
+    if (_pthread_signal(pt, sig, SI_KERNEL) == -1) {
+      __sig_add(0, sig, SI_KERNEL);
+    }
+    return true;
+  }
+
+  pthread_spin_unlock(&_pthread_lock);
+  return true;
 }
 
 #endif /* __x86_64__ */

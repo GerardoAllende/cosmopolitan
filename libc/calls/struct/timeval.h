@@ -30,6 +30,8 @@ struct timeval timeval_add(struct timeval, struct timeval) pureconst;
 struct timeval timeval_sub(struct timeval, struct timeval) pureconst;
 struct timeval timeval_subz(struct timeval, struct timeval) pureconst;
 int64_t timeval_toseconds(struct timeval);
+int64_t timeval_tomicros(struct timeval);
+int64_t timeval_tomillis(struct timeval);
 struct timeval timespec_totimeval(struct timespec) pureconst;
 static inline struct timeval timeval_fromseconds(int64_t __x) {
   return (struct timeval){__x};
@@ -41,7 +43,7 @@ static inline bool timeval_iszero(struct timeval __tv) {
   return !(__tv.tv_sec | __tv.tv_usec);
 }
 static inline bool timeval_isvalid(struct timeval __tv) {
-  return __tv.tv_sec >= 0 && __tv.tv_usec < 1000000ull;
+  return __tv.tv_sec >= 0 && __tv.tv_usec + 0ull < 1000000ull;
 }
 #endif /* _COSMO_SOURCE */
 

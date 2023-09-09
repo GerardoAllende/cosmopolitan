@@ -16,7 +16,6 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#define ShouldUseMsabiAttribute() 1
 #include "libc/intrin/kprintf.h"
 #include "ape/sections.internal.h"
 #include "libc/calls/calls.h"
@@ -30,20 +29,29 @@
 #include "libc/fmt/magnumstrs.internal.h"
 #include "libc/intrin/asan.internal.h"
 #include "libc/intrin/asancodes.h"
+#include "libc/intrin/asmflag.h"
 #include "libc/intrin/atomic.h"
 #include "libc/intrin/bits.h"
 #include "libc/intrin/cmpxchg.h"
+#include "libc/intrin/getenv.internal.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/intrin/likely.h"
 #include "libc/intrin/nomultics.internal.h"
 #include "libc/intrin/safemacros.internal.h"
+#include "libc/intrin/strace.internal.h"
 #include "libc/intrin/weaken.h"
 #include "libc/limits.h"
 #include "libc/log/internal.h"
-#include "libc/log/libfatal.internal.h"
 #include "libc/macros.internal.h"
 #include "libc/nexgen32e/rdtsc.h"
 #include "libc/nexgen32e/uart.internal.h"
+#include "libc/nt/createfile.h"
+#include "libc/nt/enum/accessmask.h"
+#include "libc/nt/enum/creationdisposition.h"
+#include "libc/nt/enum/fileflagandattributes.h"
+#include "libc/nt/enum/filesharemode.h"
+#include "libc/nt/errors.h"
+#include "libc/nt/files.h"
 #include "libc/nt/process.h"
 #include "libc/nt/runtime.h"
 #include "libc/nt/thunk/msabi.h"
@@ -57,11 +65,16 @@
 #include "libc/str/str.h"
 #include "libc/str/tab.internal.h"
 #include "libc/str/utf16.h"
+#include "libc/sysv/consts/at.h"
 #include "libc/sysv/consts/auxv.h"
+#include "libc/sysv/consts/f.h"
+#include "libc/sysv/consts/fd.h"
+#include "libc/sysv/consts/fileno.h"
 #include "libc/sysv/consts/nr.h"
+#include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/prot.h"
 #include "libc/thread/tls.h"
-#include "libc/thread/tls2.h"
+#include "libc/thread/tls2.internal.h"
 #include "libc/vga/vga.internal.h"
 
 #define KGETINT(x, va, t, s)                 \
@@ -107,17 +120,27 @@
       break;                                 \
   }
 
+// clang-format off
+__msabi extern typeof(CreateFile) *const __imp_CreateFileW;
+__msabi extern typeof(DuplicateHandle) *const __imp_DuplicateHandle;
+__msabi extern typeof(GetCurrentProcess) *const __imp_GetCurrentProcess;
+__msabi extern typeof(GetEnvironmentVariable) *const __imp_GetEnvironmentVariableW;
+__msabi extern typeof(GetLastError) *const __imp_GetLastError;
+__msabi extern typeof(GetStdHandle) *const __imp_GetStdHandle;
+__msabi extern typeof(SetLastError) *const __imp_SetLastError;
+__msabi extern typeof(WriteFile) *const __imp_WriteFile;
+// clang-format on
+
 long __klog_handle;
 extern struct SymbolTable *__symtab;
 
-privileged static inline char *kadvance(char *p, char *e, long n) {
+__funline char *kadvance(char *p, char *e, long n) {
   intptr_t t = (intptr_t)p;
   if (ckd_add(&t, t, n)) t = (intptr_t)e;
   return (char *)t;
 }
 
-privileged static char *kemitquote(char *p, char *e, signed char t,
-                                   unsigned c) {
+__funline char *kemitquote(char *p, char *e, signed char t, unsigned c) {
   if (t) {
     if (p < e) {
       *p = t < 0 ? 'u' : 'L';
@@ -131,27 +154,27 @@ privileged static char *kemitquote(char *p, char *e, signed char t,
   return p;
 }
 
-privileged static inline bool kiskernelpointer(const void *p) {
+__funline bool kiskernelpointer(const void *p) {
   return 0x7f0000000000 <= (intptr_t)p && (intptr_t)p < 0x800000000000;
 }
 
-privileged static inline bool kistextpointer(const void *p) {
+__funline bool kistextpointer(const void *p) {
   return __executable_start <= (const unsigned char *)p &&
          (const unsigned char *)p < _etext;
 }
 
-privileged static inline bool kisimagepointer(const void *p) {
+__funline bool kisimagepointer(const void *p) {
   return __executable_start <= (const unsigned char *)p &&
          (const unsigned char *)p < _end;
 }
 
-privileged static inline bool kischarmisaligned(const char *p, signed char t) {
+__funline bool kischarmisaligned(const char *p, signed char t) {
   if (t == -1) return (intptr_t)p & 1;
   if (t >= 1) return !!((intptr_t)p & 3);
   return false;
 }
 
-privileged static inline bool kismemtrackhosed(void) {
+__funline bool kismemtrackhosed(void) {
   return !((_weaken(_mmi)->i <= _weaken(_mmi)->n) &&
            (_weaken(_mmi)->p == _weaken(_mmi)->s ||
             _weaken(_mmi)->p == (struct MemoryInterval *)kMemtrackStart));
@@ -188,34 +211,191 @@ privileged bool kisdangerous(const void *p) {
     if (IsStackFrame(frame)) return false;
     if (kismapped(frame)) return false;
   }
-  if (GetStackAddr() + 16384 <= (uintptr_t)p &&
+  if (GetStackAddr() + GetGuardSize() <= (uintptr_t)p &&
       (uintptr_t)p < GetStackAddr() + GetStackSize()) {
     return false;
   }
   return true;
 }
 
-privileged static long kloghandle(void) {
-  if (__klog_handle) {
-    return __klog_handle;
-  } else if (!IsWindows()) {
-    return 2;
-  } else {
-    return __imp_GetStdHandle(kNtStdErrorHandle);
-  }
+privileged static void klogclose(long fd) {
+#ifdef __x86_64__
+  long ax = __NR_close;
+  asm volatile("syscall"
+               : "+a"(ax), "+D"(fd)
+               : /* inputs already specified */
+               : "rsi", "rdx", "rcx", "r8", "r9", "r10", "r11", "memory", "cc");
+#elif defined(__aarch64__)
+  register long x0 asm("x0") = fd;
+  register int x8 asm("x8") = __NR_close;
+  register int x16 asm("x16") = __NR_close;
+  asm volatile("svc\t0" : "+r"(x0) : "r"(x8), "r"(x16) : "x9", "memory");
+#else
+#error "unsupported architecture"
+#endif
 }
 
-privileged void _klog(const char *b, size_t n) {
+privileged static long klogfcntl(long fd, long cmd, long arg) {
+#ifdef __x86_64__
+  char cf;
+  long ax = __NR_fcntl;
+  asm volatile("clc\n\tsyscall"
+               : CFLAG_CONSTRAINT(cf), "+a"(ax), "+D"(fd), "+S"(cmd), "+d"(arg)
+               : /* inputs already specified */
+               : "rcx", "r8", "r9", "r10", "r11", "memory");
+  if (cf) ax = -ax;
+  return ax;
+#elif defined(__aarch64__)
+  register long x0 asm("x0") = fd;
+  register long x1 asm("x1") = cmd;
+  register long x2 asm("x2") = arg;
+  register int x8 asm("x8") = __NR_fcntl;
+  register int x16 asm("x16") = __NR_fcntl;
+  asm volatile("mov\tx9,0\n\t"      // clear carry flag
+               "adds\tx9,x9,0\n\t"  // clear carry flag
+               "svc\t0\n\t"
+               "bcs\t1f\n\t"
+               "b\t2f\n1:\t"
+               "neg\tx0,x0\n2:"
+               : "+r"(x0)
+               : "r"(x1), "r"(x2), "r"(x8), "r"(x16)
+               : "x9", "memory");
+  return x0;
+#else
+#error "unsupported architecture"
+#endif
+}
+
+privileged static long klogopen(const char *path) {
+  long dirfd = AT_FDCWD;
+  long flags = O_WRONLY | O_CREAT | O_APPEND;
+  long mode = 0600;
+#ifdef __x86_64__
+  char cf;
+  long ax = __NR_openat;
+  register long r10 asm("r10") = mode;
+  asm volatile(CFLAG_ASM("clc\n\tsyscall")
+               : CFLAG_CONSTRAINT(cf), "+a"(ax), "+D"(dirfd), "+S"(path),
+                 "+d"(flags), "+r"(r10)
+               : /* inputs already specified */
+               : "rcx", "r8", "r9", "r11", "memory");
+  if (cf) ax = -ax;
+  return ax;
+#elif defined(__aarch64__)
+  register long x0 asm("x0") = dirfd;
+  register long x1 asm("x1") = (long)path;
+  register long x2 asm("x2") = flags;
+  register long x3 asm("x3") = mode;
+  register int x8 asm("x8") = __NR_openat;
+  register int x16 asm("x16") = __NR_openat;
+  asm volatile("mov\tx9,0\n\t"      // clear carry flag
+               "adds\tx9,x9,0\n\t"  // clear carry flag
+               "svc\t0\n\t"
+               "bcs\t1f\n\t"
+               "b\t2f\n1:\t"
+               "neg\tx0,x0\n2:"
+               : "+r"(x0)
+               : "r"(x1), "r"(x2), "r"(x3), "r"(x8), "r"(x16)
+               : "x9", "memory");
+  return x0;
+#else
+#error "unsupported architecture"
+#endif
+}
+
+// returns log handle or -1 if logging shouldn't happen
+privileged long kloghandle(void) {
+  // kprintf() needs to own a file descriptor in case apps closes stderr
+  // our close() and dup() implementations will trigger this initializer
+  // to minimize a chance that the user accidentally closes their logger
+  // while at the same time, avoiding a mandatory initialization syscall
+  if (!__klog_handle) {
+    long hand;
+    // setting KPRINTF_LOG="/tmp/foo.log" will override stderr
+    // setting KPRINTF_LOG="INTEGER" logs to a file descriptor
+    // setting KPRINTF_LOG="" shall disable kprintf altogether
+    if (IsMetal()) {
+      hand = STDERR_FILENO;
+    } else if (IsWindows()) {
+      uint32_t e, n;
+      char16_t path[512];
+      e = __imp_GetLastError();
+      n = __imp_GetEnvironmentVariableW(u"KPRINTF_LOG", path, 512);
+      if (!n && __imp_GetLastError() == kNtErrorEnvvarNotFound) {
+        long proc;
+        proc = __imp_GetCurrentProcess();
+        hand = __imp_GetStdHandle(kNtStdErrorHandle);
+        __imp_DuplicateHandle(proc, hand, proc, &hand, 0, true,
+                              kNtDuplicateSameAccess);
+      } else if (n && n < 512) {
+        hand = __imp_CreateFileW(
+            path, kNtFileAppendData,
+            kNtFileShareRead | kNtFileShareWrite | kNtFileShareDelete,
+            &kNtIsInheritable, kNtOpenAlways, kNtFileAttributeNormal, 0);
+      } else {
+        hand = -1;  // KPRINTF_LOG was empty string or too long
+      }
+      __imp_SetLastError(e);
+    } else {
+      long fd, fd2;
+      bool closefd;
+      const char *path;
+      if (!__NR_write || !__envp) {
+        // it's too early in the initialization process for kprintf
+        return -1;
+      }
+      path = __getenv(__envp, "KPRINTF_LOG").s;
+      closefd = false;
+      if (!path) {
+        fd = STDERR_FILENO;
+      } else if (*path) {
+        const char *p;
+        for (fd = 0, p = path; *p; ++p) {
+          if ('0' <= *p && *p <= '9') {
+            fd *= 10;
+            fd += *p - '0';
+          } else {
+            fd = klogopen(path);
+            closefd = true;
+            break;
+          }
+        }
+      } else {
+        fd = -1;
+      }
+      if (fd >= 0) {
+        // avoid interfering with hard-coded assumptions about fds
+        if ((fd2 = klogfcntl(fd, F_DUPFD, 100)) >= 0) {
+          klogfcntl(fd2, F_SETFD, FD_CLOEXEC);
+          if (closefd) {
+            klogclose(fd);
+          }
+        } else {
+          // RLIMIT_NOFILE was probably too low for safe duplicate
+          fd2 = fd;
+        }
+      } else {
+        fd2 = -1;
+      }
+      hand = fd2;
+    }
+    __klog_handle = hand;
+  }
+  return __klog_handle;
+}
+
+privileged void klog(const char *b, size_t n) {
 #ifdef __x86_64__
   int e;
   long h;
-  bool cf;
   size_t i;
   uint16_t dx;
   uint32_t wrote;
   unsigned char al;
   long rax, rdi, rsi, rdx;
-  h = kloghandle();
+  if ((h = kloghandle()) == -1) {
+    return;
+  }
   if (IsWindows()) {
     e = __imp_GetLastError();
     __imp_WriteFile(h, b, n, &wrote, 0);
@@ -243,7 +423,7 @@ privileged void _klog(const char *b, size_t n) {
                  : "rcx", "r8", "r9", "r10", "r11", "memory", "cc");
   }
 #elif defined(__aarch64__)
-  register long r0 asm("x0") = (long)kloghandle();
+  register long r0 asm("x0") = kloghandle();
   register long r1 asm("x1") = (long)b;
   register long r2 asm("x2") = (long)n;
   register long r8 asm("x8") = (long)__NR_write;
@@ -260,9 +440,8 @@ privileged void _klog(const char *b, size_t n) {
 
 privileged static size_t kformat(char *b, size_t n, const char *fmt,
                                  va_list va) {
-  int si, y;
+  int si;
   wint_t t, u;
-  char errnum[12];
   const char *abet;
   signed char type;
   const char *s, *f;
@@ -545,11 +724,16 @@ privileged static size_t kformat(char *b, size_t n, const char *fmt,
             break;
           } else {
             type = 0;
+#if defined(SYSDEBUG) && _NTTRACE
+            strerror_r(e, z, sizeof(z));
+            s = z;
+#else
             s = _strerrno(e);
             if (!s) {
-              FormatInt32(errnum, e);
-              s = errnum;
+              FormatInt32(z, e);
+              s = z;
             }
+#endif
             goto FormatString;
           }
         }
@@ -851,7 +1035,7 @@ privileged void kvprintf(const char *fmt, va_list v) {
   size_t n;
   char b[4000];
   n = kformat(b, sizeof(b), fmt, v);
-  _klog(b, MIN(n, sizeof(b) - 1));
+  klog(b, MIN(n, sizeof(b) - 1));
 }
 
 /**
@@ -926,9 +1110,9 @@ privileged void kvprintf(const char *fmt, va_list v) {
  * @vforksafe
  */
 privileged void kprintf(const char *fmt, ...) {
-  /* system call support runtime depends on this function */
-  /* function tracing runtime depends on this function */
-  /* asan runtime depends on this function */
+  // system call support runtime depends on this function
+  // function tracing runtime depends on this function
+  // asan runtime depends on this function
   va_list v;
   va_start(v, fmt);
   kvprintf(fmt, v);

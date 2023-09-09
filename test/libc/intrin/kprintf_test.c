@@ -20,7 +20,6 @@
 #include "libc/calls/calls.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/fmt/fmt.h"
 #include "libc/intrin/bits.h"
 #include "libc/limits.h"
 #include "libc/log/libfatal.internal.h"
@@ -29,6 +28,7 @@
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/symbols.internal.h"
 #include "libc/stdio/rand.h"
+#include "libc/stdio/stdio.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/prot.h"
@@ -222,12 +222,11 @@ TEST(ksnprintf, testSymbols) {
 }
 
 TEST(ksnprintf, fuzzTheUnbreakable) {
-  int e;
   size_t i;
   uint64_t x;
   char *f, b[32];
   _Alignas(FRAMESIZE) static const char weasel[FRAMESIZE];
-  f = __veil("r", weasel);
+  f = (void *)__veil("r", weasel);
   EXPECT_SYS(0, 0, mprotect(f, FRAMESIZE, PROT_READ | PROT_WRITE));
   strcpy(f, "hello %s\n");
   EXPECT_EQ(12, ksnprintf(b, sizeof(b), f, "world"));
@@ -245,7 +244,6 @@ TEST(ksnprintf, fuzzTheUnbreakable) {
 
 TEST(kprintf, testFailure_wontClobberErrnoAndBypassesSystemCallSupport) {
   int n;
-  const char *s = 0;
   ASSERT_EQ(0, errno);
   EXPECT_SYS(0, 3, dup(2));
   // <LIMBO>

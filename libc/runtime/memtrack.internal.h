@@ -41,7 +41,7 @@ struct MemoryInterval {
 struct MemoryIntervals {
   size_t i, n;
   struct MemoryInterval *p;
-  struct MemoryInterval s[OPEN_MAX];
+  struct MemoryInterval s[16];
 };
 
 extern struct MemoryIntervals _mmi;
@@ -154,19 +154,16 @@ forceinline pureconst bool IsStackFrame(int x) {
 }
 
 forceinline pureconst bool IsOldStack(const void *x) {
-  /* openbsd uses 4mb stack by default */
-  /* freebsd uses 512mb stack by default */
-  /* most systems use 8mb stack by default */
-  size_t foss_stack_size = 1ul * 1024 * 1024;
-  uintptr_t top = ROUNDUP(__oldstack + 1, foss_stack_size);
-  uintptr_t bot = ROUNDDOWN(__oldstack, foss_stack_size);
+  size_t foss_stack_size = 8ul * 1024 * 1024;
+  uintptr_t top = __oldstack + foss_stack_size;
+  uintptr_t bot = __oldstack - foss_stack_size;
   return bot <= (uintptr_t)x && (uintptr_t)x < top;
 }
 
 forceinline pureconst bool IsOldStackFrame(int x) {
-  size_t foss_stack_size = 1ul * 1024 * 1024;
-  uintptr_t top = ROUNDUP(__oldstack + 1, foss_stack_size);
-  uintptr_t bot = ROUNDDOWN(__oldstack, foss_stack_size);
+  size_t foss_stack_size = 8ul * 1024 * 1024;
+  uintptr_t top = __oldstack + foss_stack_size;
+  uintptr_t bot = __oldstack - foss_stack_size;
   return (int)(bot >> 16) <= x && x <= (int)((top >> 16) - 1);
 }
 

@@ -27,7 +27,6 @@
 #include "libc/intrin/bits.h"
 #include "libc/intrin/describeflags.internal.h"
 #include "libc/intrin/dll.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/limits.h"
 #include "libc/macros.internal.h"
 #include "libc/mem/mem.h"
@@ -49,6 +48,8 @@
 
 // see tool/hello/hello-pe.c for an example program this can link
 // make -j8 m=tiny o/tiny/tool/hello/hello-pe.com
+
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
 
 #define VERSION                     \
   "elf2pe v0.1\n"                   \
@@ -274,7 +275,6 @@ static void RelocateRela(struct Elf *elf, struct Segment *segment,
       RelocateVaddrWithinSegment(elf, rela->r_offset, segment);
   Elf64_Addr symbol_vaddr = elf->symtab[ELF64_R_SYM(rela->r_info)].st_value;
   char *place_ptr = segment->ptr_new + (place_vaddr - segment->vaddr_new_min);
-  Elf64_Sxword addend = rela->r_addend;
   switch (ELF64_R_TYPE(rela->r_info)) {
     case R_X86_64_NONE:    // do nothing
     case R_X86_64_COPY:    // do nothing
@@ -1033,7 +1033,6 @@ static struct ImagePointer GeneratePe(struct Elf *elf, char *fp, int64_t vp) {
 
 static void GetOpts(int argc, char *argv[]) {
   int opt;
-  char *endptr;
   while ((opt = getopt(argc, argv, "ho:D:")) != -1) {
     switch (opt) {
       case 'o':

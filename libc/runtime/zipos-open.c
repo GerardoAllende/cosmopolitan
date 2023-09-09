@@ -23,6 +23,7 @@
 #include "libc/calls/state.internal.h"
 #include "libc/calls/struct/sigset.h"
 #include "libc/calls/syscall-sysv.internal.h"
+#include "libc/calls/syscall_support-sysv.internal.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/intrin/asan.internal.h"
@@ -30,34 +31,65 @@
 #include "libc/intrin/cmpxchg.h"
 #include "libc/intrin/directmap.internal.h"
 #include "libc/intrin/extend.internal.h"
+#include "libc/intrin/strace.internal.h"
 #include "libc/intrin/weaken.h"
 #include "libc/runtime/internal.h"
 #include "libc/runtime/memtrack.internal.h"
+#include "libc/runtime/zipos.internal.h"
 #include "libc/sysv/consts/f.h"
 #include "libc/sysv/consts/fd.h"
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/prot.h"
+#include "libc/sysv/consts/s.h"
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/thread.h"
+#include "libc/thread/tls.h"
 #include "libc/zip.internal.h"
-#include "libc/runtime/zipos.internal.h"
 
-static char *mapend;
-static size_t maptotal;
+static char *__zipos_mapend;
+static size_t __zipos_maptotal;
+static pthread_mutex_t __zipos_lock_obj;
+
+static void __zipos_lock(void) {
+  if (__threaded) {
+    pthread_mutex_lock(&__zipos_lock_obj);
+  }
+}
+
+static void __zipos_unlock(void) {
+  if (__threaded) {
+    pthread_mutex_unlock(&__zipos_lock_obj);
+  }
+}
+
+static void __zipos_funlock(void) {
+  pthread_mutex_init(&__zipos_lock_obj, 0);
+}
 
 static void *__zipos_mmap_space(size_t mapsize) {
   char *start;
   size_t offset;
   unassert(mapsize);
-  offset = maptotal;
-  maptotal += mapsize;
+  offset = __zipos_maptotal;
+  __zipos_maptotal += mapsize;
   start = (char *)kMemtrackZiposStart;
-  if (!mapend) mapend = start;
-  mapend = _extend(start, maptotal, mapend, MAP_PRIVATE,
-                   kMemtrackZiposStart + kMemtrackZiposSize);
+  if (!__zipos_mapend) __zipos_mapend = start;
+  __zipos_mapend = _extend(start, __zipos_maptotal, __zipos_mapend, MAP_PRIVATE,
+                           kMemtrackZiposStart + kMemtrackZiposSize);
   return start + offset;
+}
+
+void __zipos_free(struct ZiposHandle *h) {
+  if (IsAsan()) {
+    __asan_poison((char *)h + sizeof(struct ZiposHandle),
+                  h->mapsize - sizeof(struct ZiposHandle), kAsanHeapFree);
+  }
+  __zipos_lock();
+  do h->next = h->zipos->freelist;
+  while (!_cmpxchg(&h->zipos->freelist, h->next, h));
+  __zipos_unlock();
 }
 
 static struct ZiposHandle *__zipos_alloc(struct Zipos *zipos, size_t size) {
@@ -88,72 +120,70 @@ StartOver:
   }
   if (h) {
     h->size = size;
+    h->zipos = zipos;
     h->mapsize = mapsize;
-    pthread_mutex_init(&h->lock, 0);
   }
   return h;
 }
 
 static int __zipos_mkfd(int minfd) {
-  int e, fd;
-  static bool demodernize;
-  if (!demodernize) {
-    e = errno;
-    if ((fd = __sys_fcntl(2, F_DUPFD_CLOEXEC, minfd)) != -1) {
-      return fd;
-    } else if (errno == EINVAL) {
-      demodernize = true;
-      errno = e;
-    } else {
-      return fd;
-    }
+  int fd, e = errno;
+  if ((fd = __sys_fcntl(2, F_DUPFD_CLOEXEC, minfd)) != -1) {
+    return fd;
+  } else if (errno == EINVAL) {
+    errno = e;
+    return __fixupnewfd(__sys_fcntl(2, F_DUPFD, minfd), O_CLOEXEC);
+  } else {
+    return fd;
   }
-  if ((fd = __sys_fcntl(2, F_DUPFD, minfd)) != -1) {
-    __sys_fcntl(fd, F_SETFD, FD_CLOEXEC);
-  }
-  return fd;
 }
 
-static int __zipos_setfd(int fd, struct ZiposHandle *h, unsigned flags,
-                         int mode) {
+static int __zipos_setfd(int fd, struct ZiposHandle *h, unsigned flags) {
   int want = fd;
   atomic_compare_exchange_strong_explicit(
       &g_fds.f, &want, fd + 1, memory_order_release, memory_order_relaxed);
   g_fds.p[fd].kind = kFdZip;
   g_fds.p[fd].handle = (intptr_t)h;
   g_fds.p[fd].flags = flags | O_CLOEXEC;
-  g_fds.p[fd].mode = mode;
   g_fds.p[fd].extra = 0;
   __fds_unlock();
   return fd;
 }
 
-static int __zipos_load(struct Zipos *zipos, size_t cf, unsigned flags,
-                        int mode) {
+static int __zipos_load(struct Zipos *zipos, size_t cf, int flags,
+                        struct ZiposUri *name) {
   size_t lf;
   size_t size;
-  int rc, fd, minfd;
+  int fd, minfd;
   struct ZiposHandle *h;
-  lf = GetZipCfileOffset(zipos->map + cf);
-  npassert((ZIP_LFILE_MAGIC(zipos->map + lf) == kZipLfileHdrMagic));
-  size = GetZipLfileUncompressedSize(zipos->map + lf);
-  switch (ZIP_LFILE_COMPRESSIONMETHOD(zipos->map + lf)) {
-    case kZipCompressionNone:
-      if (!(h = __zipos_alloc(zipos, 0))) return -1;
-      h->mem = ZIP_LFILE_CONTENT(zipos->map + lf);
-      break;
-    case kZipCompressionDeflate:
-      if (!(h = __zipos_alloc(zipos, size))) return -1;
-      if (!__inflate(h->data, size, ZIP_LFILE_CONTENT(zipos->map + lf),
-                     GetZipLfileCompressedSize(zipos->map + lf))) {
-        h->mem = h->data;
-      } else {
-        h->mem = 0;
-        eio();
-      }
-      break;
-    default:
-      return eio();
+  if (cf == ZIPOS_SYNTHETIC_DIRECTORY) {
+    size = name->len;
+    if (!(h = __zipos_alloc(zipos, size + 1))) return -1;
+    if (size) memcpy(h->data, name->path, size);
+    h->data[size] = 0;
+    h->mem = h->data;
+  } else {
+    lf = GetZipCfileOffset(zipos->map + cf);
+    npassert((ZIP_LFILE_MAGIC(zipos->map + lf) == kZipLfileHdrMagic));
+    size = GetZipLfileUncompressedSize(zipos->map + lf);
+    switch (ZIP_LFILE_COMPRESSIONMETHOD(zipos->map + lf)) {
+      case kZipCompressionNone:
+        if (!(h = __zipos_alloc(zipos, 0))) return -1;
+        h->mem = ZIP_LFILE_CONTENT(zipos->map + lf);
+        break;
+      case kZipCompressionDeflate:
+        if (!(h = __zipos_alloc(zipos, size))) return -1;
+        if (!__inflate(h->data, size, ZIP_LFILE_CONTENT(zipos->map + lf),
+                       GetZipLfileCompressedSize(zipos->map + lf))) {
+          h->mem = h->data;
+        } else {
+          h->mem = 0;
+          eio();
+        }
+        break;
+      default:
+        return eio();
+    }
   }
   h->pos = 0;
   h->cfile = cf;
@@ -164,7 +194,7 @@ static int __zipos_load(struct Zipos *zipos, size_t cf, unsigned flags,
   TryAgain:
     if (IsWindows() || IsMetal()) {
       if ((fd = __reservefd_unlocked(-1)) != -1) {
-        return __zipos_setfd(fd, h, flags, mode);
+        return __zipos_setfd(fd, h, flags);
       }
     } else if ((fd = __zipos_mkfd(minfd)) != -1) {
       if (__ensurefds_unlocked(fd) != -1) {
@@ -173,13 +203,13 @@ static int __zipos_load(struct Zipos *zipos, size_t cf, unsigned flags,
           minfd = fd + 1;
           goto TryAgain;
         }
-        return __zipos_setfd(fd, h, flags, mode);
+        return __zipos_setfd(fd, h, flags);
       }
       sys_close(fd);
     }
     __fds_unlock();
   }
-  __zipos_free(zipos, h);
+  __zipos_free(h);
   return -1;
 }
 
@@ -190,33 +220,57 @@ static int __zipos_load(struct Zipos *zipos, size_t cf, unsigned flags,
  * @asyncsignalsafe
  * @threadsafe
  */
-int __zipos_open(const struct ZiposUri *name, unsigned flags, int mode) {
+int __zipos_open(struct ZiposUri *name, int flags) {
+
+  // check if this thread is cancelled
   int rc;
-  ssize_t cf;
-  struct Zipos *zipos;
   if (_weaken(pthread_testcancel_np) &&
       (rc = _weaken(pthread_testcancel_np)())) {
     errno = rc;
     return -1;
   }
-  BLOCK_SIGNALS;
-  if ((flags & O_ACCMODE) == O_RDONLY) {
-    if ((zipos = __zipos_get())) {
-      if ((cf = __zipos_find(zipos, name)) != -1) {
-        rc = __zipos_load(zipos, cf, flags, mode);
-        assert(rc != 0);
-      } else {
-        rc = enoent();
-        assert(rc != 0);
-      }
-    } else {
-      rc = enoexec();
-      assert(rc != 0);
-    }
-  } else {
-    rc = einval();
-    assert(rc != 0);
+
+  // validate api usage
+  if ((flags & O_CREAT) ||  //
+      (flags & O_TRUNC) ||  //
+      (flags & O_ACCMODE) != O_RDONLY) {
+    return erofs();
   }
+
+  // get the zipos global singleton
+  struct Zipos *zipos;
+  if (!(zipos = __zipos_get())) {
+    return enoexec();
+  }
+
+  // most open() calls are due to languages path searching assets. the
+  // majority of these calls will return ENOENT or ENOTDIR. we need to
+  // perform two extremely costly sigprocmask() calls below. thanks to
+  // zipos being a read-only filesystem, we can avoid it in many cases
+  ssize_t cf;
+  if ((cf = __zipos_find(zipos, name)) == -1) {
+    return -1;
+  }
+  if (flags & O_EXCL) {
+    return eexist();
+  }
+  if (cf != ZIPOS_SYNTHETIC_DIRECTORY) {
+    int mode = GetZipCfileMode(zipos->map + cf);
+    if ((flags & O_DIRECTORY) && !S_ISDIR(mode)) {
+      return enotdir();
+    }
+    if (!(mode & 0444)) {
+      return eacces();
+    }
+  }
+
+  // now do the heavy lifting
+  BLOCK_SIGNALS;
+  rc = __zipos_load(zipos, cf, flags, name);
   ALLOW_SIGNALS;
   return rc;
+}
+
+__attribute__((__constructor__)) static void __zipos_ctor(void) {
+  pthread_atfork(__zipos_lock, __zipos_unlock, __zipos_funlock);
 }

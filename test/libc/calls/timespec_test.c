@@ -18,7 +18,6 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/struct/timespec.h"
 #include "libc/calls/struct/timeval.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/limits.h"
 #include "libc/stdio/rand.h"
 #include "libc/testlib/testlib.h"
@@ -103,7 +102,6 @@ TEST(timespec_sub, math) {
   for (int i = 0; i < 1000; ++i) {
     struct timespec x = {mod(lemur64(), 10), mod(lemur64(), 10)};
     struct timespec y = {mod(lemur64(), 10), mod(lemur64(), 10)};
-    struct timespec z = timespec_add(timespec_sub(x, y), y);
     EXPECT_TRUE(!timespec_cmp(x, timespec_add(timespec_sub(x, y), y)));
   }
 }

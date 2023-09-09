@@ -21,15 +21,13 @@
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/dce.h"
 #include "libc/intrin/strace.internal.h"
+#include "libc/intrin/weaken.h"
+#include "libc/nt/runtime.h"
 #include "libc/runtime/internal.h"
 #include "libc/sysv/consts/sicode.h"
 #include "libc/sysv/consts/sig.h"
 #include "libc/thread/tls.h"
 #include "libc/thread/xnu.internal.h"
-
-static textwindows inline bool HasWorkingConsole(void) {
-  return !!(__ntconsolemode[0] | __ntconsolemode[1] | __ntconsolemode[2]);
-}
 
 static dontubsan void RaiseSigFpe(void) {
   volatile int x = 0;
@@ -55,7 +53,7 @@ static dontubsan void RaiseSigFpe(void) {
  * @asyncsignalsafe
  */
 int raise(int sig) {
-  int rc, tid, event;
+  int rc;
   STRACE("raise(%G) → ...", sig);
   if (sig == SIGTRAP) {
     DebugBreak();
@@ -66,10 +64,8 @@ int raise(int sig) {
     RaiseSigFpe();
     rc = 0;
 #endif
-  } else if (!IsWindows() && !IsMetal()) {
-    rc = sys_tkill(gettid(), sig, 0);
   } else {
-    rc = __sig_raise(sig, SI_TKILL);
+    rc = tkill(gettid(), sig);
   }
   STRACE("...raise(%G) → %d% m", sig, rc);
   return rc;

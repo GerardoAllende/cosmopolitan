@@ -42,6 +42,7 @@
 #include "libc/nt/enum/pageflags.h"
 #include "libc/nt/enum/processcreationflags.h"
 #include "libc/nt/enum/startf.h"
+#include "libc/nt/errors.h"
 #include "libc/nt/ipc.h"
 #include "libc/nt/memory.h"
 #include "libc/nt/process.h"
@@ -67,7 +68,7 @@
 __static_yoink("_check_sigchld");
 
 extern int64_t __wincrashearly;
-bool32 __onntconsoleevent_nt(uint32_t);
+bool32 __onntconsoleevent(uint32_t);
 void sys_setitimer_nt_reset(void);
 void kmalloc_unlock(void);
 
@@ -145,18 +146,38 @@ static textwindows dontinline void ReadOrDie(int64_t h, void *buf, size_t n) {
 
 static textwindows int64_t MapOrDie(uint32_t prot, uint64_t size) {
   int64_t h;
-  if ((h = CreateFileMapping(-1, 0, prot, size >> 32, size, 0))) {
-    return h;
-  } else {
+  for (;;) {
+    if ((h = CreateFileMapping(-1, 0, prot, size >> 32, size, 0))) {
+      return h;
+    }
+    if (GetLastError() == kNtErrorAccessDenied) {
+      switch (prot) {
+        case kNtPageExecuteWritecopy:
+          prot = kNtPageWritecopy;
+          continue;
+        case kNtPageExecuteReadwrite:
+          prot = kNtPageReadwrite;
+          continue;
+        case kNtPageExecuteRead:
+          prot = kNtPageReadonly;
+          continue;
+        default:
+          break;
+      }
+    }
     AbortFork("MapOrDie");
   }
 }
 
 static textwindows void ViewOrDie(int64_t h, uint32_t access, size_t pos,
                                   size_t size, void *base) {
-  void *got;
-  got = MapViewOfFileEx(h, access, pos >> 32, pos, size, base);
-  if (!got || (base && got != base)) {
+TryAgain:
+  if (!MapViewOfFileEx(h, access, pos >> 32, pos, size, base)) {
+    if ((access & kNtFileMapExecute) &&
+        GetLastError() == kNtErrorAccessDenied) {
+      access &= ~kNtFileMapExecute;
+      goto TryAgain;
+    }
     AbortFork("ViewOrDie");
   }
 }
@@ -171,13 +192,11 @@ static textwindows int OnForkCrash(struct NtExceptionPointers *ep) {
 }
 
 textwindows void WinMainForked(void) {
-  bool ok;
   jmp_buf jb;
   int64_t reader;
+  int64_t savetsc;
   char *addr, *shad;
-  struct DirectMap dm;
   uint64_t size, upsize;
-  int64_t oncrash, savetsc;
   struct MemoryInterval *maps;
   char16_t fvar[21 + 1 + 21 + 1];
   uint32_t i, varlen, oldprot, savepid;
@@ -194,7 +213,7 @@ textwindows void WinMainForked(void) {
   NTTRACE("WinMainForked()");
   SetEnvironmentVariable(u"_FORK", NULL);
 #ifdef SYSDEBUG
-  oncrash = AddVectoredExceptionHandler(1, NT2SYSV(OnForkCrash));
+  int64_t oncrash = AddVectoredExceptionHandler(1, NT2SYSV(OnForkCrash));
 #endif
   ParseInt(fvar, &reader);
 
@@ -283,14 +302,14 @@ textwindows void WinMainForked(void) {
 #ifdef SYSDEBUG
   RemoveVectoredExceptionHandler(oncrash);
 #endif
-  if (_weaken(__wincrash_nt)) {
+  if (_weaken(__wincrash)) {
     if (!IsTiny()) {
       RemoveVectoredExceptionHandler(__wincrashearly);
     }
-    AddVectoredExceptionHandler(1, (void *)_weaken(__wincrash_nt));
+    AddVectoredExceptionHandler(1, (void *)_weaken(__wincrash));
   }
-  if (_weaken(__onntconsoleevent_nt)) {
-    SetConsoleCtrlHandler(_weaken(__onntconsoleevent_nt), 1);
+  if (_weaken(__onntconsoleevent)) {
+    SetConsoleCtrlHandler(_weaken(__onntconsoleevent), 1);
   }
 
   // jump back into function below
@@ -300,14 +319,13 @@ textwindows void WinMainForked(void) {
 textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
   jmp_buf jb;
   uint32_t op;
-  uint32_t oldprot;
+  char **args;
   char ok, threaded;
-  char **args, **args2;
   struct CosmoTib *tib;
   char16_t pipename[64];
   int64_t reader, writer;
   struct NtStartupInfo startinfo;
-  int i, n, pid, untrackpid, rc = -1;
+  int i, pid, untrackpid, rc = -1;
   char *p, forkvar[6 + 21 + 1 + 21 + 1];
   struct NtProcessInformation procinfo;
   threaded = __threaded;
@@ -332,6 +350,8 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
       // If --strace was passed to this program, then propagate it the
       // forked process since the flag was removed by __intercept_flag
       if (strace_enabled(0) > 0) {
+        int n;
+        char **args2;
         for (n = 0; args[n];) ++n;
         args2 = alloca((n + 2) * sizeof(char *));
         for (i = 0; i < n; ++i) args2[i] = args[i];

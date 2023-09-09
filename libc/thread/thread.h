@@ -2,7 +2,7 @@
 #define COSMOPOLITAN_LIBC_THREAD_THREAD_H_
 
 #define PTHREAD_KEYS_MAX              128
-#define PTHREAD_STACK_MIN             65536
+#define PTHREAD_STACK_MIN             262144
 #define PTHREAD_DESTRUCTOR_ITERATIONS 4
 
 #define PTHREAD_BARRIER_SERIAL_THREAD 31337
@@ -194,6 +194,7 @@ int pthread_spin_unlock(pthread_spinlock_t *) paramsnonnull();
 int pthread_testcancel_np(void);
 int pthread_tryjoin_np(pthread_t, void **);
 int pthread_yield(void);
+void pthread_kill_siblings_np(void);
 pthread_id_np_t pthread_getthreadid_np(void);
 pthread_t pthread_self(void) pureconst;
 void *pthread_getspecific(pthread_key_t);
@@ -217,11 +218,12 @@ void pthread_testcancel(void);
 #if (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 407 && \
     !defined(__STRICT_ANSI__) && !defined(MODE_DBG)
 extern const errno_t EBUSY;
-#define pthread_spin_lock(pSpin)                                           \
-  ({                                                                       \
-    pthread_spinlock_t *_s = pSpin;                                        \
-    while (__atomic_test_and_set(&_s->_lock, __ATOMIC_ACQUIRE)) donothing; \
-    0;                                                                     \
+#define pthread_spin_lock(pSpin)                                  \
+  ({                                                              \
+    pthread_spinlock_t *_s = pSpin;                               \
+    while (__atomic_test_and_set(&_s->_lock, __ATOMIC_ACQUIRE)) { \
+    }                                                             \
+    0;                                                            \
   })
 #define pthread_spin_unlock(pSpin)                     \
   ({                                                   \

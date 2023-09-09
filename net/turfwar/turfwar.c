@@ -629,7 +629,7 @@ int GetClaims(struct Claims *q, struct Claim *out, int len) {
 
 // parses request uri query string and extracts ?name=value
 static bool GetNick(char *inbuf, struct HttpMessage *msg, struct Claim *v) {
-  size_t i, n;
+  size_t i;
   struct Url url;
   void *f[2] = {0};
   bool found = false;
@@ -826,7 +826,6 @@ void *HttpWorker(void *arg) {
   // connection loop
   while (GetClient(&g_clients, &client)) {
     struct Data d;
-    struct Url url;
     ssize_t got, sent;
     uint32_t ip, clientip;
     int tok, inmsglen, outmsglen;
@@ -1890,7 +1889,6 @@ void *Supervisor(void *arg) {
 }
 
 void CheckDatabase(void) {
-  int rc;
   sqlite3 *db;
   if (g_integrity) {
     CHECK_SQL(DbOpen("db.sqlite3", &db));
@@ -1916,7 +1914,7 @@ int main(int argc, char *argv[]) {
   // we don't have proper futexes on these platforms
   // we'll be somewhat less aggressive about workers
   if (IsXnu() || IsNetbsd()) {
-    g_workers = MIN(g_workers, _getcpucount());
+    g_workers = MIN(g_workers, (unsigned)__get_cpu_count());
   }
 
   // user interface

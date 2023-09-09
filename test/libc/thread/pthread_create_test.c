@@ -40,7 +40,6 @@
 #include "libc/thread/thread2.h"
 
 void OnUsr1(int sig, struct siginfo *si, void *vctx) {
-  struct ucontext *ctx = vctx;
 }
 
 void SetUp(void) {
@@ -83,7 +82,7 @@ TEST(pthread_create, testCreateExitJoin) {
 }
 
 static void *CheckSchedule(void *arg) {
-  int rc, policy;
+  int policy;
   struct sched_param prio;
   ASSERT_EQ(0, pthread_getschedparam(pthread_self(), &policy, &prio));
   ASSERT_EQ(SCHED_OTHER, policy);
@@ -127,7 +126,7 @@ TEST(pthread_create, testBigStack) {
 }
 
 static void *CheckStack2(void *arg) {
-  char buf[57244];
+  char buf[262144 - 32768 * 2];
   TriggerSignal();
   CheckLargeStackAllocation(buf, sizeof(buf));
   return 0;
@@ -137,8 +136,8 @@ TEST(pthread_create, testBiggerGuardSize) {
   pthread_t id;
   pthread_attr_t attr;
   ASSERT_EQ(0, pthread_attr_init(&attr));
-  ASSERT_EQ(0, pthread_attr_setstacksize(&attr, 65536));
-  ASSERT_EQ(0, pthread_attr_setguardsize(&attr, 8192));
+  ASSERT_EQ(0, pthread_attr_setstacksize(&attr, 262144));
+  ASSERT_EQ(0, pthread_attr_setguardsize(&attr, 32768));
   ASSERT_EQ(0, pthread_create(&id, &attr, CheckStack2, 0));
   ASSERT_EQ(0, pthread_attr_destroy(&attr));
   ASSERT_EQ(0, pthread_join(id, 0));

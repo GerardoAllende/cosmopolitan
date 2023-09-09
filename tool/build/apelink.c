@@ -16,6 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#include "ape/ape.h"
 #include "libc/assert.h"
 #include "libc/calls/calls.h"
 #include "libc/dce.h"
@@ -28,7 +29,6 @@
 #include "libc/fmt/conv.h"
 #include "libc/fmt/itoa.h"
 #include "libc/intrin/bits.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/limits.h"
 #include "libc/macho.internal.h"
 #include "libc/macros.internal.h"
@@ -861,8 +861,6 @@ void FixupPeImage(char *map, size_t size,       //
                   Elf64_Sxword off_skew) {
   assert(!(rva_skew & 65535));
 
-  Elf64_Sxword skew = rva_skew;
-
   // fixup pe header
   if (ckd_sub(&pe->OptionalHeader.ImageBase,  //
               pe->OptionalHeader.ImageBase, rva_skew))
@@ -972,7 +970,6 @@ static void AddLoader(const char *path) {
 }
 
 static void GetOpts(int argc, char *argv[]) {
-  char *endptr;
   int opt, bits;
   bool got_support_vector = false;
   while ((opt = getopt(argc, argv, "hvgsGBo:l:S:M:V:")) != -1) {
@@ -1282,7 +1279,7 @@ static char *GenerateMachoSegment(char *p, struct Input *in, Elf64_Phdr *phdr) {
   load = (struct MachoLoadSegment *)p;
   load->command = MAC_LC_SEGMENT_64;
   load->size = sizeof(*load);
-  FormatInt32(stpcpy(load->name, "__APE"), macholoadcount);
+  FormatInt32(__veil("r", stpcpy(load->name, "__APE")), macholoadcount);
   ++macholoadcount;
   load->vaddr = phdr->p_vaddr;
   load->memsz = phdr->p_memsz;
@@ -1391,7 +1388,7 @@ static char *GenerateElfNotes(char *p) {
   char *save;
   save = p = ALIGN(p, 4);
   noteoff = p - prologue;
-  p = GenerateElfNote(p, "APE", 1, 106000000);
+  p = GenerateElfNote(p, "APE", 1, APE_VERSION_NOTE);
   if (support_vector & _HOSTOPENBSD) {
     p = GenerateElfNote(p, "OpenBSD", 1, 0);
   }
@@ -1461,9 +1458,10 @@ static char *SecondPass2(char *p, struct Input *in) {
     // the new file size. that's only possible if all the fat ape hdrs
     // we generate are able to fit inside the prologue.
     p = ALIGN(p, 8);
+    // TODO(jart): Figure out why not skewing corrupts pe import table
     in->we_must_skew_pe_vaspace =
-        ROUNDUP(p - prologue + in->size_of_pe_headers,
-                (int)in->pe->OptionalHeader.FileAlignment) > in->minload;
+        1 || ROUNDUP(p - prologue + in->size_of_pe_headers,
+                     (int)in->pe->OptionalHeader.FileAlignment) > in->minload;
     if (!in->we_must_skew_pe_vaspace) {
       in->pe_e_lfanew = p - prologue;
       in->pe_SizeOfHeaders = in->pe->OptionalHeader.SizeOfHeaders;
@@ -1482,9 +1480,7 @@ static char *SecondPass2(char *p, struct Input *in) {
 // focusing on embedding the executable files passed via the flags.
 static Elf64_Off ThirdPass(Elf64_Off offset, struct Input *in) {
   int i;
-  char *data;
   Elf64_Addr vaddr;
-  Elf64_Phdr *phdr;
   Elf64_Xword image_align;
 
   // determine microprocessor page size
@@ -1814,9 +1810,8 @@ static void CopyZips(Elf64_Off offset) {
 
 int main(int argc, char *argv[]) {
   char *p;
-  int i, j, opt;
+  int i, j;
   Elf64_Off offset;
-  char empty[64] = {0};
   Elf64_Xword prologue_bytes;
 #ifndef NDEBUG
   ShowCrashReports();
@@ -1883,11 +1878,6 @@ int main(int argc, char *argv[]) {
       struct Input *in = inputs.p + i;
       if (GetElfSymbol(in, "__zipos_get")) {
         LoadSymbols(in->elf, in->size, in->path);
-      } else if (!want_stripped) {
-        tinyprint(2, in->path,
-                  ": warning: won't generate symbol table unless "
-                  "__static_yoink(\"zipos\") is linked\n",
-                  NULL);
       }
     }
   }
@@ -1947,7 +1937,7 @@ int main(int argc, char *argv[]) {
 
     // otherwise try to use the ad-hoc self-extracted loader, securely
     if (loaders.n) {
-      p = stpcpy(p, "t=\"${TMPDIR:-${HOME:-.}}/.ape-1.6\"\n"
+      p = stpcpy(p, "t=\"${TMPDIR:-${HOME:-.}}/.ape-" APE_VERSION_STR "\"\n"
                     "[ x\"$1\" != x--assimilate ] && "
                     "[ -x \"$t\" ] && "
                     "exec \"$t\" \"$o\" \"$@\"\n");

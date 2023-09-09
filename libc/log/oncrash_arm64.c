@@ -28,6 +28,7 @@
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/calls/ucontext.h"
 #include "libc/errno.h"
+#include "libc/intrin/describeflags.internal.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/log/internal.h"
 #include "libc/log/log.h"
@@ -132,9 +133,10 @@ static bool AppendFileLine(struct Buffer *b, const char *addr2line,
     sys_close(pfd[0]);
     sys_dup2(pfd[1], 1, 0);
     sys_close(2);
-    __sys_execve(addr2line,
-                 (char *const[]){addr2line, "-pifCe", debugbin, buf, 0},
-                 (char *const[]){0});
+    __sys_execve(
+        addr2line,
+        (char *const[]){(char *)addr2line, "-pifCe", (char *)debugbin, buf, 0},
+        (char *const[]){0});
     _Exit(127);
   }
   sys_close(pfd[1]);
@@ -202,19 +204,20 @@ relegated void __oncrash_arm64(int sig, struct siginfo *si, void *arg) {
         (ctx->uc_mcontext.sp & (GetStackSize() - 1)) <= getauxval(AT_PAGESZ)) {
       kind = "Stack Overflow";
     } else {
-      kind = GetSiCodeName(sig, si->si_code);
+      kind = DescribeSiCode(sig, si->si_code);
     }
     Append(b,
            "%serror%s: Uncaught %G (%s) on %s pid %d tid %d\n"
-           " %s\n"
-           " %m\n"
-           " %s %s %s %s\n",
+           "%s\n",
            strong, reset, sig, kind, host, getpid(), gettid(),
-           program_invocation_name, names.sysname, names.version,
-           names.nodename, names.release);
+           program_invocation_name);
+    if (errno) {
+      Append(b, " %m\n");
+    }
+    Append(b, " %s %s %s %s\n", names.sysname, names.version, names.nodename,
+           names.release);
     if (ctx) {
       long pc;
-      char line[256];
       char *mem = 0;
       size_t memsz = 0;
       int addend, symbol;
@@ -270,8 +273,11 @@ relegated void __oncrash_arm64(int sig, struct siginfo *si, void *arg) {
       if (pc && st && (symbol = __get_symbol(st, pc))) {
         addend = pc - st->addr_base;
         addend -= st->symbols[symbol].x;
-        Append(b, " %s", GetSymbolName(st, symbol, &mem, &memsz));
-        if (addend) Append(b, "%+d", addend);
+        Append(b, " ");
+        if (!AppendFileLine(b, addr2line, debugbin, pc)) {
+          Append(b, "%s", GetSymbolName(st, symbol, &mem, &memsz));
+          if (addend) Append(b, "%+d", addend);
+        }
       }
       Append(b, "\n");
 

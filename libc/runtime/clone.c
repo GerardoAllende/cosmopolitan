@@ -20,6 +20,7 @@
 #include "libc/assert.h"
 #include "libc/atomic.h"
 #include "libc/calls/calls.h"
+#include "libc/calls/struct/sigset.h"
 #include "libc/calls/struct/ucontext-netbsd.internal.h"
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/calls/wincrash.internal.h"
@@ -51,7 +52,7 @@
 #include "libc/thread/openbsd.internal.h"
 #include "libc/thread/thread.h"
 #include "libc/thread/tls.h"
-#include "libc/thread/tls2.h"
+#include "libc/thread/tls2.internal.h"
 #include "libc/thread/xnu.internal.h"
 
 #define kMaxThreadIds 32768
@@ -195,6 +196,9 @@ XnuThreadMain(void *pthread,                    // rdi
 
   func(arg, tid);
 
+  // avoid signal handler being triggered after we trash our stack
+  _sigblockall();
+
   // we no longer use the stack after this point
   // %rax = int bsdthread_terminate(%rdi = void *stackaddr,
   //                                %rsi = size_t freesize,
@@ -211,8 +215,6 @@ XnuThreadMain(void *pthread,                    // rdi
 
 static errno_t CloneXnu(int (*fn)(void *), char *stk, size_t stksz, int flags,
                         void *arg, void *tls, int *ptid, int *ctid) {
-  int rc;
-  bool failed;
   static bool once;
   struct CloneArgs *wt;
   if (!once) {
@@ -234,6 +236,8 @@ static wontreturn void FreebsdThreadMain(void *p) {
   struct CloneArgs *wt = p;
   *wt->ctid = wt->tid;
   wt->func(wt->arg, wt->tid);
+  // avoid signal handler being triggered after we trash our stack
+  _sigblockall();
   // we no longer use the stack after this point
   // void thr_exit(%rdi = long *state);
   asm volatile("movl\t$0,%0\n\t"       // *wt->ztid = 0
@@ -349,6 +353,8 @@ static wontreturn void NetbsdThreadMain(void *arg,                 // rdi
   ax = sys_gettid();
   *ctid = ax;
   func(arg, ax);
+  // avoid signal handler being triggered after we trash our stack
+  _sigblockall();
   // we no longer use the stack after this point
   // %eax = int __lwp_exit(void);
   asm volatile("movl\t$0,%2\n\t"  // *wt->ztid = 0
@@ -682,6 +688,10 @@ errno_t clone(void *func, void *stk, size_t stksz, int flags, void *arg,
 #endif /* __x86_64__ */
   } else {
     rc = ENOSYS;
+  }
+
+  if (SupportsBsd() && rc == EPROCLIM) {
+    rc = EAGAIN;
   }
 
   STRACE("clone(%t, %p, %'zu, %#x, %p, %p, %p, %p) → %s", func, stk, stksz,

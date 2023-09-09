@@ -9,8 +9,6 @@
 #if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 
-#define __ToUpper(c) ((c) >= 'a' && (c) <= 'z' ? (c) - 'a' + 'A' : (c))
-
 __funline int __strcmp(const char *l, const char *r) {
   size_t i = 0;
   while (l[i] == r[i] && r[i]) ++i;
@@ -47,7 +45,7 @@ __funline void *__repmovsb(void *di, const void *si, size_t cx) {
   return di;
 #else
   volatile char *volatile d = di;
-  volatile char *volatile s = si;
+  volatile const char *volatile s = si;
   while (cx--) *d++ = *s++;
   return (void *)d;
 #endif
@@ -132,28 +130,7 @@ __funline char16_t *__strstr16(const char16_t *haystack,
   return 0;
 }
 
-__funline char *__getenv(char **p, const char *s) {
-  size_t i, j;
-  if (p) {
-    for (i = 0; p[i]; ++i) {
-      for (j = 0;; ++j) {
-        if (!s[j]) {
-          if (p[i][j] == '=') {
-            return p[i] + j + 1;
-          }
-          break;
-        }
-        if ((s[j] & 255) != __ToUpper(p[i][j] & 255)) {
-          break;
-        }
-      }
-    }
-  }
-  return 0;
-}
-
 __funline const char *__strchr(const char *s, unsigned char c) {
-  char *r;
   for (;; ++s) {
     if ((*s & 255) == c) return s;
     if (!*s) return 0;

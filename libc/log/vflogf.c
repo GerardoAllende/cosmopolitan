@@ -51,7 +51,6 @@ static struct timespec vflogf_ts;
  */
 static void vflogf_onfail(FILE *f) {
   errno_t err;
-  int64_t size;
   struct stat st;
   if (IsTiny()) return;
   err = ferror_unlocked(f);
@@ -59,11 +58,11 @@ static void vflogf_onfail(FILE *f) {
       (err == ENOSPC || err == EDQUOT || err == EFBIG) &&
       (fstat(fileno_unlocked(f), &st) == -1 || st.st_size > kNontrivialSize)) {
     ftruncate(fileno_unlocked(f), 0);
-    fseeko_unlocked(f, SEEK_SET, 0);
+    fseek_unlocked(f, SEEK_SET, 0);
     f->beg = f->end = 0;
     clearerr_unlocked(f);
-    (fprintf_unlocked)(f, "performed emergency log truncation: %s\n",
-                       strerror(err));
+    fprintf_unlocked(f, "performed emergency log truncation: %s\n",
+                     strerror(err));
   }
 }
 
@@ -93,7 +92,6 @@ void(vflogf)(unsigned level, const char *file, int line, FILE *f,
   char buf32[32];
   const char *prog;
   const char *sign;
-  bool issamesecond;
   struct timespec t2;
   if (!f) f = __log_file;
   if (!f) return;

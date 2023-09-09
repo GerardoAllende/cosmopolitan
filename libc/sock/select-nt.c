@@ -16,6 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#include "libc/calls/bo.internal.h"
 #include "libc/calls/internal.h"
 #include "libc/calls/state.internal.h"
 #include "libc/calls/struct/timeval.h"
@@ -56,12 +57,16 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
   }
 
   // convert the wait time to a word
-  if (!timeout || ckd_add(&millis, timeout->tv_sec, timeout->tv_usec / 1000)) {
+  if (!timeout) {
     millis = -1;
+  } else {
+    millis = timeval_tomillis(*timeout);
   }
 
   // call our nt poll implementation
+  BEGIN_BLOCKING_OPERATION;
   fdcount = sys_poll_nt(fds, pfds, &millis, sigmask);
+  END_BLOCKING_OPERATION;
   if (fdcount == -1) return -1;
 
   // convert pollfd back to bitsets
@@ -76,8 +81,7 @@ int sys_select_nt(int nfds, fd_set *readfds, fd_set *writefds,
 
   // store remaining time back in caller's timeval
   if (timeout) {
-    timeout->tv_sec = millis / 1000;
-    timeout->tv_usec = millis % 1000 * 1000;
+    *timeout = timeval_frommillis(millis);
   }
 
   return fdcount;

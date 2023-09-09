@@ -17,6 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
+#include "libc/calls/bo.internal.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/internal.h"
 #include "libc/calls/sig.internal.h"
@@ -43,7 +44,6 @@
 // sendfile() isn't specified as raising eintr
 static textwindows int SendfileBlock(int64_t handle,
                                      struct NtOverlapped *overlapped) {
-  int rc;
   uint32_t i, got, flags = 0;
   if (WSAGetLastError() != kNtErrorIoPending &&
       WSAGetLastError() != WSAEINPROGRESS) {
@@ -57,7 +57,7 @@ static textwindows int SendfileBlock(int64_t handle,
       NTTRACE("WSAWaitForMultipleEvents failed %lm");
       return __winsockerr();
     } else if (i == kNtWaitTimeout || i == kNtWaitIoCompletion) {
-      if (_check_interrupts(kSigOpRestartable, g_fds.p)) return -1;
+      if (_check_interrupts(kSigOpRestartable)) return -1;
 #if _NTTRACE
       POLLTRACE("WSAWaitForMultipleEvents...");
 #endif
@@ -105,7 +105,9 @@ static dontinline textwindows ssize_t sys_sendfile_nt(
   if (TransmitFile(oh, ih, uptobytes, 0, &ov, 0, 0)) {
     rc = uptobytes;
   } else {
+    BEGIN_BLOCKING_OPERATION;
     rc = SendfileBlock(oh, &ov);
+    END_BLOCKING_OPERATION;
   }
   if (rc != -1) {
     if (opt_in_out_inoffset) {

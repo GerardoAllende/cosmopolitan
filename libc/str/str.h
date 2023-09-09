@@ -11,6 +11,8 @@
 #define chomp16       _chomp16
 #define wchomp        _wchomp
 #define tpenc         _tpenc
+#define isutf8        _isutf8
+#define istext        _istext
 #define startswith    _startswith
 #define startswithi   _startswithi
 #define endswith      _endswith
@@ -21,38 +23,38 @@
 #if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 
-int isascii(int) pureconst;
-int isspace(int) pureconst;
-int isalpha(int) pureconst;
-int isdigit(int) pureconst;
-int isalnum(int) pureconst;
-int isxdigit(int) pureconst;
-int isprint(int) pureconst;
-int islower(int) pureconst;
-int isupper(int) pureconst;
-int isblank(int) pureconst;
-int iscntrl(int) pureconst;
-int isgraph(int) pureconst;
-int tolower(int) pureconst;
-int ispunct(int) pureconst;
-int toupper(int) pureconst;
-int toascii(int) pureconst;
+int isascii(int);
+int isspace(int);
+int isalpha(int);
+int isdigit(int);
+int isalnum(int);
+int isxdigit(int);
+int isprint(int);
+int islower(int);
+int isupper(int);
+int isblank(int);
+int iscntrl(int);
+int isgraph(int);
+int tolower(int);
+int ispunct(int);
+int toupper(int);
+int toascii(int);
 
-int iswalnum(wint_t) pureconst;
-int iswalpha(wint_t) pureconst;
-int iswblank(wint_t) pureconst;
-int iswcntrl(wint_t) pureconst;
-int iswdigit(wint_t) pureconst;
-int iswgraph(wint_t) pureconst;
-int iswlower(wint_t) pureconst;
-int iswspace(wint_t) pureconst;
-int iswupper(wint_t) pureconst;
-int iswxdigit(wint_t) pureconst;
-int iswpunct(wint_t) pureconst;
-int iswprint(wint_t) pureconst;
-int iswseparator(wint_t) pureconst;
-wint_t towlower(wint_t) pureconst;
-wint_t towupper(wint_t) pureconst;
+int iswalnum(wint_t);
+int iswalpha(wint_t);
+int iswblank(wint_t);
+int iswcntrl(wint_t);
+int iswdigit(wint_t);
+int iswgraph(wint_t);
+int iswlower(wint_t);
+int iswspace(wint_t);
+int iswupper(wint_t);
+int iswxdigit(wint_t);
+int iswpunct(wint_t);
+int iswprint(wint_t);
+int iswseparator(wint_t);
+wint_t towlower(wint_t);
+wint_t towupper(wint_t);
 
 void bzero(void *, size_t) memcpyesque;
 void *memset(void *, int, size_t) memcpyesque;
@@ -187,9 +189,9 @@ wchar_t *wchomp(wchar_t *) libcesque;
 bool startswith(const char *, const char *) strlenesque;
 bool startswithi(const char *, const char *) strlenesque;
 bool endswith(const char *, const char *) strlenesque;
-bool _istext(const void *, size_t) libcesque;
-bool _isutf8(const void *, size_t) libcesque;
-char *strsignal_r(int, char[hasatleast 15]) returnsnonnull libcesque;
+bool istext(const void *, size_t) libcesque;
+bool isutf8(const void *, size_t) libcesque;
+char *strsignal_r(int, char[21]) returnsnonnull libcesque __wur;
 int strerror_wr(int, uint32_t, char *, size_t)
 dontthrow nocallback;
 char16_t *chomp16(char16_t *) libcesque;

@@ -16,23 +16,25 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/calls/internal.h"
 #include "libc/calls/state.internal.h"
-#include "libc/intrin/_getenv.internal.h"
+#include "libc/calls/struct/fd.internal.h"
+#include "libc/calls/ttydefaults.h"
 #include "libc/intrin/atomic.h"
 #include "libc/intrin/extend.internal.h"
+#include "libc/intrin/getenv.internal.h"
 #include "libc/intrin/kprintf.h"
+#include "libc/intrin/nomultics.internal.h"
 #include "libc/intrin/pushpop.internal.h"
 #include "libc/intrin/weaken.h"
-#include "libc/macros.internal.h"
 #include "libc/nt/runtime.h"
 #include "libc/runtime/memtrack.internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/sock/sock.h"
-#include "libc/str/str.h"
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/o.h"
 #include "libc/thread/thread.h"
+
+#define OPEN_MAX 16
 
 #ifdef __x86_64__
 __static_yoink("_init_g_fds");
@@ -93,7 +95,7 @@ textstartup void __init_fds(int argc, char **argv, char **envp) {
   } else if (IsWindows()) {
     int sockset = 0;
     struct Env var;
-    var = _getenv(envp, "__STDIO_SOCKETS");
+    var = __getenv(envp, "__STDIO_SOCKETS");
     if (var.s) {
       int i = var.i + 1;
       do {
@@ -117,4 +119,6 @@ textstartup void __init_fds(int argc, char **argv, char **envp) {
   }
   fds->p[1].flags = O_WRONLY | O_APPEND;
   fds->p[2].flags = O_WRONLY | O_APPEND;
+  __vintr = CTRL('C');
+  __vquit = CTRL('\\');
 }

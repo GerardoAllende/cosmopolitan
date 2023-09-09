@@ -17,6 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
+#include "libc/calls/bo.internal.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/internal.h"
 #include "libc/calls/sig.internal.h"
@@ -26,8 +27,11 @@
 #include "libc/calls/syscall_support-nt.internal.h"
 #include "libc/calls/wincrash.internal.h"
 #include "libc/errno.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/kprintf.h"
+#include "libc/intrin/nomultics.internal.h"
+#include "libc/intrin/weaken.h"
 #include "libc/macros.internal.h"
+#include "libc/nt/console.h"
 #include "libc/nt/enum/filetype.h"
 #include "libc/nt/enum/wait.h"
 #include "libc/nt/errors.h"
@@ -38,9 +42,19 @@
 #include "libc/nt/struct/overlapped.h"
 #include "libc/nt/synchronization.h"
 #include "libc/nt/thread.h"
+#include "libc/nt/thunk/msabi.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/o.h"
+#include "libc/sysv/consts/sicode.h"
+#include "libc/sysv/consts/sig.h"
+#include "libc/sysv/consts/termios.h"
 #include "libc/sysv/errfuns.h"
+
+__static_yoink("WinMainStdin");
+
+#ifdef __x86_64__
+
+__msabi extern typeof(CloseHandle) *const __imp_CloseHandle;
 
 static textwindows void sys_read_nt_abort(int64_t handle,
                                           struct NtOverlapped *overlapped) {
@@ -48,54 +62,47 @@ static textwindows void sys_read_nt_abort(int64_t handle,
            GetLastError() == kNtErrorNotFound);
 }
 
-static textwindows void MungeTerminalInput(struct Fd *fd, char *p, size_t n) {
-  if (!(fd->ttymagic & kFdTtyNoCr2Nl)) {
-    size_t i;
-    for (i = 0; i < n; ++i) {
-      if (p[i] == '\r') {
-        p[i] = '\n';
-      }
-    }
-  }
-}
-
-// Manual CMD.EXE echoing for when !ICANON && ECHO is the case.
-static textwindows void EchoTerminalInput(struct Fd *fd, char *p, size_t n) {
-  int64_t hOutput;
-  if (fd->kind == kFdConsole) {
-    hOutput = fd->extra;
-  } else {
-    hOutput = g_fds.p[1].handle;
-  }
-  if (fd->ttymagic & kFdTtyEchoRaw) {
-    WriteFile(hOutput, p, n, 0, 0);
-  } else {
-    size_t i;
-    for (i = 0; i < n; ++i) {
-      if (isascii(p[i]) && iscntrl(p[i]) && p[i] != '\n' && p[i] != '\t') {
-        char ctl[2];
-        ctl[0] = '^';
-        ctl[1] = p[i] ^ 0100;
-        WriteFile(hOutput, ctl, 2, 0, 0);
-      } else {
-        WriteFile(hOutput, p + i, 1, 0, 0);
-      }
-    }
-  }
-}
-
-static textwindows ssize_t sys_read_nt_impl(struct Fd *fd, void *data,
-                                            size_t size, int64_t offset) {
+textwindows ssize_t sys_read_nt_impl(int fd, void *data, size_t size,
+                                     int64_t offset) {
 
   // perform the read i/o operation
   bool32 ok;
+  struct Fd *f;
   uint32_t got;
   int filetype;
   int64_t handle;
+  uint32_t remain;
+  char *targetdata;
+  uint32_t targetsize;
+  bool is_console_input;
   int abort_errno = EAGAIN;
+  f = g_fds.p + fd;
+StartOver:
   size = MIN(size, 0x7ffff000);
-  handle = __resolve_stdin_handle(fd->handle);
+  handle = __resolve_stdin_handle(f->handle);
   filetype = GetFileType(handle);
+  is_console_input = g_fds.stdin.handle ? f->handle == g_fds.stdin.handle
+                                        : f->handle == g_fds.p[0].handle;
+
+  // the caller might be reading a single byte at a time. but we need to
+  // be able to munge three bytes into just 1 e.g. "\342\220\200" → "\0"
+  if (size && f->buflen) {
+  ReturnDataFromBuffer:
+    got = MIN(size, f->buflen);
+    remain = f->buflen - got;
+    if (got) memcpy(data, f->buf, got);
+    if (remain) memmove(f->buf, f->buf + got, remain);
+    f->buflen = remain;
+    return got;
+  }
+  if (is_console_input && size && size < 3 && (__ttymagic & kFdTtyMunging)) {
+    targetdata = f->buf;
+    targetsize = sizeof(f->buf);
+  } else {
+    targetdata = data;
+    targetsize = size;
+  }
+
   if (filetype == kNtFileTypeChar || filetype == kNtFileTypePipe) {
     struct NtOverlapped overlap = {0};
     if (offset != -1) {
@@ -105,24 +112,28 @@ static textwindows ssize_t sys_read_nt_impl(struct Fd *fd, void *data,
     if ((overlap.hEvent = CreateEvent(0, 0, 0, 0))) {
       // the win32 manual says it's important to *not* put &got here
       // since for overlapped i/o, we always use GetOverlappedResult
-      ok = ReadFile(handle, data, size, 0, &overlap);
+      ok = ReadFile(handle, targetdata, targetsize, 0, &overlap);
       if (!ok && GetLastError() == kNtErrorIoPending) {
-        // i/o operation is in flight; blocking is unavoidable
-        // if we're in non-blocking mode, then immediately abort
-        // if an interrupt is pending, then abort before waiting
+        BEGIN_BLOCKING_OPERATION;
+        // the i/o operation is in flight; blocking is unavoidable
+        // if we're in a non-blocking mode, then immediately abort
+        // if an interrupt is pending then we abort before waiting
         // otherwise wait for i/o periodically checking interrupts
-        if (fd->flags & O_NONBLOCK) {
+        if (f->flags & O_NONBLOCK) {
           sys_read_nt_abort(handle, &overlap);
-        } else if (_check_interrupts(kSigOpRestartable, g_fds.p)) {
+        } else if (_check_interrupts(kSigOpRestartable)) {
         Interrupted:
           abort_errno = errno;
           sys_read_nt_abort(handle, &overlap);
         } else {
           for (;;) {
             uint32_t i;
+            if (g_fds.stdin.inisem) {
+              ReleaseSemaphore(g_fds.stdin.inisem, 1, 0);
+            }
             i = WaitForSingleObject(overlap.hEvent, __SIG_POLLING_INTERVAL_MS);
             if (i == kNtWaitTimeout) {
-              if (_check_interrupts(kSigOpRestartable, g_fds.p)) {
+              if (_check_interrupts(kSigOpRestartable)) {
                 goto Interrupted;
               }
             } else {
@@ -132,40 +143,61 @@ static textwindows ssize_t sys_read_nt_impl(struct Fd *fd, void *data,
           }
         }
         ok = true;
+        END_BLOCKING_OPERATION;
       }
       if (ok) {
         // overlapped is allocated on stack, so it's important we wait
         // for windows to acknowledge that it's done using that memory
         ok = GetOverlappedResult(handle, &overlap, &got, true);
+        if (!ok && GetLastError() == kNtErrorIoIncomplete) {
+          kprintf("you complete me\n");
+          ok = true;
+        }
       }
-      CloseHandle(overlap.hEvent);
+      __imp_CloseHandle(overlap.hEvent);
     } else {
       ok = false;
     }
   } else if (offset == -1) {
     // perform simple blocking file read
-    ok = ReadFile(handle, data, size, &got, 0);
+    ok = ReadFile(handle, targetdata, targetsize, &got, 0);
   } else {
     // perform pread()-style file read at particular file offset
     int64_t position;
     // save file pointer which windows clobbers, even for overlapped i/o
     if (!SetFilePointerEx(handle, 0, &position, SEEK_CUR)) {
-      return __winerr();  // fd probably isn't seekable?
+      return __winerr();  // f probably isn't seekable?
     }
     struct NtOverlapped overlap = {0};
     overlap.Pointer = (void *)(uintptr_t)offset;
-    ok = ReadFile(handle, data, size, 0, &overlap);
+    ok = ReadFile(handle, targetdata, targetsize, 0, &overlap);
     if (!ok && GetLastError() == kNtErrorIoPending) ok = true;
     if (ok) ok = GetOverlappedResult(handle, &overlap, &got, true);
     // restore file pointer which windows clobbers, even on error
     unassert(SetFilePointerEx(handle, position, 0, SEEK_SET));
   }
+
   if (ok) {
-    if (fd->ttymagic & kFdTtyMunging) {
-      MungeTerminalInput(fd, data, got);
+    if (is_console_input) {
+      if (__ttymagic & kFdTtyMunging) {
+        switch (_weaken(__munge_terminal_input)(targetdata, &got)) {
+          case DO_NOTHING:
+            break;
+          case DO_RESTART:
+            goto StartOver;
+          case DO_EINTR:
+            return eintr();
+          default:
+            __builtin_unreachable();
+        }
+      }
+      if (__ttymagic & kFdTtyEchoing) {
+        _weaken(__echo_terminal_input)(f, targetdata, got);
+      }
     }
-    if (fd->ttymagic & kFdTtyEchoing) {
-      EchoTerminalInput(fd, data, got);
+    if (targetdata != data) {
+      f->buflen = got;
+      goto ReturnDataFromBuffer;
     }
     return got;
   }
@@ -185,13 +217,11 @@ static textwindows ssize_t sys_read_nt_impl(struct Fd *fd, void *data,
   }
 }
 
-textwindows ssize_t sys_read_nt(struct Fd *fd, const struct iovec *iov,
-                                size_t iovlen, int64_t opt_offset) {
+textwindows ssize_t sys_read_nt(int fd, const struct iovec *iov, size_t iovlen,
+                                int64_t opt_offset) {
   ssize_t rc;
-  uint32_t size;
   size_t i, total;
   if (opt_offset < -1) return einval();
-  if (_check_interrupts(kSigOpRestartable, fd)) return -1;
   while (iovlen && !iov[0].iov_len) iov++, iovlen--;
   if (iovlen) {
     for (total = i = 0; i < iovlen; ++i) {
@@ -207,3 +237,5 @@ textwindows ssize_t sys_read_nt(struct Fd *fd, const struct iovec *iov,
     return sys_read_nt_impl(fd, NULL, 0, opt_offset);
   }
 }
+
+#endif /* __x86_64__ */

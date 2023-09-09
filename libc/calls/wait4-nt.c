@@ -17,6 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
+#include "libc/calls/bo.internal.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/internal.h"
 #include "libc/calls/sig.internal.h"
@@ -24,7 +25,6 @@
 #include "libc/calls/struct/rusage.h"
 #include "libc/calls/syscall_support-nt.internal.h"
 #include "libc/fmt/conv.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/intrin/strace.internal.h"
 #include "libc/macros.internal.h"
 #include "libc/nt/accounting.h"
@@ -36,6 +36,7 @@
 #include "libc/nt/process.h"
 #include "libc/nt/runtime.h"
 #include "libc/nt/struct/filetime.h"
+#include "libc/nt/struct/iocounters.h"
 #include "libc/nt/struct/processentry32.h"
 #include "libc/nt/struct/processmemorycounters.h"
 #include "libc/nt/synchronization.h"
@@ -69,16 +70,23 @@ static textwindows void AddProcessStats(int64_t h, struct rusage *ru) {
   } else {
     STRACE("%s failed %u", "GetProcessTimes", GetLastError());
   }
+  struct NtIoCounters iocount;
+  if (GetProcessIoCounters(h, &iocount)) {
+    ru->ru_inblock += iocount.ReadOperationCount;
+    ru->ru_oublock += iocount.WriteOperationCount;
+  } else {
+    STRACE("%s failed %u", "GetProcessIoCounters", GetLastError());
+  }
 }
 
 static textwindows int sys_wait4_nt_impl(int *pid, int *opt_out_wstatus,
                                          int options,
                                          struct rusage *opt_out_rusage) {
+  int pids[64];
   int64_t handle;
-  int rc, pids[64];
+  uint32_t i, count;
   int64_t handles[64];
   uint32_t dwExitCode;
-  uint32_t i, j, count;
   if (*pid != -1 && *pid != 0) {
     if (*pid < 0) {
       // XXX: this is sloppy
@@ -155,13 +163,15 @@ textwindows int sys_wait4_nt(int pid, int *opt_out_wstatus, int options,
   sigset_t oldmask, mask = {0};
   sigaddset(&mask, SIGCHLD);
   __sig_mask(SIG_BLOCK, &mask, &oldmask);
+  BEGIN_BLOCKING_OPERATION;
   do {
-    rc = _check_interrupts(kSigOpRestartable | kSigOpNochld, 0);
+    rc = _check_interrupts(kSigOpRestartable | kSigOpNochld);
     if (rc == -1) break;
     __fds_lock();
     rc = sys_wait4_nt_impl(&pid, opt_out_wstatus, options, opt_out_rusage);
     __fds_unlock();
   } while (rc == -2);
+  END_BLOCKING_OPERATION;
   __sig_mask(SIG_SETMASK, &oldmask, 0);
   return rc;
 }

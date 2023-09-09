@@ -155,9 +155,11 @@ SANITIZER =								\
 	-fsanitize=address
 
 NO_MAGIC =								\
+	-ffreestanding							\
 	-fno-stack-protector						\
 	-fwrapv								\
-	-fno-sanitize=all
+	-fno-sanitize=all						\
+	-fpatchable-function-entry=0,0
 
 OLD_CODE =								\
 	-fno-strict-aliasing						\
@@ -258,7 +260,7 @@ DEFAULT_LDFLAGS +=							\
 	-znorelro
 else
 DEFAULT_LDFLAGS +=							\
-	-zmax-page-size=0x1000						\
+	-zmax-page-size=0x4000						\
 	-zcommon-page-size=0x1000
 endif
 

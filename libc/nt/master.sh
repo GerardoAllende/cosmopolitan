@@ -11,6 +11,7 @@
 #	Name							Actual							DLL		Arity
 imp	''							CloseHandle						kernel32	1
 imp	''							CreateDirectoryW					kernel32	2
+imp	''							CreateFileA						kernel32	7
 imp	''							CreateFileMappingNumaW					kernel32	7
 imp	''							CreateFileMappingW					kernel32	6
 imp	''							CreateFileW						kernel32	7
@@ -161,6 +162,7 @@ imp	'GetSystemTimePreciseAsFileTime'			GetSystemTimePreciseAsFileTime				kernel3
 imp	'GetSystemTimes'					GetSystemTimes						kernel32	3
 imp	'GetTempPath'						GetTempPathW						kernel32	2
 imp	'GetTempPathA'						GetTempPathA						kernel32	2
+imp	'GetThreadContext'					GetThreadContext					kernel32	2
 imp	'GetThreadIOPendingFlag'				GetThreadIOPendingFlag					kernel32	2
 imp	'GetThreadId'						GetThreadId						kernel32	1
 imp	'GetThreadPriority'					GetThreadPriority					kernel32	1
@@ -181,6 +183,7 @@ imp	'HeapCreate'						HeapCreate						kernel32	3
 imp	'HeapDestroy'						HeapDestroy						kernel32	1
 imp	'HeapFree'						HeapFree						kernel32	3
 imp	'HeapReAlloc'						HeapReAlloc						kernel32	4
+imp	'InitializeContext'					InitializeContext					kernel32	4	# Windows 7+
 imp	'InitializeCriticalSection'				InitializeCriticalSection				kernel32	1
 imp	'InitializeCriticalSectionAndSpinCount'			InitializeCriticalSectionAndSpinCount			kernel32	2
 imp	'InitializeProcThreadAttributeList'			InitializeProcThreadAttributeList			kernel32	4
@@ -222,6 +225,7 @@ imp	'ReleaseSemaphore'					ReleaseSemaphore					kernel32	3
 imp	'RemoveVectoredContinueHandler'				RemoveVectoredContinueHandler				kernel32	1
 imp	'RemoveVectoredExceptionHandler'			RemoveVectoredExceptionHandler				kernel32	1
 imp	'ResetEvent'						ResetEvent						kernel32	1
+imp	'ResumeThread'						ResumeThread						kernel32	1
 imp	'SetConsoleActiveScreenBuffer'				SetConsoleActiveScreenBuffer				kernel32	1	# TODO(jart): 6.2 and higher
 imp	'SetConsoleCP'						SetConsoleCP						kernel32	1	# TODO(jart): 6.2 and higher
 imp	'SetConsoleCtrlHandler'					SetConsoleCtrlHandler					kernel32	2
@@ -256,6 +260,7 @@ imp	'SetProcessWorkingSetSize'				SetProcessWorkingSetSize				kernel32	3
 imp	'SetProcessWorkingSetSizeEx'				SetProcessWorkingSetSizeEx				kernel32	4
 imp	'SetStdHandle'						SetStdHandle						kernel32	2
 imp	'SetThreadAffinityMask'					SetThreadAffinityMask					kernel32	2
+imp	'SetThreadContext'					SetThreadContext					kernel32	2
 imp	'SetThreadPriority'					SetThreadPriority					kernel32	2
 imp	'SetThreadPriorityBoost'				SetThreadPriorityBoost					kernel32	2
 imp	'SetUnhandledExceptionFilter'				SetUnhandledExceptionFilter				kernel32	1

@@ -29,7 +29,6 @@
 #include "libc/calls/syscall_support-sysv.internal.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/macros.internal.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/internal.h"
@@ -366,7 +365,7 @@ TEST(pledge, inet_forbidsOtherSockets) {
 
 TEST(pledge, anet_forbidsUdpSocketsAndConnect) {
   if (IsOpenbsd()) return;  // b/c testing linux bpf
-  int ws, pid, yes = 1;
+  int ws, pid;
   ASSERT_NE(-1, (pid = fork()));
   if (!pid) {
     ASSERT_SYS(0, 0, pledge("stdio anet", 0));
@@ -448,7 +447,7 @@ TEST(pledge, open_rpath) {
   if (!pid) {
     ASSERT_SYS(0, 0, pledge("stdio rpath", 0));
     ASSERT_SYS(0, 3, open("foo", O_RDONLY));
-    ASSERT_SYS(EPERM, -1, open("foo", O_RDONLY | O_TRUNC));
+    ASSERT_SYS(EINVAL, -1, open("foo", O_RDONLY | O_TRUNC));
     ASSERT_SYS(EPERM, -1, open("foo", O_RDONLY | O_TMPFILE));
     ASSERT_SYS(EPERM, -1, open("foo", O_RDWR | O_TRUNC | O_CREAT, 0644));
     ASSERT_SYS(EPERM, -1, open("foo", O_WRONLY | O_TRUNC | O_CREAT, 0644));
@@ -613,7 +612,7 @@ int LockWorker(void *arg, int tid) {
 
 TEST(pledge, threadWithLocks_canCodeMorph) {
   struct spawn worker;
-  int ws, pid;
+  int ws;
   // not sure how this works on OpenBSD but it works!
   if (!fork()) {
     __enable_threads();
@@ -628,7 +627,7 @@ TEST(pledge, threadWithLocks_canCodeMorph) {
 }
 
 TEST(pledge, everything) {
-  int ws, pid;
+  int ws;
   if (!fork()) {
     // contains 591 bpf instructions [2022-07-24]
     ASSERT_SYS(0, 0,
@@ -669,7 +668,6 @@ TEST(pledge, execWithoutRpath) {
 }
 
 BENCH(pledge, bench) {
-  int pid;
   if (!fork()) {
     ASSERT_SYS(0, 0, pledge("stdio", 0));
     EZBENCH2("sched_yield", donothing, sched_yield());

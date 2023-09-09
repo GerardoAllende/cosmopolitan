@@ -131,7 +131,6 @@ include libc/tinymath/tinymath.mk		# │  You can issue raw system calls
 include libc/str/str.mk				# │
 include third_party/xed/xed.mk			# │
 include third_party/puff/puff.mk		# │
-include third_party/zlib/zlib.mk		# │
 include libc/elf/elf.mk				# │
 include ape/ape.mk				# │
 include libc/fmt/fmt.mk				# │
@@ -147,6 +146,7 @@ include third_party/gdtoa/gdtoa.mk		# ├──DYNAMIC RUNTIME
 include third_party/nsync/mem/mem.mk		# │  You can now use stdio
 include libc/thread/thread.mk			# │  You can finally call malloc()
 include tool/hello/hello.mk			# │
+include third_party/zlib/zlib.mk		# │
 include libc/stdio/stdio.mk			# │
 include libc/time/time.mk			# │
 include net/net.mk				# │
@@ -324,6 +324,7 @@ COSMOPOLITAN_OBJECTS =			\
 	LIBC_LOG			\
 	LIBC_TIME			\
 	THIRD_PARTY_MUSL		\
+	THIRD_PARTY_ZLIB_GZ		\
 	LIBC_STDIO			\
 	THIRD_PARTY_GDTOA		\
 	THIRD_PARTY_REGEX		\
@@ -347,6 +348,7 @@ COSMOPOLITAN_OBJECTS =			\
 	LIBC_NT_ADVAPI32		\
 	LIBC_NT_SYNCHRONIZATION		\
 	LIBC_FMT			\
+	THIRD_PARTY_ZLIB		\
 	THIRD_PARTY_PUFF		\
 	THIRD_PARTY_COMPILER_RT		\
 	LIBC_TINYMATH			\
@@ -425,7 +427,7 @@ $(SRCS):					\
 ifeq ($(ARCH), x86_64)
 TOOLCHAIN_ARTIFACTS =				\
 	o/cosmopolitan.h			\
-	o/$(MODE)/ape/public/ape.lds		\
+	o/$(MODE)/ape/ape.lds			\
 	o/$(MODE)/libc/crt/crt.o		\
 	o/$(MODE)/ape/ape.elf			\
 	o/$(MODE)/ape/ape.o			\

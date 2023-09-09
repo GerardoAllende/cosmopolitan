@@ -1,7 +1,7 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
 │vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
 ╞══════════════════════════════════════════════════════════════════════════════╡
-│ Copyright 2020 Justine Alexandra Roberts Tunney                              │
+│ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
 │ Permission to use, copy, modify, and/or distribute this software for         │
 │ any purpose with or without fee is hereby granted, provided that the         │
@@ -16,39 +16,90 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "ape/relocations.h"
-#include "libc/assert.h"
-#include "libc/runtime/runtime.h"
-#include "libc/str/str.h"
-#include "libc/zip.internal.h"
+#include "libc/macros.internal.h"
 #include "libc/runtime/zipos.internal.h"
+#include "libc/str/str.h"
+#include "libc/sysv/consts/s.h"
+#include "libc/sysv/errfuns.h"
+#include "libc/zip.internal.h"
 
-// TODO(jart): improve time complexity here
+ssize_t __zipos_scan(struct Zipos *zipos, struct ZiposUri *name) {
 
-ssize_t __zipos_find(struct Zipos *zipos, const struct ZiposUri *name) {
-  const char *zname;
-  size_t i, n, c, znamesize;
-  if (!name->len) {
-    return 0;
+  // strip trailing slash from search name
+  int len = name->len;
+  if (len && name->path[len - 1] == '/') {
+    --len;
   }
-  c = GetZipCdirOffset(zipos->cdir);
-  n = GetZipCdirRecords(zipos->cdir);
-  for (i = 0; i < n; ++i, c += ZIP_CFILE_HDRSIZE(zipos->map + c)) {
-    npassert(ZIP_CFILE_MAGIC(zipos->map + c) == kZipCfileHdrMagic);
-    zname = ZIP_CFILE_NAME(zipos->map + c);
-    znamesize = ZIP_CFILE_NAMESIZE(zipos->map + c);
-    if ((name->len == znamesize && !memcmp(name->path, zname, name->len)) ||
-        (name->len + 1 == znamesize && !memcmp(name->path, zname, name->len) &&
-         zname[name->len] == '/')) {
-      return c;
-    } else if ((name->len < znamesize &&
-                !memcmp(name->path, zname, name->len) &&
-                zname[name->len - 1] == '/') ||
-               (name->len + 1 < znamesize &&
-                !memcmp(name->path, zname, name->len) &&
-                zname[name->len] == '/')) {
-      return 0;
+
+  // empty string means the /zip root directory
+  if (!len) {
+    return ZIPOS_SYNTHETIC_DIRECTORY;
+  }
+
+  // binary search for leftmost name in central directory
+  int l = 0;
+  int r = zipos->records;
+  while (l < r) {
+    int m = (l & r) + ((l ^ r) >> 1);  // floor((a+b)/2)
+    const char *xp = ZIP_CFILE_NAME(zipos->map + zipos->index[m]);
+    const char *yp = name->path;
+    int xn = ZIP_CFILE_NAMESIZE(zipos->map + zipos->index[m]);
+    int yn = len;
+    int n = MIN(xn, yn);
+    int c;
+    if (n) {
+      if (!(c = memcmp(xp, yp, n))) {
+        c = xn - yn;  // xn and yn are 16-bit
+      }
+    } else {
+      c = xn - yn;
+    }
+    if (c < 0) {
+      l = m + 1;
+    } else {
+      r = m;
     }
   }
+
+  // return pointer to leftmost record if it matches
+  if (l < zipos->records) {
+    size_t cfile = zipos->index[l];
+    const char *zname = ZIP_CFILE_NAME(zipos->map + cfile);
+    int zsize = ZIP_CFILE_NAMESIZE(zipos->map + cfile);
+    if ((len == zsize || (len + 1 == zsize && zname[len] == '/')) &&
+        !memcmp(name->path, zname, len)) {
+      return cfile;
+    } else if (len + 1 < zsize && zname[len] == '/' &&
+               !memcmp(name->path, zname, len)) {
+      return ZIPOS_SYNTHETIC_DIRECTORY;
+    }
+  }
+
+  // otherwise return not found
   return -1;
+}
+
+// support code for open(), stat(), and access()
+ssize_t __zipos_find(struct Zipos *zipos, struct ZiposUri *name) {
+  ssize_t cf;
+  if ((cf = __zipos_scan(zipos, name)) == -1) {
+    // test if parent component exists that isn't a directory
+    char *p;
+    while ((p = memrchr(name->path, '/', name->len))) {
+      name->path[name->len = p - name->path] = 0;
+      if ((cf = __zipos_scan(zipos, name)) != -1 &&
+          cf != ZIPOS_SYNTHETIC_DIRECTORY &&
+          !S_ISDIR(GetZipCfileMode(zipos->map + cf))) {
+        return enotdir();
+      }
+    }
+    return enoent();
+  }
+  // test if we're opening "foo/" and "foo" isn't a directory
+  if (cf != ZIPOS_SYNTHETIC_DIRECTORY &&  //
+      name->len && name->path[name->len - 1] == '/' &&
+      !S_ISDIR(GetZipCfileMode(zipos->map + cf))) {
+    return enotdir();
+  }
+  return cf;
 }

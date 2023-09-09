@@ -46,13 +46,12 @@ static dontasan dontubsan relegated uint64_t CountMappedBytes(void) {
 }
 
 static relegated void DieBecauseOfQuota(int rc, const char *message) {
-  int e = errno;
   char hostname[32];
   stpcpy(hostname, "unknown");
   gethostname(hostname, sizeof(hostname));
   kprintf("%s on %s pid %d\n", message, hostname, (long)getpid());
   PrintBacktraceUsingSymbols(2, 0, GetSymbolTable());
-  _Exitr(rc);
+  _Exit(rc);
 }
 
 static relegated void OnXcpu(int sig) {
@@ -88,7 +87,7 @@ relegated void __oom_hook(size_t request) {
   kprintf("\nTHE STRAW THAT BROKE THE CAMEL'S BACK\n");
   PrintBacktraceUsingSymbols(2, 0, GetSymbolTable());
   PrintSystemMappings(2);
-  _Exitr(42);
+  _Exit(42);
 }
 
 static textstartup void InstallQuotaHandlers(void) {

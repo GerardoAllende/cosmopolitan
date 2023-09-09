@@ -28,7 +28,6 @@
 #include "libc/calls/termios.internal.h"
 #include "libc/dce.h"
 #include "libc/intrin/asan.internal.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/log/rop.internal.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/at.h"
@@ -49,7 +48,7 @@ struct IoctlPtmGet {
 static int openpty_impl(int *mfd, int *sfd, char *name,
                         const struct termios *tio,  //
                         const struct winsize *wsz) {
-  int m, s, p;
+  int m, s;
   struct IoctlPtmGet t;
   RETURN_ON_ERROR((m = posix_openpt(O_RDWR | O_NOCTTY)));
   if (!IsOpenbsd()) {
@@ -67,7 +66,7 @@ static int openpty_impl(int *mfd, int *sfd, char *name,
   *sfd = s;
   if (name) strcpy(name, t.sname);
   if (tio) npassert(!tcsetattr(s, TCSAFLUSH, tio));
-  if (wsz) npassert(!tcgetwinsize(s, wsz));
+  if (wsz) npassert(!tcsetwinsize(s, wsz));
   return 0;
 OnError:
   if (m != -1) sys_close(m);

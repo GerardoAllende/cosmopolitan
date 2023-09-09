@@ -17,10 +17,10 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
+#include "libc/calls/bo.internal.h"
 #include "libc/calls/internal.h"
 #include "libc/calls/sig.internal.h"
 #include "libc/errno.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/nt/enum/wait.h"
 #include "libc/nt/enum/wsa.h"
 #include "libc/nt/errors.h"
@@ -50,11 +50,12 @@ textwindows int __wsablock(struct Fd *fd, struct NtOverlapped *overlapped,
     // our i/o operation never happened because it failed
     return __winsockerr();
   }
+  BEGIN_BLOCKING_OPERATION;
   // our i/o operation is in flight and it needs to block
   abort_errno = EAGAIN;
   if (fd->flags & O_NONBLOCK) {
     __wsablock_abort(fd->handle, overlapped);
-  } else if (_check_interrupts(sigops, g_fds.p)) {
+  } else if (_check_interrupts(sigops)) {
   Interrupted:
     abort_errno = errno;  // EINTR or ECANCELED
     __wsablock_abort(fd->handle, overlapped);
@@ -63,7 +64,7 @@ textwindows int __wsablock(struct Fd *fd, struct NtOverlapped *overlapped,
       i = WSAWaitForMultipleEvents(1, &overlapped->hEvent, true,
                                    __SIG_POLLING_INTERVAL_MS, true);
       if (i == kNtWaitFailed || i == kNtWaitTimeout) {
-        if (_check_interrupts(sigops, g_fds.p)) {
+        if (_check_interrupts(sigops)) {
           goto Interrupted;
         }
         if (i == kNtWaitFailed) {
@@ -87,11 +88,13 @@ textwindows int __wsablock(struct Fd *fd, struct NtOverlapped *overlapped,
   // overlapped is allocated on stack by caller, so it's important that
   // we wait for win32 to acknowledge that it's done using that memory.
   if (WSAGetOverlappedResult(fd->handle, overlapped, &got, true, flags)) {
-    return got;
-  } else if (WSAGetLastError() == kNtErrorOperationAborted) {
-    errno = abort_errno;
-    return -1;
+    rc = got;
   } else {
-    return -1;
+    rc = -1;
+    if (WSAGetLastError() == kNtErrorOperationAborted) {
+      errno = abort_errno;
+    }
   }
+  END_BLOCKING_OPERATION;
+  return rc;
 }

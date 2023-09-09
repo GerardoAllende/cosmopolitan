@@ -1,10 +1,19 @@
 #ifndef COSMOPOLITAN_LIBC_STDIO_H_
 #define COSMOPOLITAN_LIBC_STDIO_H_
 
+#define EOF    -1  /* end of file */
+#define WEOF   -1u /* end of file (multibyte) */
+#define _IOFBF 0   /* fully buffered */
+#define _IOLBF 1   /* line buffered */
+#define _IONBF 2   /* no buffering */
+
+#define L_tmpnam     20
 #define L_ctermid    20
-#define FILENAME_MAX PATH_MAX
+#define P_tmpdir     "/tmp"
+#define FILENAME_MAX 1024
 #define FOPEN_MAX    1000
 #define TMP_MAX      10000
+#define BUFSIZ       4096
 
 #if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
@@ -51,9 +60,9 @@ int putchar(int);
 int puts(const char *);
 ssize_t getline(char **, size_t *, FILE *) paramsnonnull();
 ssize_t getdelim(char **, size_t *, int, FILE *) paramsnonnull();
-FILE *fopen(const char *, const char *) paramsnonnull((2)) dontdiscard;
-FILE *fdopen(int, const char *) paramsnonnull() dontdiscard;
-FILE *fmemopen(void *, size_t, const char *) paramsnonnull((3)) dontdiscard;
+FILE *fopen(const char *, const char *) paramsnonnull((2)) __wur;
+FILE *fdopen(int, const char *) paramsnonnull() __wur;
+FILE *fmemopen(void *, size_t, const char *) paramsnonnull((3)) __wur;
 FILE *freopen(const char *, const char *, FILE *) paramsnonnull((2, 3));
 size_t fread(void *, size_t, size_t, FILE *) paramsnonnull((4));
 size_t fwrite(const void *, size_t, size_t, FILE *) paramsnonnull((4));
@@ -77,6 +86,9 @@ char *gets(char *) paramsnonnull();
 int fgetpos(FILE *, fpos_t *) paramsnonnull();
 int fsetpos(FILE *, const fpos_t *) paramsnonnull();
 
+FILE *tmpfile(void) __wur;
+char *tmpnam(char *) __wur;
+char *tmpnam_r(char *) __wur;
 int system(const char *);
 FILE *popen(const char *, const char *);
 
@@ -96,6 +108,14 @@ int vscanf(const char *, va_list);
 int fscanf(FILE *, const char *, ...) scanfesque(2);
 int vfscanf(FILE *, const char *, va_list);
 
+int snprintf(char *, size_t, const char *, ...)
+    printfesque(3) dontthrow nocallback;
+int vsnprintf(char *, size_t, const char *, va_list)
+dontthrow nocallback;
+int sprintf(char *, const char *, ...) dontthrow nocallback;
+int vsprintf(char *, const char *, va_list)
+dontthrow nocallback;
+
 int fwprintf(FILE *, const wchar_t *, ...);
 int fwscanf(FILE *, const wchar_t *, ...);
 int swprintf(wchar_t *, size_t, const wchar_t *, ...);
@@ -110,6 +130,9 @@ int wprintf(const wchar_t *, ...);
 int wscanf(const wchar_t *, ...);
 int fwide(FILE *, int);
 
+int sscanf(const char *, const char *, ...) scanfesque(2);
+int vsscanf(const char *, const char *, va_list);
+
 /*───────────────────────────────────────────────────────────────────────────│─╗
 │ cosmopolitan § standard i/o » allocating                                 ─╬─│┼
 ╚────────────────────────────────────────────────────────────────────────────│*/
@@ -123,6 +146,7 @@ int vasprintf(char **, const char *, va_list) paramsnonnull() libcesque;
 ╚────────────────────────────────────────────────────────────────────────────│*/
 
 int getc_unlocked(FILE *) paramsnonnull();
+int puts_unlocked(const char *);
 int getchar_unlocked(void);
 int putc_unlocked(int, FILE *) paramsnonnull();
 int putchar_unlocked(int);
@@ -147,7 +171,7 @@ wchar_t *fgetws_unlocked(wchar_t *, int, FILE *);
 int fputws_unlocked(const wchar_t *, FILE *);
 wint_t ungetwc_unlocked(wint_t, FILE *) paramsnonnull();
 int ungetc_unlocked(int, FILE *) paramsnonnull();
-int fseeko_unlocked(FILE *, int64_t, int) paramsnonnull();
+int fseek_unlocked(FILE *, int64_t, int) paramsnonnull();
 ssize_t getdelim_unlocked(char **, size_t *, int, FILE *) paramsnonnull();
 int fprintf_unlocked(FILE *, const char *, ...) printfesque(2)
     paramsnonnull((1, 2)) dontthrow nocallback;

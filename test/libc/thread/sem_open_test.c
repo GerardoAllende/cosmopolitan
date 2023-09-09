@@ -18,15 +18,14 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
-#include "libc/stdio/temp.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/clock.h"
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/sig.h"
+#include "libc/temp.h"
 #include "libc/testlib/subprocess.h"
 #include "libc/testlib/testlib.h"
 #include "libc/thread/semaphore.h"
@@ -108,7 +107,7 @@ TEST(sem_close, withUnnamedSemaphore_isUndefinedBehavior) {
   SPAWN(fork);
   IgnoreStderr();
   sem_close(&sem);
-  EXITS(128 + SIGABRT);  // see __assert_fail
+  TERMS(SIGABRT);  // see __assert_fail
   ASSERT_SYS(0, 0, sem_destroy(&sem));
 }
 
@@ -119,7 +118,7 @@ TEST(sem_destroy, withNamedSemaphore_isUndefinedBehavior) {
   SPAWN(fork);
   IgnoreStderr();
   sem_destroy(sem);
-  EXITS(128 + SIGABRT);  // see __assert_fail
+  TERMS(SIGABRT);  // see __assert_fail
   ASSERT_SYS(0, 0, sem_unlink("/boop"));
   ASSERT_SYS(0, 0, sem_close(sem));
 }

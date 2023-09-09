@@ -65,6 +65,16 @@ $(LIBC_CALLS_A).pkg:					\
 		$(LIBC_CALLS_A_OBJS)			\
 		$(foreach x,$(LIBC_CALLS_A_DIRECTDEPS),$($(x)_A).pkg)
 
+# we can't use sanitizers because:
+#   we're on a stack owned by win32 without tls
+o/$(MODE)/libc/calls/foist.o				\
+o/$(MODE)/libc/calls/__sig2.o				\
+o/$(MODE)/libc/calls/onntconsoleevent.o			\
+o/$(MODE)/libc/calls/wincrash.o				\
+o/$(MODE)/libc/calls/ntcontext2linux.o: private		\
+		COPTS +=				\
+			$(NO_MAGIC)
+
 # we can't use asan because:
 #   siginfo_t memory is owned by kernels
 o/$(MODE)/libc/calls/siginfo2cosmo.o: private		\
@@ -86,6 +96,12 @@ o/$(MODE)/libc/calls/vdsofunc.greg.o: private		\
 			-ffreestanding			\
 			-fno-sanitize=address
 
+# we can't use magic because:
+#   this code is called by WinMain
+o/$(MODE)/libc/calls/winstdin1.o: private		\
+		COPTS +=				\
+			$(NO_MAGIC)
+
 # we can't use asan because:
 #   ntspawn allocates 128kb of heap memory via win32
 o/$(MODE)/libc/calls/ntspawn.o				\
@@ -94,14 +110,6 @@ o/$(MODE)/libc/calls/mkntenvblock.o: private		\
 		COPTS +=				\
 			-ffreestanding			\
 			-fno-sanitize=address
-
-# we can't use sanitizers because:
-#   windows owns the data structure
-o/$(MODE)/libc/calls/wincrash.o				\
-o/$(MODE)/libc/calls/ntcontext2linux.o: private		\
-		COPTS +=				\
-			-fno-sanitize=all		\
-			-fpatchable-function-entry=0,0
 
 ifneq ($(ARCH), aarch64)
 # we always want -O3 because:
@@ -204,6 +212,8 @@ o/$(MODE)/libc/calls/getcontext.o: libc/calls/getcontext.S
 o/$(MODE)/libc/calls/swapcontext.o: libc/calls/swapcontext.S
 	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<
 o/$(MODE)/libc/calls/tailcontext.o: libc/calls/tailcontext.S
+	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<
+o/$(MODE)/libc/calls/switchstacks.o: libc/calls/switchstacks.S
 	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<
 
 LIBC_CALLS_LIBS = $(foreach x,$(LIBC_CALLS_ARTIFACTS),$($(x)))

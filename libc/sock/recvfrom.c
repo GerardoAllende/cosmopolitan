@@ -62,15 +62,17 @@ ssize_t recvfrom(int fd, void *buf, size_t size, int flags,
 
   if (IsAsan() && !__asan_is_valid(buf, size)) {
     rc = efault();
+  } else if (fd < g_fds.n && g_fds.p[fd].kind == kFdZip) {
+    rc = enotsock();
   } else if (!IsWindows()) {
     rc = sys_recvfrom(fd, buf, size, flags, &addr, &addrsize);
   } else if (__isfdopen(fd)) {
     if (__isfdkind(fd, kFdSocket)) {
-      rc = sys_recvfrom_nt(&g_fds.p[fd], (struct iovec[]){{buf, size}}, 1,
-                           flags, &addr, &addrsize);
+      rc = sys_recvfrom_nt(fd, (struct iovec[]){{buf, size}}, 1, flags, &addr,
+                           &addrsize);
     } else if (__isfdkind(fd, kFdFile) && !opt_out_srcaddr) { /* socketpair */
       if (!flags) {
-        rc = sys_read_nt(&g_fds.p[fd], (struct iovec[]){{buf, size}}, 1, -1);
+        rc = sys_read_nt(fd, (struct iovec[]){{buf, size}}, 1, -1);
       } else {
         rc = einval();
       }

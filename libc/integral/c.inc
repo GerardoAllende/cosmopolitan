@@ -130,12 +130,14 @@ typedef __UINT64_TYPE__ uint64_t;
 typedef __INTMAX_TYPE__ intmax_t;
 typedef __UINTMAX_TYPE__ uintmax_t;
 
+#ifdef _COSMO_SOURCE
 #if ((__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 406 || \
      defined(__llvm__)) &&                                 \
     !defined(__STRICT_ANSI__)
 typedef signed __int128 int128_t;
 typedef unsigned __int128 uint128_t;
 #endif
+#endif /* _COSMO_SOURCE */
 typedef struct {
   intptr_t ax, dx;
 } axdx_t;
@@ -153,9 +155,8 @@ typedef struct {
 #define libcesque   dontthrow nocallback
 #define memcpyesque libcesque
 #define strlenesque libcesque nosideeffect paramsnonnull()
-#define vallocesque                                    \
-  libcesque dontdiscard returnsaligned((APE_PAGESIZE)) \
-      returnspointerwithnoaliases
+#define vallocesque \
+  libcesque __wur returnsaligned((65536)) returnspointerwithnoaliases
 #define reallocesque libcesque returnsaligned((16))
 #define mallocesque  reallocesque returnspointerwithnoaliases
 #define interruptfn  nocallersavedregisters forcealignargpointer
@@ -195,23 +196,6 @@ typedef struct {
 #ifndef privileged
 #define privileged \
   _Section(".privileged") dontinline dontinstrument dontubsan dontasan
-#endif
-
-#ifndef dontinstrument
-#if !defined(__STRICT_ANSI__) &&                    \
-    (__has_attribute(__no_instrument_function__) || \
-     (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 204)
-#if ((__GNUC__ + 0) >= 7 && !defined(__chibicc__)) || \
-    __has_attribute(__patchable_function_entry__)
-#define dontinstrument                       \
-  __attribute__((__no_instrument_function__, \
-                 __patchable_function_entry__(0, 0)))
-#else
-#define dontinstrument __attribute__((__no_instrument_function__))
-#endif
-#else
-#define dontinstrument
-#endif
 #endif
 
 #ifndef wontreturn
@@ -284,23 +268,13 @@ typedef struct {
 #endif /* __cplusplus */
 #endif /* forceinline */
 
-#ifndef mayalias
-#if !defined(__STRICT_ANSI__) &&       \
-    (__has_attribute(__may_alias__) || \
-     (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 303)
-#define mayalias __attribute__((__may_alias__))
-#else
-#define mayalias
-#endif
-#endif
-
-#ifndef dontdiscard
+#ifndef __wur
 #if !defined(__STRICT_ANSI__) &&                           \
     ((__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 304 || \
      __has_attribute(__warn_unused_result__))
-#define dontdiscard __attribute__((__warn_unused_result__))
+#define __wur __attribute__((__warn_unused_result__))
 #else
-#define dontdiscard
+#define __wur
 #endif
 #endif
 
@@ -415,53 +389,6 @@ typedef struct {
 #endif
 #endif
 
-#ifndef dontoptimize
-#ifndef __STRICT_ANSI__
-#if defined(__llvm__) || __has_attribute(__optnone__)
-#define dontoptimize __attribute__((__optnone__))
-#elif (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 407 || \
-    __has_attribute(__optimize__)
-#define dontoptimize __attribute__((__optimize__(0)))
-#endif
-#else
-#define dontoptimize
-#endif
-#endif
-
-#ifndef optimizesize
-#ifndef __STRICT_ANSI__
-#if (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 407 || \
-    __has_attribute(__optimize__)
-#define optimizesize __attribute__((__optimize__("s")))
-#elif defined(__llvm__) || __has_attribute(__optnone__)
-#define optimizesize __attribute__((__optnone__))
-#endif
-#else
-#define optimizesize
-#endif
-#endif
-
-#ifndef optimizespeed
-/* warning: corrupts frame pointer; only use on leaf functions */
-#if !defined(__STRICT_ANSI__) &&                           \
-    ((__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 407 || \
-     __has_attribute(__optimize__))
-#define optimizespeed __attribute__((__optimize__(3)))
-#else
-#define optimizespeed
-#endif
-#endif
-
-#ifndef unrollloops
-#if !defined(__STRICT_ANSI__) &&                           \
-    ((__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 407 || \
-     __has_attribute(__optimize__))
-#define unrollloops __attribute__((__optimize__("unroll-loops")))
-#else
-#define unrollloops
-#endif
-#endif
-
 #ifndef returnstwice
 #if !defined(__STRICT_ANSI__) &&           \
     (__has_attribute(__returns_twice__) || \
@@ -478,16 +405,6 @@ typedef struct {
 #define nodebuginfo __attribute__((__nodebug__))
 #else
 #define nodebuginfo
-#endif
-#endif
-
-#ifndef _Microarchitecture
-#if !defined(__STRICT_ANSI__) &&    \
-    (__has_attribute(__target__) || \
-     (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 404)
-#define _Microarchitecture(march) __attribute__((__target__(march)))
-#else
-#define _Microarchitecture(march)
 #endif
 #endif
 
@@ -558,6 +475,99 @@ typedef struct {
 #define autotype(x) typeof(x)
 #endif
 
+#if defined(__STRICT_ANSI__) || \
+    (!defined(__GNUC__) && !defined(__builtin_offsetof))
+#define offsetof(type, member) ((unsigned long)&((type *)0)->member)
+#else
+#define offsetof(type, member) __builtin_offsetof(type, member)
+#endif
+
+#ifdef _COSMO_SOURCE
+
+#ifndef dontinstrument
+#if !defined(__STRICT_ANSI__) &&                    \
+    (__has_attribute(__no_instrument_function__) || \
+     (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 204)
+#if ((__GNUC__ + 0) >= 7 && !defined(__chibicc__)) || \
+    __has_attribute(__patchable_function_entry__)
+#define dontinstrument                       \
+  __attribute__((__no_instrument_function__, \
+                 __patchable_function_entry__(0, 0)))
+#else
+#define dontinstrument __attribute__((__no_instrument_function__))
+#endif
+#else
+#define dontinstrument
+#endif
+#endif
+
+#ifndef mayalias
+#if !defined(__STRICT_ANSI__) &&       \
+    (__has_attribute(__may_alias__) || \
+     (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 303)
+#define mayalias __attribute__((__may_alias__))
+#else
+#define mayalias
+#endif
+#endif
+
+#ifndef dontoptimize
+#ifndef __STRICT_ANSI__
+#if defined(__llvm__) || __has_attribute(__optnone__)
+#define dontoptimize __attribute__((__optnone__))
+#elif (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 407 || \
+    __has_attribute(__optimize__)
+#define dontoptimize __attribute__((__optimize__(0)))
+#endif
+#else
+#define dontoptimize
+#endif
+#endif
+
+#ifndef optimizesize
+#ifndef __STRICT_ANSI__
+#if (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 407 || \
+    __has_attribute(__optimize__)
+#define optimizesize __attribute__((__optimize__("s")))
+#elif defined(__llvm__) || __has_attribute(__optnone__)
+#define optimizesize __attribute__((__optnone__))
+#endif
+#else
+#define optimizesize
+#endif
+#endif
+
+#ifndef optimizespeed
+/* warning: corrupts frame pointer; only use on leaf functions */
+#if !defined(__STRICT_ANSI__) &&                           \
+    ((__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 407 || \
+     __has_attribute(__optimize__))
+#define optimizespeed __attribute__((__optimize__(3)))
+#else
+#define optimizespeed
+#endif
+#endif
+
+#ifndef unrollloops
+#if !defined(__STRICT_ANSI__) &&                           \
+    ((__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 407 || \
+     __has_attribute(__optimize__))
+#define unrollloops __attribute__((__optimize__("unroll-loops")))
+#else
+#define unrollloops
+#endif
+#endif
+
+#ifndef _Microarchitecture
+#if !defined(__STRICT_ANSI__) &&    \
+    (__has_attribute(__target__) || \
+     (__GNUC__ + 0) * 100 + (__GNUC_MINOR__ + 0) >= 404)
+#define _Microarchitecture(march) __attribute__((__target__(march)))
+#else
+#define _Microarchitecture(march)
+#endif
+#endif
+
 #ifdef __x86_64__
 #if __GNUC__ >= 7 || __has_attribute(__no_caller_saved_registers__)
 #define nocallersavedregisters __attribute__((__no_caller_saved_registers__))
@@ -605,6 +615,12 @@ void abort(void) wontreturn;
   do {            \
   } while (0)
 
+#if defined(__GNUC__) && !defined(__STRICT_ANSI__)
+#define _Vector_size(k) __attribute__((__vector_size__(k)))
+#else
+#define _Vector_size(k) [k]
+#endif
+
 #ifndef __STRICT_ANSI__
 #define textstartup _Section(".text.startup")
 #define textexit    _Section(".text.exit")
@@ -621,27 +637,6 @@ void abort(void) wontreturn;
 #define antiquity
 #endif
 
-#ifndef compatfn
-#define compatfn
-#endif
-
-#ifndef frownedupon
-#define frownedupon(alternative)
-#endif
-
-#if defined(__GNUC__) && !defined(__STRICT_ANSI__)
-#define _Vector_size(k) __attribute__((__vector_size__(k)))
-#else
-#define _Vector_size(k) [k]
-#endif
-
-#if defined(__STRICT_ANSI__) || \
-    (!defined(__GNUC__) && !defined(__builtin_offsetof))
-#define offsetof(type, member) ((unsigned long)&((type *)0)->member)
-#else
-#define offsetof(type, member) __builtin_offsetof(type, member)
-#endif
-
 #ifdef __llvm__
 #define __builtin_ia32_movntdq(x, y) (*(x) = (y))
 #endif
@@ -656,109 +651,13 @@ void abort(void) wontreturn;
 #define initarray _Section(".init_array")
 #endif
 
-#ifndef __STRICT_ANSI__
-#if defined(__GNUC__) || defined(__llvm__)
-#pragma GCC diagnostic ignored \
-    "-Wundef" /* complaints about __ASSEMBLER__/__LINKER__  */
-#pragma GCC diagnostic ignored "-Wsign-compare"     /* lint needs to change  */
-#pragma GCC diagnostic ignored "-Wtype-limits"      /* makes macros unsafe  */
-#pragma GCC diagnostic ignored "-Woverflow"         /* also breaks macros  */
-#pragma GCC diagnostic ignored "-Wformat"           /* forces only gnu pf */
-#pragma GCC diagnostic ignored "-Wunused-parameter" /* extreme prejudice */
-#pragma GCC diagnostic ignored "-Wunused-function"  /* contradicts dce! */
-#pragma GCC diagnostic ignored "-Wunused-const-variable"   /* let me dce */
-#pragma GCC diagnostic ignored "-Wunused-variable"         /* belongs in tidy */
-#pragma GCC diagnostic ignored "-Wformat-extra-args"       /* is also broken */
-#pragma GCC diagnostic ignored "-Wparentheses"             /* annoying tidy */
-#pragma GCC diagnostic ignored "-Wdangling-else"           /* come on tidy */
-#pragma GCC diagnostic ignored "-Wformat-security"         /* come on tidy */
-#pragma GCC diagnostic ignored "-Wunused-value"            /* breaks macros */
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations" /* libcxx */
+#pragma GCC diagnostic ignored "-Wformat"                /* todo: patch gcc */
+#pragma GCC diagnostic ignored "-Wformat-extra-args"     /* todo: patch gcc */
+#pragma GCC diagnostic ignored "-Wunused-function"       /* contradicts dce */
+#pragma GCC diagnostic ignored "-Wunused-const-variable" /* sooo ridiculous */
 #ifndef __cplusplus
-#pragma GCC diagnostic ignored "-Wimplicit-int"
-#pragma GCC diagnostic ignored "-Wc++-compat"
-#endif /* C++ */
-#endif /* GCC || LLVM */
-#if defined(__GNUC__) && !defined(__llvm__)
-/* why we need authorization to name a variable `yn' */
-#pragma GCC diagnostic ignored "-Wbuiltin-declaration-mismatch"
-#pragma GCC diagnostic ignored "-Wfree-nonheap-object" /* broken #54202 */
-#ifndef __cplusplus
-#if __GNUC__ >= 6
-#pragma GCC diagnostic ignored /* wut */ "-Wdiscarded-qualifiers"
-#pragma GCC diagnostic ignored /* tidy */ "-Wunused-but-set-variable"
-#pragma GCC diagnostic ignored /* tidy */ "-Wunused-but-set-parameter"
-#endif /* GCC6+ */
-#if __GNUC__ >= 8
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
-#pragma GCC diagnostic ignored "-Wstringop-overflow" /* breaks strndup */
-#endif                                               /* GCC8+ */
-#if __GNUC__ + 0 >= 9
-#pragma GCC diagnostic ignored /* "always true" breaks dce */ "-Waddress"
-#if __GNUC__ >= 11
-#pragma GCC diagnostic ignored /* annoying */ "-Wattributes"
-#pragma GCC diagnostic ignored /* orwellian */ "-Wold-style-definition"
-#pragma GCC diagnostic ignored /* what? */ "-Wformat-overflow"
-#endif /* GCC11+ */
-#endif /* GCC9+ */
-#endif /* !C++ */
-#endif /* GCC && !LLVM */
-#ifdef __llvm__
-#pragma clang diagnostic ignored \
-    "-Wincompatible-pointer-types-discards-qualifiers"
-#pragma clang diagnostic ignored "-Wbuiltin-requires-header"
-#pragma clang diagnostic ignored "-Wparentheses-equality" /*-save-temps*/
-#pragma clang diagnostic ignored "-Wunused-value"         /*({-save-temps})*/
-#pragma clang diagnostic ignored "-Wstring-plus-int"      /* special ed */
-#pragma clang diagnostic ignored "-Wunused-value" /* extreme prejudice */
-#pragma clang diagnostic ignored "-Wbuiltin-requires-header"
-#pragma clang diagnostic ignored \
-    "-Wincompatible-pointer-types-discards-qualifiers"
-#endif /* !GCC && LLVM */
-#endif /* ANSI */
-
-#ifndef __W__
-#ifndef __STRICT_ANSI__
-#if defined(__GNUC__) || defined(__llvm__)
-#pragma GCC diagnostic error "-Wpointer-arith"
-#pragma GCC diagnostic error "-Wnonnull"
-#pragma GCC diagnostic error "-Wunused-result"
-#pragma GCC diagnostic error "-Wstrict-aliasing"
-#ifndef __cplusplus
-#pragma GCC diagnostic error "-Wimplicit-function-declaration"
-#if __GNUC__ >= 6
-#pragma GCC diagnostic error "-Wincompatible-pointer-types"
-#if __GNUC__ >= 8
-#pragma GCC diagnostic error "-Wmultistatement-macros"
-#pragma GCC diagnostic error "-Wpacked-not-aligned"
-#pragma GCC diagnostic error "-Wcast-align=strict"
-#pragma GCC diagnostic error "-Wif-not-aligned"
-#endif /* GCC 8+ */
-#endif /* GCC 6+ */
-#endif /* __cplusplus */
-#endif /* GCC || LLVM */
-#if defined(__GNUC__) && !defined(__llvm__)
-#pragma GCC diagnostic error "-Wwrite-strings"
-#pragma GCC diagnostic error "-Wtrampolines"
-#if __GNUC__ >= 6
-#pragma GCC diagnostic error "-Wnonnull-compare"
-#if defined(_COSMO_SOURCE) && !defined(MODE_DBG) && \
-    !defined(STACK_FRAME_UNLIMITED)
-#pragma GCC diagnostic error "-Wframe-larger-than=131072"
-#if __GNUC__ >= 9
-// #pragma GCC diagnostic error "-Walloca-larger-than=1024"
-// #pragma GCC diagnostic error "-Wvla-larger-than=1024"
-#endif /* GCC 9+ */
-#endif /* STACK_FRAME_UNLIMITED */
-#elif __GNUC__ >= 9
-#pragma GCC diagnostic error /* e.g. fabs not abs */ "-Wabsolute-value"
-#endif /* GCC 6+ */
-#endif /* GCC && !LLVM */
-#ifdef __llvm__
-#pragma clang diagnostic error "-Wassume"
-#endif /* !GCC && LLVM */
-#endif /* ANSI */
-#endif /* -w */
+#pragma GCC diagnostic ignored "-Wold-style-definition" /* orwellian bulls */
+#endif
 
 #ifndef __STRICT_ANSI__
 #ifdef __x86_64__
@@ -769,6 +668,8 @@ void abort(void) wontreturn;
 #else
 #define DebugBreak() (void)0
 #endif
+
+#endif /* _COSMO_SOURCE */
 
 #ifndef __STRICT_ANSI__
 #define __veil(CONSTRAINT, EXPRESSION)                           \
@@ -840,9 +741,13 @@ void abort(void) wontreturn;
 #define __strong_reference(sym, alias) __weak_reference(sym, alias)
 #endif
 
+#if defined(__GNUC__) || defined(__llvm__)
 #define __funline \
   extern __inline \
       __attribute__((__gnu_inline__, __always_inline__, __artificial__))
+#else
+#define __funline static inline
+#endif
 
 #define MACHINE_CODE_ANALYSIS_BEGIN_
 #define MACHINE_CODE_ANALYSIS_END_

@@ -16,8 +16,8 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/fmt/fmt.h"
 #include "libc/runtime/internal.h"
+#include "libc/stdio/stdio.h"
 #include "libc/sysv/consts/prot.h"
 #include "libc/testlib/testlib.h"
 
@@ -31,7 +31,7 @@ int testlib_countfixtures(const struct TestFixture *start,
  * @see ape/ape.lds
  * @see libc/testlib/testlib.h
  */
-void testlib_runfixtures(testfn_t *test_start, testfn_t *test_end,
+void testlib_runfixtures(const testfn_t *test_start, const testfn_t *test_end,
                          const struct TestFixture *fixture_start,
                          const struct TestFixture *fixture_end) {
   unsigned i, count;

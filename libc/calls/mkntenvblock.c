@@ -18,8 +18,8 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/ntspawn.h"
 #include "libc/fmt/conv.h"
-#include "libc/intrin/_getenv.internal.h"
 #include "libc/intrin/bits.h"
+#include "libc/intrin/getenv.internal.h"
 #include "libc/macros.internal.h"
 #include "libc/mem/alloca.h"
 #include "libc/mem/arraylist2.internal.h"
@@ -36,9 +36,9 @@ static inline int IsAlpha(int c) {
   return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z');
 }
 
-static inline char *StrChr(char *s, int c) {
+static inline char *StrChr(const char *s, int c) {
   for (;; ++s) {
-    if ((*s & 255) == (c & 255)) return s;
+    if ((*s & 255) == (c & 255)) return (char *)s;
     if (!*s) return 0;
   }
 }
@@ -52,7 +52,6 @@ static textwindows inline int CompareStrings(const char *l, const char *r) {
 
 static textwindows void FixPath(char *path) {
   char *p;
-  size_t i;
 
   // skip over variable name
   while (*path++) {
@@ -71,7 +70,7 @@ static textwindows void FixPath(char *path) {
 
   // turn \c\... into c:\...
   p = path;
-  if ((p[0] == '/' | p[0] == '\\') && IsAlpha(p[1]) &&
+  if ((p[0] == '/' || p[0] == '\\') && IsAlpha(p[1]) &&
       (p[2] == '/' || p[2] == '\\')) {
     p[0] = p[1];
     p[1] = ':';
@@ -92,7 +91,7 @@ static textwindows void FixPath(char *path) {
   }
 }
 
-static textwindows void InsertString(char **a, size_t i, char *s,
+static textwindows void InsertString(char **a, size_t i, const char *s,
                                      char buf[ARG_MAX], size_t *bufi,
                                      bool *have_systemroot) {
   char *v;
@@ -119,7 +118,7 @@ static textwindows void InsertString(char **a, size_t i, char *s,
   for (j = i; j > 0 && CompareStrings(s, a[j - 1]) < 0; --j) {
     a[j] = a[j - 1];
   }
-  a[j] = s;
+  a[j] = (char *)s;
 }
 
 /**
@@ -136,8 +135,6 @@ static textwindows void InsertString(char **a, size_t i, char *s,
 textwindows int mkntenvblock(char16_t envvars[ARG_MAX / 2], char *const envp[],
                              const char *extravar, char buf[ARG_MAX]) {
   bool v;
-  char *t;
-  axdx_t rc;
   uint64_t w;
   char **vars;
   wint_t x, y;
@@ -154,7 +151,7 @@ textwindows int mkntenvblock(char16_t envvars[ARG_MAX / 2], char *const envp[],
   if (!have_systemroot && environ) {
     // https://jpassing.com/2009/12/28/the-hidden-danger-of-forgetting-to-specify-systemroot-in-a-custom-environment-block/
     struct Env systemroot;
-    systemroot = _getenv(environ, "SYSTEMROOT");
+    systemroot = __getenv(environ, "SYSTEMROOT");
     if (systemroot.s) {
       InsertString(vars, n++, environ[systemroot.i], buf, &bufi,
                    &have_systemroot);

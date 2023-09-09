@@ -54,7 +54,6 @@
 #include "libc/sysv/consts/ss.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/thread.h"
-#include "libc/zipos/zipos.internal.h"
 
 #define MAP_ANONYMOUS_linux   0x00000020
 #define MAP_ANONYMOUS_openbsd 0x00001000
@@ -75,7 +74,7 @@ static inline pureconst unsigned long __rounddown2pow(unsigned long x) {
 static wontreturn void __mmap_die(const char *s) {
   if (_weaken(__die)) _weaken(__die)();
   STRACE("%s %m", s);
-  _Exitr(199);
+  _Exit(199);
 }
 
 static dontasan inline bool __overlaps_existing_mapping(char *p, size_t n) {
@@ -241,10 +240,10 @@ static textwindows dontinline dontasan void *__map_memories(
 
 dontasan inline void *__mmap_unlocked(void *addr, size_t size, int prot,
                                       int flags, int fd, int64_t off) {
+  int a, f, n, x;
   char *p = addr;
   struct DirectMap dm;
   size_t requested_size;
-  int a, b, i, f, m, n, x;
   bool needguard, clashes;
   unsigned long page_size;
   size_t virtualused, virtualneed;
@@ -373,13 +372,13 @@ dontasan inline void *__mmap_unlocked(void *addr, size_t size, int prot,
       if ((dm = sys_mmap(p + size - SIGSTKSZ, SIGSTKSZ, prot,
                          f | MAP_GROWSDOWN_linux, fd, off))
               .addr != MAP_FAILED) {
-        npassert(sys_mmap(p, page_size, PROT_NONE,
+        npassert(sys_mmap(p, GetGuardSize(), PROT_NONE,
                           MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)
                      .addr == p);
         dm.addr = p;
         p = __finish_memory(p, size, prot, flags, fd, off, f, x, n, dm);
         if (IsAsan() && p != MAP_FAILED) {
-          __asan_poison(p, page_size, kAsanStackOverflow);
+          __asan_poison(p, GetGuardSize(), kAsanStackOverflow);
         }
         return p;
       } else if (errno == ENOTSUP) {
@@ -466,12 +465,14 @@ dontasan inline void *__mmap_unlocked(void *addr, size_t size, int prot,
  */
 void *mmap(void *addr, size_t size, int prot, int flags, int fd, int64_t off) {
   void *res;
+#ifdef SYSDEBUG
   size_t toto = 0;
-#if defined(SYSDEBUG) && (_KERNTRACE || _NTTRACE)
+#if _KERNTRACE || _NTTRACE
   if (IsWindows()) {
     STRACE("mmap(%p, %'zu, %s, %s, %d, %'ld) → ...", addr, size,
            DescribeProtFlags(prot), DescribeMapFlags(flags), fd, off);
   }
+#endif
 #endif
   __mmi_lock();
   if (!__isfdkind(fd, kFdZip)) {

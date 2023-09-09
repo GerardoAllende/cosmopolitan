@@ -18,10 +18,11 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/stat.h"
+#include "libc/runtime/zipos.internal.h"
 #include "libc/sysv/consts/ok.h"
+#include "libc/sysv/consts/s.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/zip.internal.h"
-#include "libc/runtime/zipos.internal.h"
 
 // TODO: this should check parent directory components
 
@@ -31,37 +32,35 @@
  * @param uri is obtained via __zipos_parseuri()
  * @asyncsignalsafe
  */
-int __zipos_access(const struct ZiposUri *name, int amode) {
-  ssize_t cf;
-  int rc, mode;
+int __zipos_access(struct ZiposUri *name, int amode) {
+
   struct Zipos *z;
-  if ((z = __zipos_get()) && (cf = __zipos_find(z, name)) != -1) {
-    mode = GetZipCfileMode(z->map + cf);
-    if (amode == F_OK) {
-      rc = 0;
-    } else if (amode == R_OK) {
-      if (mode & 0444) {
-        rc = 0;
-      } else {
-        rc = eacces();
-      }
-    } else if (amode == W_OK) {
-      if (mode & 0222) {
-        rc = 0;
-      } else {
-        rc = eacces();
-      }
-    } else if (amode == X_OK) {
-      if (mode & 0111) {
-        rc = 0;
-      } else {
-        rc = eacces();
-      }
-    } else {
-      rc = einval();
-    }
-  } else {
-    rc = enoent();
+  if (!(z = __zipos_get())) {
+    return enoexec();
   }
-  return rc;
+
+  ssize_t cf;
+  if ((cf = __zipos_find(z, name)) == -1) {
+    return -1;
+  }
+
+  int mode;
+  if (cf != ZIPOS_SYNTHETIC_DIRECTORY) {
+    mode = GetZipCfileMode(z->map + cf);
+  } else {
+    mode = S_IFDIR | 0555;
+  }
+  if (amode == F_OK) {
+    return 0;
+  }
+  if (amode & ~(R_OK | W_OK | X_OK)) {
+    return einval();
+  }
+  if (((amode & X_OK) && !(mode & 0111)) ||
+      ((amode & W_OK) && !(mode & 0222)) ||
+      ((amode & R_OK) && !(mode & 0444))) {
+    return eacces();
+  }
+
+  return 0;
 }

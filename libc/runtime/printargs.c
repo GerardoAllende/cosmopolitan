@@ -32,6 +32,7 @@
 #include "libc/intrin/kprintf.h"
 #include "libc/intrin/promises.internal.h"
 #include "libc/intrin/strace.internal.h"
+#include "libc/limits.h"
 #include "libc/macros.internal.h"
 #include "libc/nexgen32e/cpuid4.internal.h"
 #include "libc/nexgen32e/kcpuids.h"
@@ -159,23 +160,24 @@ dontasan textstartup void __printargs(const char *prologue) {
       {"%-14d", AT_MINSIGSTKSZ, "AT_MINSIGSTKSZ"},
   };
 
-  long key;
+  int e, x;
   char **env;
   sigset_t ss;
   bool gotsome;
-  int e, x, flags;
+  unsigned i, n;
   uintptr_t *auxp;
-  unsigned i, n, b;
   struct rlimit rlim;
   struct utsname uts;
   struct sigaction sa;
   struct sched_param sp;
   struct termios termios;
-  struct AuxiliaryValue *auxinfo;
+  const struct AuxiliaryValue *auxinfo;
   union {
     char path[PATH_MAX];
     struct pollfd pfds[128];
   } u;
+
+  (void)x;
 
   if (!PLEDGED(STDIO)) return;
 
@@ -284,9 +286,11 @@ dontasan textstartup void __printargs(const char *prologue) {
   }
   if ((n = poll(u.pfds, ARRAYLEN(u.pfds), 0)) != -1) {
     for (i = 0; i < ARRAYLEN(u.pfds); ++i) {
+      char oflagbuf[128];
       if (i && (u.pfds[i].revents & POLLNVAL)) continue;
-      PRINT(" ☼ %d (revents=%#hx fcntl(F_GETFL)=%#x isatty()=%hhhd)", i,
-            u.pfds[i].revents, fcntl(i, F_GETFL), isatty(i));
+      PRINT(" ☼ %d (revents=%#hx fcntl(F_GETFL)=%s isatty()=%hhhd)", i,
+            u.pfds[i].revents, (DescribeOpenFlags)(oflagbuf, fcntl(i, F_GETFL)),
+            isatty(i));
     }
   } else {
     PRINT("  poll() returned %d %m", n);
@@ -349,7 +353,7 @@ dontasan textstartup void __printargs(const char *prologue) {
     PRINT("");
     PRINT("CAPABILITIES");
     if (prctl(PR_CAPBSET_READ, 0) != -1) {
-      for (gotsome = i = 0; i <= CAP_LAST_CAP; ++i) {
+      for (gotsome = false, i = 0; i <= CAP_LAST_CAP; ++i) {
         if (prctl(PR_CAPBSET_READ, i) == 1) {
           char buf[64];
           PRINT(" ☼ %s", (DescribeCapability)(buf, i));
@@ -366,7 +370,7 @@ dontasan textstartup void __printargs(const char *prologue) {
 
   PRINT("");
   PRINT("RESOURCE LIMITS");
-  for (gotsome = i = 0; i < RLIM_NLIMITS; ++i) {
+  for (gotsome = false, i = 0; i < RLIM_NLIMITS; ++i) {
     if (!getrlimit(i, &rlim)) {
       char buf[20];
       if (rlim.rlim_cur == RLIM_INFINITY) rlim.rlim_cur = -1;
@@ -449,13 +453,18 @@ dontasan textstartup void __printargs(const char *prologue) {
   PRINT(" ☼ %s = %#s", "kNtSystemDirectory", kNtSystemDirectory);
   PRINT(" ☼ %s = %#s", "kNtWindowsDirectory", kNtWindowsDirectory);
 #endif
+  PRINT(" ☼ %s = %#s", "__argv[0]", __argv[0]);
+  PRINT(" ☼ %s = %#s", "getenv(\"_\")", getenv("_"));
+  PRINT(" ☼ %s = %#s", "getauxval(AT_EXECFN)", getauxval(AT_EXECFN));
   PRINT(" ☼ %s = %#s", "GetProgramExecutableName", GetProgramExecutableName());
   PRINT(" ☼ %s = %#s", "GetInterpreterExecutableName",
         GetInterpreterExecutableName(u.path, sizeof(u.path)));
-  PRINT(" ☼ %s = %p", "RSP", __builtin_frame_address(0));
-  PRINT(" ☼ %s = %p", "GetStackAddr()", GetStackAddr());
-  PRINT(" ☼ %s = %p", "GetStaticStackAddr(0)", GetStaticStackAddr(0));
   PRINT(" ☼ %s = %p", "GetStackSize()", GetStackSize());
+  PRINT(" ☼ %s = %p", "GetGuardSize()", GetGuardSize());
+  PRINT(" ☼ %s = %p", "GetStackAddr()", GetStackAddr());
+  PRINT(" ☼ %s = %p", "GetStaticStackSize()", GetStaticStackSize());
+  PRINT(" ☼ %s = %p", "GetStaticStackAddr(0)", GetStaticStackAddr(0));
+  PRINT(" ☼ %s = %p", "__builtin_frame_address(0)", __builtin_frame_address(0));
 
   PRINT("");
   PRINT("MEMTRACK");
@@ -473,13 +482,15 @@ dontasan textstartup void __printargs(const char *prologue) {
       } else {
         PRINT("  - stderr");
       }
-      kprintf(prologue);
       errno = 0;
-      kprintf("    isatty = %d% m\n", isatty(i));
+      PRINT("    isatty = %d% m", isatty(i));
       if (!tcgetwinsize(i, &ws)) {
-        kprintf("    ws_row = %d\n", ws.ws_row);
-        kprintf("    ws_col = %d\n", ws.ws_col);
+        PRINT("    ws_row = %d", ws.ws_row);
+        PRINT("    ws_col = %d", ws.ws_col);
+      } else {
+        PRINT("    tcgetwinsize = %s", strerror(errno));
       }
+      kprintf(prologue);
       kprintf("    c_iflag =");
       if (termios.c_iflag & IGNBRK) kprintf(" IGNBRK");
       if (termios.c_iflag & BRKINT) kprintf(" BRKINT");
@@ -507,46 +518,34 @@ dontasan textstartup void __printargs(const char *prologue) {
       if (termios.c_oflag & OFILL) kprintf(" OFILL");
       if (termios.c_oflag & OFDEL) kprintf(" OFDEL");
       if (termios.c_oflag & OLCUC) kprintf(" OLCUC");
-      if ((termios.c_oflag & NLDLY) == NL0) {
-        kprintf(" NL0");
-      } else if ((termios.c_oflag & NLDLY) == NL1) {
+      if ((termios.c_oflag & NLDLY) == NL1) {
         kprintf(" NL1");
       } else if ((termios.c_oflag & NLDLY) == NL2) {
         kprintf(" NL2");
       } else if ((termios.c_oflag & NLDLY) == NL3) {
         kprintf(" NL3");
       }
-      if ((termios.c_oflag & CRDLY) == CR0) {
-        kprintf(" CR0");
-      } else if ((termios.c_oflag & CRDLY) == CR1) {
+      if ((termios.c_oflag & CRDLY) == CR1) {
         kprintf(" CR1");
       } else if ((termios.c_oflag & CRDLY) == CR2) {
         kprintf(" CR2");
       } else if ((termios.c_oflag & CRDLY) == CR3) {
         kprintf(" CR3");
       }
-      if ((termios.c_oflag & TABDLY) == TAB0) {
-        kprintf(" TAB0");
-      } else if ((termios.c_oflag & TABDLY) == TAB1) {
+      if ((termios.c_oflag & TABDLY) == TAB1) {
         kprintf(" TAB1");
       } else if ((termios.c_oflag & TABDLY) == TAB2) {
         kprintf(" TAB2");
       } else if ((termios.c_oflag & TABDLY) == TAB3) {
         kprintf(" TAB3");
       }
-      if ((termios.c_oflag & BSDLY) == BS0) {
-        kprintf(" BS0");
-      } else if ((termios.c_oflag & BSDLY) == BS1) {
+      if ((termios.c_oflag & BSDLY) == BS1) {
         kprintf(" BS1");
       }
-      if ((termios.c_oflag & VTDLY) == VT0) {
-        kprintf(" VT0");
-      } else if ((termios.c_oflag & VTDLY) == VT1) {
+      if ((termios.c_oflag & VTDLY) == VT1) {
         kprintf(" VT1");
       }
-      if ((termios.c_oflag & FFDLY) == FF0) {
-        kprintf(" FF0");
-      } else if ((termios.c_oflag & FFDLY) == FF1) {
+      if ((termios.c_oflag & FFDLY) == FF1) {
         kprintf(" FF1");
       }
       kprintf("\n");

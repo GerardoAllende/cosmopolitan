@@ -163,9 +163,8 @@ static int nsync_futex_polyfill_ (atomic_int *w, int expect, struct timespec *ab
 	return -ETIMEDOUT;
 }
 
-static int nsync_futex_wait_win32_ (atomic_int *w, int expect, char pshare, struct timespec *timeout) {
+static int nsync_futex_wait_win32_ (atomic_int *w, int expect, char pshare, const struct timespec *timeout) {
 	int rc;
-	uint32_t ms;
 	struct timespec deadline, interval, remain, wait, now;
 
 	if (timeout) {
@@ -174,7 +173,7 @@ static int nsync_futex_wait_win32_ (atomic_int *w, int expect, char pshare, stru
 		deadline = timespec_max;
 	}
 
-	while (!(rc = _check_interrupts (0, 0))) {
+	while (!(rc = _check_interrupts (0))) {
 		now = timespec_real ();
 		if (timespec_cmp (now, deadline) > 0) {
 			rc = etimedout();
@@ -211,8 +210,8 @@ static struct timespec *nsync_futex_timeout_ (struct timespec *memory,
 	}
 }
 
-int nsync_futex_wait_ (atomic_int *w, int expect, char pshare, struct timespec *abstime) {
-	int e, rc, op, fop;
+int nsync_futex_wait_ (atomic_int *w, int expect, char pshare, const struct timespec *abstime) {
+	int e, rc, op;
 	struct PosixThread *pt = 0;
 	struct timespec tsmem, *timeout;
 
@@ -298,7 +297,7 @@ Finished:
 }
 
 int nsync_futex_wake_ (atomic_int *w, int count, char pshare) {
-	int e, rc, op, fop;
+	int rc, op, fop;
 
 	ASSERT (count == 1 || count == INT_MAX);
 

@@ -24,6 +24,7 @@
 #include "libc/calls/termios.internal.h"
 #include "libc/calls/ttydefaults.h"
 #include "libc/dce.h"
+#include "libc/errno.h"
 #include "libc/intrin/describeflags.internal.h"
 #include "libc/intrin/nomultics.internal.h"
 #include "libc/intrin/strace.internal.h"
@@ -125,10 +126,12 @@ textwindows int __munge_terminal_input(char *p, uint32_t *n) {
     }
   }
   if (got_vintr) {
-    delivered |= __sig_handle(0, SIGINT, SI_KERNEL, 0);
+    __sig_raise(SIGINT, SI_KERNEL);
+    delivered |= true;
   }
   if (got_vquit) {
-    delivered |= __sig_handle(0, SIGQUIT, SI_KERNEL, 0);
+    __sig_raise(SIGQUIT, SI_KERNEL);
+    delivered |= true;
   }
   if (*n && !j) {
     if (delivered) {
@@ -261,6 +264,7 @@ textwindows int tcsetattr_nt(int fd, int opt, const struct termios *tio) {
 __attribute__((__constructor__)) static void tcsetattr_nt_init(void) {
   if (!getenv("TERM")) {
     setenv("TERM", "xterm-256color", true);
+    errno = 0;  // ignore malloc not linked
   }
 }
 

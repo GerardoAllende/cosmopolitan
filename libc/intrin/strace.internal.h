@@ -4,11 +4,11 @@
 #include "libc/runtime/runtime.h"
 
 #define _KERNTRACE  0 /* not configurable w/ flag yet */
-#define _POLLTRACE  1 /* not configurable w/ flag yet */
+#define _POLLTRACE  0 /* not configurable w/ flag yet */
 #define _DATATRACE  1 /* not configurable w/ flag yet */
 #define _STDIOTRACE 0 /* not configurable w/ flag yet */
 #define _LOCKTRACE  0 /* not configurable w/ flag yet */
-#define _NTTRACE    1 /* not configurable w/ flag yet */
+#define _NTTRACE    0 /* not configurable w/ flag yet */
 
 #define STRACE_PROLOGUE "%rSYS %6P %'18T "
 
@@ -53,7 +53,7 @@ COSMOPOLITAN_C_START_
 #endif
 
 #if defined(SYSDEBUG) && _NTTRACE
-#define NTTRACE(FMT, ...) STRACE(FMT, ##__VA_ARGS__)
+#define NTTRACE(FMT, ...) STRACE("\e[2m" FMT "\e[0m", ##__VA_ARGS__)
 #else
 #define NTTRACE(FMT, ...) (void)0
 #endif

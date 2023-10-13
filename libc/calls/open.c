@@ -29,10 +29,9 @@
  * @param file specifies filesystem path to open
  * @return file descriptor, or -1 w/ errno
  * @see openat() for further documentation
- * @cancellationpoint
+ * @cancelationpoint
  * @asyncsignalsafe
  * @restartable
- * @threadsafe
  * @vforksafe
  */
 int open(const char *file, int flags, ...) {

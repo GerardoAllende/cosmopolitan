@@ -47,6 +47,7 @@ LIBC_CALLS_A_DIRECTDEPS =				\
 	LIBC_NT_PDH					\
 	LIBC_NT_POWRPROF				\
 	LIBC_NT_PSAPI					\
+	LIBC_NT_SYNCHRONIZATION				\
 	LIBC_NT_WS2_32					\
 	LIBC_STR					\
 	LIBC_SYSV					\
@@ -107,6 +108,8 @@ o//libc/calls/statfs2cosmo.o: private			\
 # we always want -O2 because:
 #   division is expensive if not optimized
 o/$(MODE)/libc/calls/clock.o				\
+o/$(MODE)/libc/calls/gettimeofday.o			\
+o/$(MODE)/libc/calls/clock_gettime-mono.o		\
 o/$(MODE)/libc/calls/timespec_tomillis.o		\
 o/$(MODE)/libc/calls/timespec_tomicros.o		\
 o/$(MODE)/libc/calls/timespec_totimeval.o		\

@@ -16,23 +16,25 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/proc/ntspawn.h"
 #include "libc/mem/mem.h"
+#include "libc/proc/ntspawn.h"
 #include "libc/str/str.h"
 #include "libc/str/thompike.h"
 #include "libc/str/utf16.h"
 #include "libc/sysv/errfuns.h"
 
-#define APPEND(c)           \
-  do {                      \
-    cmdline[k++] = c;       \
-    if (k == ARG_MAX / 2) { \
-      return e2big();       \
-    }                       \
+#define APPEND(c)     \
+  do {                \
+    if (k == 32766) { \
+      return e2big(); \
+    }                 \
+    cmdline[k++] = c; \
   } while (0)
 
 static bool NeedsQuotes(const char *s) {
-  if (!*s) return true;
+  if (!*s) {
+    return true;
+  }
   do {
     switch (*s) {
       case '"':
@@ -58,34 +60,27 @@ static inline int IsAlpha(int c) {
 // GetDosArgv() or GetDosArgv(). This function does NOT escape
 // command interpreter syntax, e.g. $VAR (sh), %VAR% (cmd).
 //
-// TODO(jart): this needs fuzzing and security review
-//
 // @param cmdline is output buffer
 // @param argv is an a NULL-terminated array of UTF-8 strings
 // @return 0 on success, or -1 w/ errno
 // @raise E2BIG if everything is too huge
 // @see "Everyone quotes command line arguments the wrong way" MSDN
 // @see libc/runtime/getdosargv.c
-textwindows int mkntcmdline(char16_t cmdline[ARG_MAX / 2], char *const argv[]) {
-  uint64_t w;
-  wint_t x, y;
+// @asyncsignalsafe
+textwindows int mkntcmdline(char16_t cmdline[32767], char *const argv[]) {
   int slashes, n;
   bool needsquote;
-  char *ansiargv[2];
   size_t i, j, k, s;
-  if (!argv[0]) {
-    bzero(ansiargv, sizeof(ansiargv));
-    argv = ansiargv;
-  }
   for (k = i = 0; argv[i]; ++i) {
     if (i) APPEND(u' ');
     if ((needsquote = NeedsQuotes(argv[i]))) APPEND(u'"');
     for (slashes = j = 0;;) {
-      x = argv[i][j++] & 255;
+      wint_t x = argv[i][j++] & 255;
       if (x >= 0300) {
         n = ThomPikeLen(x);
         x = ThomPikeByte(x);
         while (--n) {
+          wint_t y;
           if ((y = argv[i][j++] & 255)) {
             x = ThomPikeMerge(x, y);
           } else {
@@ -128,10 +123,9 @@ textwindows int mkntcmdline(char16_t cmdline[ARG_MAX / 2], char *const argv[]) {
           APPEND(u'\\');
         }
         slashes = 0;
-        w = EncodeUtf16(x);
-        do {
-          APPEND(w);
-        } while ((w >>= 16));
+        uint32_t w = EncodeUtf16(x);
+        do APPEND(w);
+        while ((w >>= 16));
       }
     }
     for (s = 0; s < (slashes << needsquote); ++s) {
@@ -141,6 +135,6 @@ textwindows int mkntcmdline(char16_t cmdline[ARG_MAX / 2], char *const argv[]) {
       APPEND(u'"');
     }
   }
-  cmdline[k] = u'\0';
+  cmdline[k] = 0;
   return 0;
 }

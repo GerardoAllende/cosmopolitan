@@ -22,6 +22,7 @@
 #include <libkern/OSCacheControl.h>
 #include <limits.h>
 #include <pthread.h>
+#include <semaphore.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdint.h>
@@ -33,7 +34,7 @@
 
 #define pagesz         16384
 #define SYSLIB_MAGIC   ('s' | 'l' << 8 | 'i' << 16 | 'b' << 24)
-#define SYSLIB_VERSION 4
+#define SYSLIB_VERSION 5
 
 struct Syslib {
   int magic;
@@ -68,6 +69,28 @@ struct Syslib {
   int (*pthread_attr_destroy)(pthread_attr_t *);
   int (*pthread_attr_setstacksize)(pthread_attr_t *, size_t);
   int (*pthread_attr_setguardsize)(pthread_attr_t *, size_t);
+  /* v4 (2023-09-19) */
+  void (*exit)(int);
+  long (*close)(int);
+  long (*munmap)(void *, size_t);
+  long (*openat)(int, const char *, int, int);
+  long (*write)(int, const void *, size_t);
+  long (*read)(int, void *, size_t);
+  long (*sigaction)(int, const struct sigaction *, struct sigaction *);
+  long (*pselect)(int, fd_set *, fd_set *, fd_set *, const struct timespec *,
+                  const sigset_t *);
+  long (*mprotect)(void *, size_t, int);
+  /* v5 (2023-10-09) */
+  long (*sigaltstack)(const stack_t *, stack_t *);
+  long (*getentropy)(void *, size_t);
+  long (*sem_open)(const char *, int, uint16_t, unsigned);
+  long (*sem_unlink)(const char *);
+  long (*sem_close)(int *);
+  long (*sem_post)(int *);
+  long (*sem_wait)(int *);
+  long (*sem_trywait)(int *);
+  long (*getrlimit)(int, struct rlimit *);
+  long (*setrlimit)(int, const struct rlimit *);
 };
 
 #define ELFCLASS32  1
@@ -176,10 +199,6 @@ struct ApeLoader {
   struct Syslib lib;
   char rando[16];
 };
-
-static int ToLower(int c) {
-  return 'A' <= c && c <= 'Z' ? c + ('a' - 'A') : c;
-}
 
 static unsigned long StrLen(const char *s) {
   unsigned long n = 0;
@@ -339,38 +358,15 @@ __attribute__((__noreturn__)) static void Pexit(const char *c, int failed,
   _exit(127);
 }
 
-static char EndsWithIgnoreCase(const char *p, unsigned long n, const char *s) {
-  unsigned long i, m;
-  if (n >= (m = StrLen(s))) {
-    for (i = n - m; i < n; ++i) {
-      if (ToLower(p[i]) != *s++) {
-        return 0;
-      }
-    }
-    return 1;
-  } else {
-    return 0;
-  }
-}
-
-static char IsComPath(struct PathSearcher *ps) {
-  return EndsWithIgnoreCase(ps->name, ps->namelen, ".com") ||
-         EndsWithIgnoreCase(ps->name, ps->namelen, ".exe") ||
-         EndsWithIgnoreCase(ps->name, ps->namelen, ".com.dbg");
-}
-
-static char AccessCommand(struct PathSearcher *ps, const char *suffix,
-                          unsigned long pathlen) {
-  unsigned long suffixlen;
-  suffixlen = StrLen(suffix);
-  if (pathlen + 1 + ps->namelen + suffixlen + 1 > sizeof(ps->path)) return 0;
+static char AccessCommand(struct PathSearcher *ps, unsigned long pathlen) {
+  if (pathlen + 1 + ps->namelen + 1 > sizeof(ps->path)) return 0;
   if (pathlen && ps->path[pathlen - 1] != '/') ps->path[pathlen++] = '/';
   MemMove(ps->path + pathlen, ps->name, ps->namelen);
-  MemMove(ps->path + pathlen + ps->namelen, suffix, suffixlen + 1);
+  ps->path[pathlen + ps->namelen] = 0;
   return !access(ps->path, X_OK);
 }
 
-static char SearchPath(struct PathSearcher *ps, const char *suffix) {
+static char SearchPath(struct PathSearcher *ps) {
   const char *p;
   unsigned long i;
   for (p = ps->syspath;;) {
@@ -379,7 +375,7 @@ static char SearchPath(struct PathSearcher *ps, const char *suffix) {
         ps->path[i] = p[i];
       }
     }
-    if (AccessCommand(ps, suffix, i)) {
+    if (AccessCommand(ps, i)) {
       return 1;
     } else if (p[i] == ':') {
       p += i + 1;
@@ -389,13 +385,13 @@ static char SearchPath(struct PathSearcher *ps, const char *suffix) {
   }
 }
 
-static char FindCommand(struct PathSearcher *ps, const char *suffix) {
+static char FindCommand(struct PathSearcher *ps) {
   ps->path[0] = 0;
 
   /* paths are always 100% taken literally when a slash exists
        $ ape foo/bar.com arg1 arg2 */
   if (MemChr(ps->name, '/', ps->namelen)) {
-    return AccessCommand(ps, suffix, 0);
+    return AccessCommand(ps, 0);
   }
 
   /* we don't run files in the current directory
@@ -406,12 +402,12 @@ static char FindCommand(struct PathSearcher *ps, const char *suffix) {
      however we will execute this
        $ ape - foo.com foo.com arg1 arg2
      because cosmo's execve needs it */
-  if (ps->literally && AccessCommand(ps, suffix, 0)) {
+  if (ps->literally && AccessCommand(ps, 0)) {
     return 1;
   }
 
   /* otherwise search for name on $PATH */
-  return SearchPath(ps, suffix);
+  return SearchPath(ps);
 }
 
 static char *Commandv(struct PathSearcher *ps, const char *name,
@@ -419,7 +415,7 @@ static char *Commandv(struct PathSearcher *ps, const char *name,
   ps->syspath = syspath ? syspath : "/bin:/usr/local/bin:/usr/bin";
   if (!(ps->namelen = StrLen((ps->name = name)))) return 0;
   if (ps->namelen + 1 > sizeof(ps->path)) return 0;
-  if (FindCommand(ps, "") || (!IsComPath(ps) && FindCommand(ps, ".com"))) {
+  if (FindCommand(ps)) {
     return ps->path;
   } else {
     return 0;
@@ -792,12 +788,77 @@ static long sys_fork(void) {
   return sysret(fork());
 }
 
+static long sys_close(int fd) {
+  return sysret(close(fd));
+}
+
 static long sys_pipe(int pfds[2]) {
   return sysret(pipe(pfds));
 }
 
+static long sys_munmap(void *addr, size_t size) {
+  return sysret(munmap(addr, size));
+}
+
+static long sys_read(int fd, void *data, size_t size) {
+  return sysret(read(fd, data, size));
+}
+
+static long sys_mprotect(void *data, size_t size, int prot) {
+  return sysret(mprotect(data, size, prot));
+}
+
+static long sys_sigaltstack(const stack_t *ss, stack_t *oss) {
+  return sysret(sigaltstack(ss, oss));
+}
+
+static long sys_getentropy(void *buf, size_t buflen) {
+  return sysret(getentropy(buf, buflen));
+}
+
+static long sys_sem_open(const char *name, int oflags, mode_t mode,
+                         unsigned value) {
+  return sysret((long)sem_open(name, oflags, mode, value));
+}
+
+static long sys_sem_unlink(const char *name) {
+  return sysret(sem_unlink(name));
+}
+
+static long sys_sem_close(sem_t *sem) {
+  return sysret(sem_close(sem));
+}
+
+static long sys_sem_post(sem_t *sem) {
+  return sysret(sem_post(sem));
+}
+
+static long sys_sem_wait(sem_t *sem) {
+  return sysret(sem_wait(sem));
+}
+
+static long sys_sem_trywait(sem_t *sem) {
+  return sysret(sem_trywait(sem));
+}
+
+static long sys_getrlimit(int which, struct rlimit *rlim) {
+  return sysret(getrlimit(which, rlim));
+}
+
+static long sys_setrlimit(int which, const struct rlimit *rlim) {
+  return sysret(setrlimit(which, rlim));
+}
+
+static long sys_write(int fd, const void *data, size_t size) {
+  return sysret(write(fd, data, size));
+}
+
 static long sys_clock_gettime(int clock, struct timespec *ts) {
   return sysret(clock_gettime((clockid_t)clock, ts));
+}
+
+static long sys_openat(int fd, const char *path, int flags, int mode) {
+  return sysret(openat(fd, path, flags, mode));
 }
 
 static long sys_nanosleep(const struct timespec *req, struct timespec *rem) {
@@ -807,6 +868,17 @@ static long sys_nanosleep(const struct timespec *req, struct timespec *rem) {
 static long sys_mmap(void *addr, size_t size, int prot, int flags, int fd,
                      off_t off) {
   return sysret((long)mmap(addr, size, prot, flags, fd, off));
+}
+
+static long sys_sigaction(int sig, const struct sigaction *act,
+                          struct sigaction *oact) {
+  return sysret(sigaction(sig, act, oact));
+}
+
+static long sys_pselect(int nfds, fd_set *readfds, fd_set *writefds,
+                        fd_set *errorfds, const struct timespec *timeout,
+                        const sigset_t *sigmask) {
+  return sysret(pselect(nfds, readfds, writefds, errorfds, timeout, sigmask));
 }
 
 int main(int argc, char **argv, char **envp) {
@@ -852,6 +924,25 @@ int main(int argc, char **argv, char **envp) {
   M->lib.pthread_attr_destroy = pthread_attr_destroy;
   M->lib.pthread_attr_setstacksize = pthread_attr_setstacksize;
   M->lib.pthread_attr_setguardsize = pthread_attr_setguardsize;
+  M->lib.exit = exit;
+  M->lib.close = sys_close;
+  M->lib.munmap = sys_munmap;
+  M->lib.openat = sys_openat;
+  M->lib.write = sys_write;
+  M->lib.read = sys_read;
+  M->lib.sigaction = sys_sigaction;
+  M->lib.pselect = sys_pselect;
+  M->lib.mprotect = sys_mprotect;
+  M->lib.sigaltstack = sys_sigaltstack;
+  M->lib.getentropy = sys_getentropy;
+  M->lib.sem_open = sys_sem_open;
+  M->lib.sem_unlink = sys_sem_unlink;
+  M->lib.sem_close = sys_sem_close;
+  M->lib.sem_post = sys_sem_post;
+  M->lib.sem_wait = sys_sem_wait;
+  M->lib.sem_trywait = sys_sem_trywait;
+  M->lib.getrlimit = sys_getrlimit;
+  M->lib.setrlimit = sys_setrlimit;
 
   /* getenv("_") is close enough to at_execfn */
   execfn = argc > 0 ? argv[0] : 0;

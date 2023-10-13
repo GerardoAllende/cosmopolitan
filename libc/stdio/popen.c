@@ -51,8 +51,7 @@
  * @raise ENOMEM if we require more vespene gas
  * @raise EAGAIN if `RLIMIT_NPROC` was exceeded
  * @raise EINTR if signal was delivered
- * @cancellationpoint
- * @threadsafe
+ * @cancelationpoint
  */
 FILE *popen(const char *cmdline, const char *mode) {
   FILE *f, *f2;

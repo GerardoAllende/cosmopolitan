@@ -69,9 +69,8 @@ int _mkstemp(char *, int);
  * @raise EINTR if signal was delivered
  * @see mkstemp() if you need a path
  * @see tmpfile() for stdio version
- * @cancellationpoint
+ * @cancelationpoint
  * @asyncsignalsafe
- * @threadsafe
  * @vforksafe
  */
 int tmpfd(void) {

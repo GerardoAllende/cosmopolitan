@@ -28,11 +28,11 @@
  * @return 0 on success, or EINTR if interrupted
  * @raise ECANCELED if thread was cancelled in masked mode
  * @raise EINTR if signal was delivered
- * @cancellationpoint
+ * @cancelationpoint
  */
 errno_t timespec_sleep_until(struct timespec abs_deadline) {
   errno_t rc;
   rc = clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &abs_deadline, 0);
-  npassert(!rc || rc == EINTR || rc == ECANCELED);
+  unassert(!rc || rc == EINTR || rc == ECANCELED);
   return rc;
 }

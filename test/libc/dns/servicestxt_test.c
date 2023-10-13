@@ -29,6 +29,8 @@
 #include "libc/calls/calls.h"
 #include "libc/dns/dns.h"
 #include "libc/dns/ent.h"
+#include "libc/runtime/internal.h"
+#include "libc/runtime/runtime.h"
 #include "libc/str/str.h"
 #include "libc/testlib/testlib.h"
 

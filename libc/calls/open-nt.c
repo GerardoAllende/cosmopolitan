@@ -53,21 +53,11 @@ static textwindows int64_t sys_open_nt_impl(int dirfd, const char *path,
     return kNtInvalidHandleValue;
   }
 
-  // strip trailing slash
-  size_t n = strlen16(path16);
-  if (n > 1 && path16[n - 1] == '\\') {
-    // path denormalization only goes so far. when a trailing / or /.
-    // exists the kernel interprets that as having O_DIRECTORY intent
-    // furthermore, windows will throw an error on unc paths with it!
-    flags |= O_DIRECTORY;
-    path16[--n] = 0;
-  }
-
   // implement no follow flag
   // you can't open symlinks; use readlink
   // this flag only applies to the final path component
   // if O_NOFOLLOW_ANY is passed (-1 on NT) it'll be rejected later
-  uint32_t fattr = __imp_GetFileAttributesW(path16);
+  uint32_t fattr = GetFileAttributes(path16);
   if (flags & O_NOFOLLOW) {
     if (fattr != -1u && (fattr & kNtFileAttributeReparsePoint)) {
       return eloop();
@@ -130,11 +120,12 @@ static textwindows int64_t sys_open_nt_impl(int dirfd, const char *path,
 
   // open the file, following symlinks
   int e = errno;
-  int64_t hand = CreateFile(path16, perm | extra_perm, share, 0, disp,
-                            attr | extra_attr, 0);
+  int64_t hand = CreateFile(path16, perm | extra_perm, share, &kNtIsInheritable,
+                            disp, attr | extra_attr, 0);
   if (hand == -1 && errno == EACCES && (flags & O_ACCMODE) == O_RDONLY) {
     errno = e;
-    hand = CreateFile(path16, perm, share, 0, disp, attr | extra_attr, 0);
+    hand = CreateFile(path16, perm, share, &kNtIsInheritable, disp,
+                      attr | extra_attr, 0);
   }
 
   return __fix_enotdir(hand, path16);
@@ -144,33 +135,12 @@ static textwindows int sys_open_nt_console(int dirfd,
                                            const struct NtMagicPaths *mp,
                                            uint32_t flags, int32_t mode,
                                            size_t fd) {
-  uint32_t cm;
-  int input, output;
-  if ((__isfdopen((input = STDIN_FILENO)) &&
-       GetConsoleMode(g_fds.p[input].handle, &cm)) &&
-      ((__isfdopen((output = STDOUT_FILENO)) &&
-        GetConsoleMode(g_fds.p[output].handle, &cm)) ||
-       (__isfdopen((output = STDERR_FILENO)) &&
-        GetConsoleMode(g_fds.p[output].handle, &cm)))) {
-    // this is an ugly hack that works for observed usage patterns
-    g_fds.p[fd].handle = g_fds.p[input].handle;
-    g_fds.p[fd].extra = g_fds.p[output].handle;
-    g_fds.p[fd].dontclose = true;
-    g_fds.p[input].dontclose = true;
-    g_fds.p[output].dontclose = true;
-  } else if ((g_fds.p[fd].handle = sys_open_nt_impl(
-                  dirfd, mp->conin, (flags & ~O_ACCMODE) | O_RDONLY, mode,
-                  kNtFileFlagOverlapped)) != -1) {
-    g_fds.p[fd].extra =
-        sys_open_nt_impl(dirfd, mp->conout, (flags & ~O_ACCMODE) | O_WRONLY,
-                         mode, kNtFileFlagOverlapped);
-    npassert(g_fds.p[fd].extra != -1);
-  } else {
-    return -1;
-  }
   g_fds.p[fd].kind = kFdConsole;
   g_fds.p[fd].flags = flags;
   g_fds.p[fd].mode = mode;
+  g_fds.p[fd].handle =
+      CreateFile(u"CONIN$", kNtGenericRead | kNtGenericWrite, kNtFileShareRead,
+                 &kNtIsInheritable, kNtOpenExisting, 0, 0);
   return fd;
 }
 
@@ -193,6 +163,7 @@ textwindows int sys_open_nt(int dirfd, const char *file, uint32_t flags,
   int fd;
   ssize_t rc;
   __fds_lock();
+  if (!(flags & O_CREAT)) mode = 0;
   if ((rc = fd = __reservefd_unlocked(-1)) != -1) {
     if (!strcmp(file, kNtMagicPaths.devtty)) {
       rc = sys_open_nt_console(dirfd, &kNtMagicPaths, flags, mode, fd);

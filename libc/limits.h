@@ -4,8 +4,8 @@
 
 #define CHAR_BIT 8
 #define PATH_MAX 1024
-#define NAME_MAX 255    /* 511 on netbsd */
-#define ARG_MAX  0xfffe /* for argv and envp; see CreateProcess (32767*2) */
+#define NAME_MAX 255
+#define ARG_MAX  131074
 
 #define UCHAR_MIN 0
 #define UCHAR_MAX 255
@@ -29,7 +29,7 @@
 #define INT16_MAX     __INT16_MAX__
 #define INT32_MAX     __INT32_MAX__
 #define INT64_MAX     __INT64_MAX__
-#define WINT_MAX      __WCHAR_MAX__
+#define WINT_MAX      __WINT_MAX__
 #define WCHAR_MAX     __WCHAR_MAX__
 #define INTPTR_MAX    __INTPTR_MAX__
 #define PTRDIFF_MAX   __PTRDIFF_MAX__
@@ -55,7 +55,7 @@
 #define INT64_MIN     (-INT64_MAX - 1)
 #define INTMAX_MIN    (-INTMAX_MAX - 1)
 #define INTPTR_MIN    (-INTPTR_MAX - 1)
-#define WINT_MIN      (-WINT_MAX - 1)
+#define WINT_MIN      __WINT_MIN__
 #define WCHAR_MIN     (-WCHAR_MAX - 1)
 #define PTRDIFF_MIN   (-PTRDIFF_MAX - 1)
 

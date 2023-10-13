@@ -7,6 +7,7 @@
 #if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 
+void sys_connect_nt_cleanup(struct Fd *, bool);
 int sys_accept_nt(struct Fd *, struct sockaddr_storage *, int);
 int sys_bind_nt(struct Fd *, const void *, uint32_t);
 int sys_closesocket_nt(struct Fd *);
@@ -20,7 +21,6 @@ int sys_shutdown_nt(struct Fd *, int);
 ssize_t sys_recv_nt(int, const struct iovec *, size_t, uint32_t);
 ssize_t sys_recvfrom_nt(int, const struct iovec *, size_t, uint32_t, void *,
                         uint32_t *);
-int __wsablock(struct Fd *, struct NtOverlapped *, uint32_t *, int, uint32_t);
 
 COSMOPOLITAN_C_END_
 #endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */

@@ -16,7 +16,6 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/calls/bo.internal.h"
 #include "libc/calls/cp.internal.h"
 #include "libc/calls/struct/sigset.h"
 #include "libc/calls/struct/sigset.internal.h"
@@ -55,19 +54,17 @@
  * @param sigmask may be null in which case no mask change happens
  * @raise ECANCELED if thread was cancelled in masked mode
  * @raise EINTR if signal was delivered
- * @cancellationpoint
+ * @cancelationpoint
  * @asyncsignalsafe
- * @threadsafe
  * @norestart
  */
 int ppoll(struct pollfd *fds, size_t nfds, const struct timespec *timeout,
           const sigset_t *sigmask) {
   size_t n;
   int e, rc;
-  uint64_t millis;
   sigset_t oldmask;
   struct timespec ts, *tsp;
-  BEGIN_CANCELLATION_POINT;
+  BEGIN_CANCELATION_POINT;
 
   if (IsAsan() &&
       (ckd_mul(&n, nfds, sizeof(struct pollfd)) || !__asan_is_valid(fds, n) ||
@@ -84,26 +81,26 @@ int ppoll(struct pollfd *fds, size_t nfds, const struct timespec *timeout,
     }
     rc = sys_ppoll(fds, nfds, tsp, sigmask, 8);
     if (rc == -1 && errno == ENOSYS) {
+      int ms;
       errno = e;
-      if (!timeout ||
-          ckd_add(&millis, timeout->tv_sec, timeout->tv_nsec / 1000000)) {
-        millis = -1;
+      if (!timeout || ckd_add(&ms, timeout->tv_sec,
+                              (timeout->tv_nsec + 999999) / 1000000)) {
+        ms = -1;
       }
       if (sigmask) sys_sigprocmask(SIG_SETMASK, sigmask, &oldmask);
-      rc = poll(fds, nfds, millis);
+      rc = poll(fds, nfds, ms);
       if (sigmask) sys_sigprocmask(SIG_SETMASK, &oldmask, 0);
     }
   } else {
+    uint32_t ms;
     if (!timeout ||
-        ckd_add(&millis, timeout->tv_sec, timeout->tv_nsec / 1000000)) {
-      millis = -1;
+        ckd_add(&ms, timeout->tv_sec, (timeout->tv_nsec + 999999) / 1000000)) {
+      ms = -1u;
     }
-    BEGIN_BLOCKING_OPERATION;
-    rc = sys_poll_nt(fds, nfds, &millis, sigmask);
-    END_BLOCKING_OPERATION;
+    rc = sys_poll_nt(fds, nfds, &ms, sigmask);
   }
 
-  END_CANCELLATION_POINT;
+  END_CANCELATION_POINT;
   STRACE("ppoll(%s, %'zu, %s, %s) → %d% lm", DescribePollFds(rc, fds, nfds),
          nfds, DescribeTimespec(0, timeout), DescribeSigset(0, sigmask), rc);
   return rc;

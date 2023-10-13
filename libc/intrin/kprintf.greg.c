@@ -399,8 +399,10 @@ privileged void klog(const char *b, size_t n) {
   }
   if (IsWindows()) {
     e = __imp_GetLastError();
-    __imp_WriteFile(h, b, n, &wrote, 0);
-    __imp_SetLastError(e);
+    if (!__imp_WriteFile(h, b, n, &wrote, 0)) {
+      __imp_SetLastError(e);
+      __klog_handle = 0;
+    }
   } else if (IsMetal()) {
     if (_weaken(_klog_vga)) {
       _weaken(_klog_vga)(b, n);
@@ -424,7 +426,7 @@ privileged void klog(const char *b, size_t n) {
                  : "rcx", "r8", "r9", "r10", "r11", "memory", "cc");
   }
 #elif defined(__aarch64__)
-  // this isn't a cancellation point because we don't acknowledge eintr
+  // this isn't a cancelation point because we don't acknowledge eintr
   // on xnu we use the "nocancel" version of the system call for safety
   register long r0 asm("x0") = kloghandle();
   register long r1 asm("x1") = (long)b;
@@ -569,23 +571,35 @@ privileged static size_t kformat(char *b, size_t n, const char *fmt,
 
         case 'P':
           if (!(tib && (tib->tib_flags & TIB_FLAG_VFORKED))) {
+            x = __pid;
+#ifdef __x86_64__
+          } else if (IsLinux()) {
+            asm volatile("syscall"
+                         : "=a"(x)
+                         : "0"(__NR_getpid)
+                         : "rcx", "rdx", "r11", "memory");
+#endif
+          } else {
+            x = 666;
+          }
+          if (!__nocolor && p + 7 <= e) {
+            *p++ = '\e';
+            *p++ = '[';
+            *p++ = '1';
+            *p++ = ';';
+            *p++ = '3';
+            *p++ = '0' + x % 7;
+            *p++ = 'm';
+            ansi = 1;
+          }
+          goto FormatDecimal;
+
+        case 'H':
+          if (!(tib && (tib->tib_flags & TIB_FLAG_VFORKED))) {
             if (tib) {
               x = atomic_load_explicit(&tib->tib_tid, memory_order_relaxed);
-              if (IsNetbsd() && x == 1) {
-                x = __pid;
-              }
             } else {
               x = __pid;
-            }
-            if (!__nocolor && p + 7 <= e) {
-              *p++ = '\e';
-              *p++ = '[';
-              *p++ = '1';
-              *p++ = ';';
-              *p++ = '3';
-              *p++ = '0' + x % 8;
-              *p++ = 'm';
-              ansi = 1;
             }
 #ifdef __x86_64__
           } else if (IsLinux()) {
@@ -596,6 +610,17 @@ privileged static size_t kformat(char *b, size_t n, const char *fmt,
 #endif
           } else {
             x = 666;
+          }
+          if (!__nocolor && p + 7 <= e) {
+            // xnu thread ids are always divisible by 8
+            *p++ = '\e';
+            *p++ = '[';
+            *p++ = '1';
+            *p++ = ';';
+            *p++ = '3';
+            *p++ = '0' + x % 7;
+            *p++ = 'm';
+            ansi = 1;
           }
           goto FormatDecimal;
 
@@ -777,7 +802,7 @@ privileged static size_t kformat(char *b, size_t n, const char *fmt,
           // undocumented %r specifier
           // used for good carriage return
           // helps integrate loggers with repls
-          if (!__replstderr || __nocolor) {
+          if (!__ttyconf.replstderr || __nocolor) {
             break;
           } else {
             s = "\r\e[K";
@@ -1080,7 +1105,8 @@ privileged void kvprintf(const char *fmt, va_list v) {
  * - `X` uppercase
  * - `T` timestamp
  * - `x` hexadecimal
- * - `P` PID (or TID if TLS is enabled)
+ * - `P` process id
+ * - `H` thread id
  *
  * Types:
  *

@@ -19,6 +19,7 @@
 #include "libc/assert.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/internal.h"
+#include "libc/calls/struct/sigset.h"
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
@@ -28,6 +29,7 @@
 #include "libc/intrin/bsr.h"
 #include "libc/intrin/describeflags.internal.h"
 #include "libc/intrin/directmap.internal.h"
+#include "libc/intrin/kprintf.h"
 #include "libc/intrin/likely.h"
 #include "libc/intrin/safemacros.internal.h"
 #include "libc/intrin/strace.internal.h"
@@ -37,6 +39,9 @@
 #include "libc/log/libfatal.internal.h"
 #include "libc/log/log.h"
 #include "libc/macros.internal.h"
+#include "libc/nt/enum/memflags.h"
+#include "libc/nt/enum/pageflags.h"
+#include "libc/nt/memory.h"
 #include "libc/nt/process.h"
 #include "libc/nt/runtime.h"
 #include "libc/nt/struct/processmemorycounters.h"
@@ -51,6 +56,7 @@
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/prot.h"
+#include "libc/sysv/consts/sig.h"
 #include "libc/sysv/consts/ss.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/thread.h"
@@ -157,9 +163,9 @@ static bool __auto_map(int count, int align, int *res) {
          *res + count <= FRAME(kAutomapStart + (kAutomapSize - 1));
 }
 
-static void *__finish_memory(void *addr, size_t size, int prot,
-                                      int flags, int fd, int64_t off, int f,
-                                      int x, int n, struct DirectMap dm) {
+static void *__finish_memory(void *addr, size_t size, int prot, int flags,
+                             int fd, int64_t off, int f, int x, int n,
+                             struct DirectMap dm) {
   if (!IsWindows() && (flags & MAP_FIXED)) {
     if (__untrack_memories(addr, size)) {
       __mmap_die("FIXED UNTRACK FAILED");
@@ -178,8 +184,8 @@ static void *__finish_memory(void *addr, size_t size, int prot,
   return addr;
 }
 
-static void *__map_memory(void *addr, size_t size, int prot, int flags,
-                                   int fd, int64_t off, int f, int x, int n) {
+static void *__map_memory(void *addr, size_t size, int prot, int flags, int fd,
+                          int64_t off, int f, int x, int n) {
   struct DirectMap dm;
   dm = sys_mmap(addr, size, prot, f, fd, off);
   if (VERY_UNLIKELY(dm.addr == MAP_FAILED)) {
@@ -200,9 +206,10 @@ static void *__map_memory(void *addr, size_t size, int prot, int flags,
  * This is useful on Windows since it allows us to partially unmap or
  * punch holes into existing mappings.
  */
-static textwindows dontinline void *__map_memories(
-    char *addr, size_t size, int prot, int flags, int fd, int64_t off, int f,
-    int x, int n) {
+static textwindows dontinline void *__map_memories(char *addr, size_t size,
+                                                   int prot, int flags, int fd,
+                                                   int64_t off, int f, int x,
+                                                   int n) {
   size_t i, m;
   int64_t oi, sz;
   struct DirectMap dm;
@@ -238,8 +245,8 @@ static textwindows dontinline void *__map_memories(
   return addr;
 }
 
-inline void *__mmap_unlocked(void *addr, size_t size, int prot,
-                                      int flags, int fd, int64_t off) {
+inline void *__mmap_unlocked(void *addr, size_t size, int prot, int flags,
+                             int fd, int64_t off) {
   char *p = addr;
   struct DirectMap dm;
   size_t requested_size;
@@ -395,9 +402,15 @@ inline void *__mmap_unlocked(void *addr, size_t size, int prot,
                     kAsanMmapSizeOverrun);
     }
     if (needguard) {
-      unassert(!mprotect(p, pagesize, PROT_NONE));
-      if (IsAsan()) {
-        __asan_poison(p, pagesize, kAsanStackOverflow);
+      if (!IsWindows()) {
+        unassert(!mprotect(p, pagesize, PROT_NONE));
+        if (IsAsan()) {
+          __asan_poison(p, pagesize, kAsanStackOverflow);
+        }
+      } else {
+        uint32_t oldattr;
+        unassert(VirtualProtect(p, pagesize, kNtPageReadwrite | kNtPageGuard,
+                                &oldattr));
       }
     }
   }
@@ -480,3 +493,5 @@ void *mmap(void *addr, size_t size, int prot, int flags, int fd, int64_t off) {
          toto);
   return res;
 }
+
+__strong_reference(mmap, mmap64);

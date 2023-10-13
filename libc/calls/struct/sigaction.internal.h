@@ -31,6 +31,12 @@ struct sigaction_netbsd {
   uint32_t sa_flags;
 };
 
+struct sigaction_silicon {
+  void *sa_handler;
+  uint32_t sa_mask[1];
+  uint32_t sa_flags;
+};
+
 struct sigaction_xnu_in {
   void *sa_handler;
   void *sa_restorer;
@@ -50,6 +56,7 @@ union metasigaction {
   struct sigaction_freebsd freebsd;
   struct sigaction_openbsd openbsd;
   struct sigaction_netbsd netbsd;
+  struct sigaction_silicon silicon;
   struct sigaction_xnu_in xnu_in;
   struct sigaction_xnu_out xnu_out;
 };
@@ -64,9 +71,6 @@ const char *DescribeSigaction(char[256], int, const struct sigaction *);
 #define DescribeSigaction(rc, sa) DescribeSigaction(alloca(256), rc, sa)
 
 void _init_onntconsoleevent(void);
-void _init_sigwinch(void);
-
-extern intptr_t __sigwinch_thread;
 
 COSMOPOLITAN_C_END_
 #endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */

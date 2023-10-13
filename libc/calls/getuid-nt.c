@@ -18,13 +18,10 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/internal.h"
 #include "libc/intrin/atomic.h"
-#include "libc/limits.h"
 #include "libc/macros.internal.h"
 #include "libc/nt/accounting.h"
 
-// asan must be disabled because __proc_worker calls this on win32 stack
-
-static uint32_t __kmp32(const void *buf, size_t size) {
+static textwindows uint32_t __kmp32(const void *buf, size_t size) {
   size_t i;
   uint32_t h;
   const uint32_t kPhiPrime = 0x9e3779b1;
@@ -39,7 +36,7 @@ textwindows uint32_t sys_getuid_nt(void) {
   uint32_t tmp, size = ARRAYLEN(buf);
   if (!(tmp = atomic_load_explicit(&uid, memory_order_acquire))) {
     GetUserName(&buf, &size);
-    tmp = __kmp32(buf, size >> 1) & INT_MAX;
+    tmp = __kmp32(buf, size >> 1) & 32767;
     if (!tmp) ++tmp;
     atomic_store_explicit(&uid, tmp, memory_order_release);
   }

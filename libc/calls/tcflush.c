@@ -49,48 +49,13 @@ static const char *DescribeFlush(char buf[12], int action) {
 }
 
 static dontinline textwindows int sys_tcflush_nt(int fd, int queue) {
-  if (!__isfdopen(fd)) {
-    return ebadf();
-  }
-  int64_t hConin;
-  if (__isfdkind(fd, kFdConsole)) {
-    hConin = g_fds.p[fd].handle;
-  } else if (fd == 0 || fd == 1 || fd == 2) {
-    hConin = g_fds.p[(fd = 0)].handle;
-  } else {
-    return enotty();
-  }
-  uint32_t inmode;
-  if (!GetConsoleMode(hConin, &inmode)) {
-    return enotty();
+  if (!sys_isatty(fd)) {
+    return -1;  // ebadf, enotty
   }
   if (queue == TCOFLUSH) {
     return 0;  // windows console output is never buffered
   }
-  FlushConsoleInputBuffer(hConin);
-  int rc = 0;
-  int e = errno;
-  int oldflags = g_fds.p[fd].flags;
-  g_fds.p[fd].flags |= O_NONBLOCK;
-  for (;;) {
-    char buf[512];
-    ssize_t got = sys_read_nt_impl(fd, buf, 512, -1);
-    if (!got) {
-      break;
-    } else if (got == -1) {
-      if (errno == EAGAIN) {
-        errno = e;
-      } else if (errno == EINTR) {
-        errno = e;
-        continue;
-      } else {
-        rc = -1;
-      }
-      break;
-    }
-  }
-  g_fds.p[fd].flags = oldflags;
-  return rc;
+  return FlushConsoleInputBytes();
 }
 
 /**

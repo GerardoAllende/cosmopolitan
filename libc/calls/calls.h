@@ -26,6 +26,8 @@
 #define _POSIX_MEMLOCK_RANGE              _POSIX_VERSION
 #define _POSIX_SPAWN                      _POSIX_VERSION
 
+#define NSIG 64
+
 #define SEEK_SET 0          /* relative to beginning */
 #define SEEK_CUR 1          /* relative to current position */
 #define SEEK_END 2          /* relative to end */
@@ -127,8 +129,6 @@ int linkat(int, const char *, int, const char *, int);
 int mincore(void *, size_t, unsigned char *);
 int mkdir(const char *, unsigned);
 int mkdirat(int, const char *, unsigned);
-int mkfifo(const char *, unsigned);
-int mkfifoat(int, const char *, unsigned);
 int mknod(const char *, unsigned, uint64_t);
 int nice(int);
 int open(const char *, int, ...);

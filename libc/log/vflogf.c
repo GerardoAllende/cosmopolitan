@@ -18,6 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/blockcancel.internal.h"
 #include "libc/calls/calls.h"
+#include "libc/calls/struct/sigset.internal.h"
 #include "libc/calls/struct/stat.h"
 #include "libc/calls/struct/timeval.h"
 #include "libc/dce.h"
@@ -81,7 +82,6 @@ static void vflogf_onfail(FILE *f) {
  * time that it took to connect. This is great in forking applications.
  *
  * @asyncsignalsafe
- * @threadsafe
  */
 void(vflogf)(unsigned level, const char *file, int line, FILE *f,
              const char *fmt, va_list va) {
@@ -96,7 +96,7 @@ void(vflogf)(unsigned level, const char *file, int line, FILE *f,
   if (!f) return;
   flockfile(f);
   strace_enabled(-1);
-  BLOCK_CANCELLATIONS;
+  BLOCK_SIGNALS;
 
   // We display TIMESTAMP.MICROS normally. However, when we log multiple
   // times in the same second, we display TIMESTAMP+DELTAMICROS instead.
@@ -135,10 +135,10 @@ void(vflogf)(unsigned level, const char *file, int line, FILE *f,
     (dprintf)(STDERR_FILENO,
               "exiting due to aforementioned error (host %s pid %d tid %d)\n",
               buf32, getpid(), gettid());
-    __die();
+    _Exit(22);
   }
 
-  ALLOW_CANCELLATIONS;
+  ALLOW_SIGNALS;
   strace_enabled(+1);
   funlockfile(f);
 }

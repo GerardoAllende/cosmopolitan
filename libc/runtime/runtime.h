@@ -8,8 +8,10 @@ COSMOPOLITAN_C_START_
 
 #ifdef __x86_64__
 typedef long jmp_buf[8];
+typedef long sigjmp_buf[11];
 #elif defined(__aarch64__)
 typedef long jmp_buf[22];
+typedef long sigjmp_buf[25];
 #elif defined(__powerpc64__)
 typedef unsigned __int128 jmp_buf[32];
 #elif defined(__s390x__)
@@ -17,8 +19,6 @@ typedef unsigned long jmp_buf[18];
 #elif defined(__riscv)
 typedef unsigned long jmp_buf[26];
 #endif
-
-typedef long sigjmp_buf[12];
 
 void mcount(void);
 int daemon(int, int);
@@ -89,14 +89,13 @@ void _intsort(int *, size_t);
 void _longsort(long *, size_t);
 /* diagnostics */
 void ShowCrashReports(void);
-void __printargs(const char *);
 int ftrace_install(void);
 int ftrace_enabled(int);
 int strace_enabled(int);
-void _bt(const char *, ...);
+bool strace_enter(void);
 void __print_maps(void);
-long _GetMaxFd(void);
-/* builtin shell language */
+void __printargs(const char *);
+/* builtin sh-like system/popen dsl */
 int _cocmd(int, char **, char **);
 /* executable program */
 char *GetProgramExecutableName(void);
@@ -104,9 +103,6 @@ char *GetInterpreterExecutableName(char *, size_t);
 int __open_executable(void);
 /* execution control */
 int verynice(void);
-axdx_t setlongerjmp(jmp_buf)
-libcesque returnstwice paramsnonnull();
-void longerjmp(jmp_buf, intptr_t) libcesque wontreturn paramsnonnull();
 void __warn_if_powersave(void);
 void _Exit1(int) libcesque wontreturn;
 void __paginate(int, const char *);
@@ -130,7 +126,6 @@ const char *GetCpuidOs(void);
 const char *GetCpuidEmulator(void);
 void GetCpuidBrand(char[13], uint32_t);
 long __get_rlimit(int);
-int __set_rlimit(int, int64_t);
 const char *__describe_os(void);
 long __get_sysctl(int, int);
 int __get_arg_max(void) pureconst;
@@ -141,6 +136,15 @@ long __get_minsigstksz(void) pureconst;
 void __get_main_stack(void **, size_t *, int *);
 long __get_safe_size(long, long);
 char *__get_tmpdir(void);
+__funline int __trace_disabled(int x) {
+  return 0;
+}
+#ifndef FTRACE
+#define ftrace_enabled __trace_disabled
+#endif
+#ifndef SYSDEBUG
+#define strace_enabled __trace_disabled
+#endif
 #endif /* _COSMO_SOURCE */
 
 COSMOPOLITAN_C_END_

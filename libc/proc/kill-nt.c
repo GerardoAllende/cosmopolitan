@@ -17,60 +17,85 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/calls.h"
+#include "libc/calls/struct/sigset.internal.h"
+#include "libc/calls/syscall-nt.internal.h"
 #include "libc/errno.h"
 #include "libc/intrin/dll.h"
+#include "libc/intrin/strace.internal.h"
+#include "libc/nt/console.h"
+#include "libc/nt/enum/ctrlevent.h"
+#include "libc/nt/enum/processaccess.h"
 #include "libc/nt/errors.h"
+#include "libc/nt/process.h"
 #include "libc/nt/runtime.h"
 #include "libc/proc/proc.internal.h"
+#include "libc/sysv/consts/sig.h"
 #include "libc/sysv/errfuns.h"
 #ifdef __x86_64__
 
-static textwindows int sys_kill_nt_impl(int pid, int sig) {
-  int err;
-  bool32 ok;
-  struct Dll *e;
-  struct Proc *pr = 0;
-  for (e = dll_first(__proc.list); e; e = dll_next(__proc.list, e)) {
-    if (pid == PROC_CONTAINER(e)->pid) {
-      pr = PROC_CONTAINER(e);
-    }
-  }
-  if (!pr) {
-    return esrch();
-  }
-  if (sig) {
-    err = errno;
-    ok = TerminateProcess(pr->handle, sig);
-    if (!ok && GetLastError() == kNtErrorAccessDenied) {
-      ok = true;  // cargo culting other codebases here
-      errno = err;
-    }
-  }
-  return ok ? 0 : -1;
-}
-
 textwindows int sys_kill_nt(int pid, int sig) {
-  int rc;
-  if (!(0 <= sig && sig <= 64)) return einval();
+
+  // validate api usage
+  if (!(0 <= sig && sig <= 64)) {
+    return einval();
+  }
 
   // XXX: NT doesn't really have process groups. For instance the
   //      CreateProcess() flag for starting a process group actually
   //      just does an "ignore ctrl-c" internally.
-  if (pid < -1) pid = -pid;
-
-  if (pid == -1) return einval();  // no support for kill all yet
-
-  // If we're targeting current process group then just call raise().
-  if (pid <= 0 || pid == getpid()) {
-    if (!sig) return 0;  // ability check passes
-    return raise(sig);
+  if (pid < -1) {
+    pid = -pid;
   }
 
-  __proc_lock();
-  rc = sys_kill_nt_impl(pid, sig);
-  __proc_unlock();
+  // no support for kill all yet
+  if (pid == -1) {
+    return einval();
+  }
 
-  return rc;
+  // just call raise() if we're targeting self
+  if (pid <= 0 || pid == getpid()) {
+    if (sig) {
+      if (pid <= 0) {
+        struct Dll *e;
+        BLOCK_SIGNALS;
+        __proc_lock();
+        for (e = dll_first(__proc.list); e; e = dll_next(__proc.list, e)) {
+          TerminateProcess(PROC_CONTAINER(e)->handle, sig);
+        }
+        __proc_unlock();
+        ALLOW_SIGNALS;
+      }
+      return raise(sig);
+    } else {
+      return 0;  // ability check passes
+    }
+  }
+
+  // find existing handle we own for process
+  int64_t handle, closeme = 0;
+  if (!(handle = __proc_handle(pid))) {
+    if ((handle = OpenProcess(kNtProcessTerminate, false, pid))) {
+      closeme = handle;
+    } else {
+      goto OnError;
+    }
+  }
+
+  // perform actual kill
+  // process will report WIFSIGNALED with WTERMSIG(sig)
+  bool32 ok = TerminateProcess(handle, sig);
+  if (closeme) CloseHandle(closeme);
+  if (ok) return 0;
+
+  // handle error
+OnError:
+  switch (GetLastError()) {
+    case kNtErrorInvalidHandle:
+    case kNtErrorInvalidParameter:
+      return esrch();
+    default:
+      return eperm();
+  }
 }
 
 #endif /* __x86_64__ */

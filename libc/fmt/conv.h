@@ -1,16 +1,5 @@
 #ifndef COSMOPOLITAN_LIBC_FMT_CONV_H_
 #define COSMOPOLITAN_LIBC_FMT_CONV_H_
-#include "libc/calls/struct/timespec.h"
-#include "libc/calls/struct/timeval.h"
-#include "libc/nt/struct/filetime.h"
-
-/*───────────────────────────────────────────────────────────────────────────│─╗
-│ cosmopolitan § conversion                                                ─╬─│┼
-╚────────────────────────────────────────────────────────────────────────────│*/
-
-#define MODERNITYSECONDS 11644473600ull
-#define HECTONANOSECONDS 10000000ull
-
 #if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 
@@ -25,7 +14,6 @@ long long atoll(const char *) paramsnonnull() libcesque;
 unsigned long strtoul(const char *, char **, int) paramsnonnull((1));
 long long strtoll(const char *, char **, int) paramsnonnull((1));
 unsigned long long strtoull(const char *, char **, int) paramsnonnull((1));
-long long strtonum(const char *, long long, long long, const char **);
 intmax_t strtoimax(const char *, char **, int) paramsnonnull((1));
 uintmax_t strtoumax(const char *, char **, int) paramsnonnull((1));
 intmax_t wcstoimax(const wchar_t *, wchar_t **, int);
@@ -48,52 +36,10 @@ float wcstof(const wchar_t *, wchar_t **);
 double wcstod(const wchar_t *, wchar_t **);
 long double wcstold(const wchar_t *, wchar_t **);
 
-/*───────────────────────────────────────────────────────────────────────────│─╗
-│ cosmopolitan § conversion » time                                         ─╬─│┼
-╚────────────────────────────────────────────────────────────────────────────│*/
-
-int64_t DosDateTimeToUnix(unsigned, unsigned) libcesque nosideeffect;
-struct timeval WindowsTimeToTimeVal(int64_t)
-libcesque nosideeffect;
-struct timespec WindowsTimeToTimeSpec(int64_t)
-libcesque nosideeffect;
-int64_t TimeSpecToWindowsTime(struct timespec) libcesque nosideeffect;
-int64_t TimeValToWindowsTime(struct timeval) libcesque nosideeffect;
-struct timeval WindowsDurationToTimeVal(int64_t)
-libcesque nosideeffect;
-struct timespec WindowsDurationToTimeSpec(int64_t)
-libcesque nosideeffect;
-
-#define MakeFileTime(x)                                        \
-  ({                                                           \
-    int64_t __x = x;                                           \
-    (struct NtFileTime){(uint32_t)__x, (uint32_t)(__x >> 32)}; \
-  })
-
-#define ReadFileTime(t)                     \
-  ({                                        \
-    struct NtFileTime __t = t;              \
-    uint64_t x = __t.dwHighDateTime;        \
-    (int64_t)(x << 32 | __t.dwLowDateTime); \
-  })
-
-#define FileTimeToTimeSpec(x) WindowsTimeToTimeSpec(ReadFileTime(x))
-#define FileTimeToTimeVal(x)  WindowsTimeToTimeVal(ReadFileTime(x))
-#define TimeSpecToFileTime(x) MakeFileTime(TimeSpecToWindowsTime(x))
-#define TimeValToFileTime(x)  MakeFileTime(TimeValToWindowsTime(x))
-
-/*───────────────────────────────────────────────────────────────────────────│─╗
-│ cosmopolitan § conversion » manipulation                                 ─╬─│┼
-╚────────────────────────────────────────────────────────────────────────────│*/
-
 #ifdef _COSMO_SOURCE
 char *stripext(char *);
 char *stripexts(char *);
-#endif
-
-/*───────────────────────────────────────────────────────────────────────────│─╗
-│ cosmopolitan § conversion » computation                                  ─╬─│┼
-╚────────────────────────────────────────────────────────────────────────────│*/
+#endif /* _COSMO_SOURCE */
 
 typedef struct {
   int quot;
@@ -119,10 +65,6 @@ div_t div(int, int) pureconst;
 ldiv_t ldiv(long, long) pureconst;
 lldiv_t lldiv(long long, long long) pureconst;
 imaxdiv_t imaxdiv(intmax_t, intmax_t) pureconst;
-
-/*───────────────────────────────────────────────────────────────────────────│─╗
-│ cosmopolitan § conversion » optimizations                                ─╬─│┼
-╚────────────────────────────────────────────────────────────────────────────│*/
 
 #if __STDC_VERSION__ + 0 >= 199901L
 #define div(num, den)   ((div_t){(num) / (den), (num) % (den)})

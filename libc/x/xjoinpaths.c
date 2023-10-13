@@ -17,7 +17,6 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/intrin/safemacros.internal.h"
-#include "libc/str/path.h"
 #include "libc/str/str.h"
 #include "libc/x/x.h"
 
@@ -38,7 +37,7 @@ char *xjoinpaths(const char *path, const char *other) {
     return xstrdup(path);
   } else if (!*path) {
     return xstrdup(other);
-  } else if (_isabspath(other) || !strcmp(path, ".")) {
+  } else if (*other == '/' || !strcmp(path, ".")) {
     return xstrdup(other);
   } else if (endswith(path, "/")) {
     return xstrcat(path, other);

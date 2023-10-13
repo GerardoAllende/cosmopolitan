@@ -17,8 +17,10 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/internal.h"
+#include "libc/calls/struct/sigset.internal.h"
+#include "libc/calls/struct/timespec.h"
 #include "libc/calls/syscall_support-nt.internal.h"
-#include "libc/fmt/conv.h"
+#include "libc/fmt/wintime.internal.h"
 #include "libc/nt/createfile.h"
 #include "libc/nt/enum/accessmask.h"
 #include "libc/nt/enum/creationdisposition.h"
@@ -32,8 +34,9 @@
 #include "libc/sysv/errfuns.h"
 #include "libc/time/time.h"
 
-textwindows int sys_utimensat_nt(int dirfd, const char *path,
-                                 const struct timespec ts[2], int flags) {
+static textwindows int sys_utimensat_nt_impl(int dirfd, const char *path,
+                                             const struct timespec ts[2],
+                                             int flags) {
   int i, rc;
   int64_t fh, closeme;
   uint16_t path16[PATH_MAX];
@@ -88,5 +91,14 @@ textwindows int sys_utimensat_nt(int dirfd, const char *path,
     CloseHandle(fh);
   }
 
+  return rc;
+}
+
+textwindows int sys_utimensat_nt(int dirfd, const char *path,
+                                 const struct timespec ts[2], int flags) {
+  int rc;
+  BLOCK_SIGNALS;
+  rc = sys_utimensat_nt_impl(dirfd, path, ts, flags);
+  ALLOW_SIGNALS;
   return rc;
 }

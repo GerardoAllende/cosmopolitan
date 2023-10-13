@@ -25,7 +25,6 @@
 #include "libc/calls/struct/timespec.h"
 #include "libc/dns/dns.h"
 #include "libc/errno.h"
-#include "libc/fmt/conv.h"
 #include "libc/fmt/libgen.h"
 #include "libc/intrin/bits.h"
 #include "libc/intrin/kprintf.h"
@@ -33,9 +32,7 @@
 #include "libc/limits.h"
 #include "libc/log/check.h"
 #include "libc/log/log.h"
-#include "libc/macros.internal.h"
 #include "libc/mem/gc.h"
-#include "libc/mem/gc.internal.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/sock/ipclassify.internal.h"
@@ -51,12 +48,9 @@
 #include "libc/sysv/consts/prot.h"
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/consts/sock.h"
-#include "libc/time/time.h"
-#include "libc/x/x.h"
+#include "libc/temp.h"
 #include "libc/x/xasprintf.h"
-#include "libc/x/xsigaction.h"
 #include "net/https/https.h"
-#include "third_party/mbedtls/debug.h"
 #include "third_party/mbedtls/net_sockets.h"
 #include "third_party/mbedtls/ssl.h"
 #include "third_party/zlib/zlib.h"
@@ -122,6 +116,9 @@ long g_backoff;
 char *g_runitd;
 jmp_buf g_jmpbuf;
 uint16_t g_sshport;
+int connect_latency;
+int execute_latency;
+int handshake_latency;
 char g_hostname[128];
 uint16_t g_runitdport;
 volatile bool alarmed;
@@ -174,6 +171,7 @@ void Connect(void) {
   LOGIFNEG1(sigaction(SIGALRM, &(struct sigaction){.sa_handler = OnAlarm}, 0));
   DEBUGF("connecting to %s (%hhu.%hhu.%hhu.%hhu) to run %s", g_hostname, ip4[0],
          ip4[1], ip4[2], ip4[3], g_prog);
+  struct timespec start = timespec_real();
 TryAgain:
   alarmed = false;
   LOGIFNEG1(setitimer(
@@ -199,6 +197,7 @@ TryAgain:
   }
   setitimer(ITIMER_REAL, &(const struct itimerval){0}, 0);
   freeaddrinfo(ai);
+  connect_latency = timespec_tomicros(timespec_sub(timespec_real(), start));
 }
 
 bool Send(int tmpfd, const void *output, size_t outputsize) {
@@ -309,6 +308,7 @@ bool Recv(char *p, int n) {
 
 int ReadResponse(void) {
   int exitcode;
+  struct timespec start = timespec_real();
   for (;;) {
     char msg[5];
     if (!Recv(msg, 5)) {
@@ -351,6 +351,7 @@ int ReadResponse(void) {
       break;
     }
   }
+  execute_latency = timespec_tomicros(timespec_sub(timespec_real(), start));
   close(g_sock);
   return exitcode;
 }
@@ -373,7 +374,9 @@ int RunOnHost(char *spec) {
   for (;;) {
     Connect();
     EzFd(g_sock);
+    struct timespec start = timespec_real();
     err = EzHandshake2();
+    handshake_latency = timespec_tomicros(timespec_sub(timespec_real(), start));
     if (!err) break;
     WARNF("handshake with %s:%d failed -0x%04x (%s)",  //
           g_hostname, g_runitdport, err, GetTlsError(err));
@@ -381,7 +384,10 @@ int RunOnHost(char *spec) {
     return 1;
   }
   RelayRequest();
-  return ReadResponse();
+  int rc = ReadResponse();
+  kprintf("%s on %-16s %'8ld µs %'8ld µs %'11d µs\n", basename(g_prog),
+          g_hostname, connect_latency, handshake_latency, execute_latency);
+  return rc;
 }
 
 bool IsParallelBuild(void) {
@@ -394,18 +400,16 @@ bool ShouldRunInParallel(void) {
 }
 
 int SpawnSubprocesses(int argc, char *argv[]) {
-  const char *tpath;
   sigset_t chldmask, savemask;
-  int i, ws, pid, tmpfd, *pids, exitcode;
+  int i, ws, pid, *pids, exitcode;
   struct sigaction ignore, saveint, savequit;
   char *args[5] = {argv[0], argv[1], argv[2]};
 
   // create compressed network request ahead of time
-  CHECK_NE(-1, (tmpfd = open(
-                    (tpath = _gc(xasprintf(
-                         "%s/runit.%d", firstnonnull(getenv("TMPDIR"), "/tmp"),
-                         getpid()))),
-                    O_WRONLY | O_CREAT | O_TRUNC, 0755)));
+  const char *tmpdir = firstnonnull(getenv("TMPDIR"), "/tmp");
+  char *tpath = _gc(xasprintf("%s/runit.XXXXXX", tmpdir));
+  int tmpfd = mkstemp(tpath);
+  CHECK_NE(-1, tmpfd);
   CHECK(SendRequest(tmpfd));
   CHECK_NE(-1, close(tmpfd));
 

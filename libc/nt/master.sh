@@ -9,7 +9,6 @@
 # KERNEL32.DLL
 #
 #	Name							Actual							DLL		Arity
-imp	''							CloseHandle						kernel32	1
 imp	''							CreateDirectoryW					kernel32	2
 imp	''							CreateFileA						kernel32	7
 imp	''							CreateFileMappingNumaW					kernel32	7
@@ -57,6 +56,7 @@ imp	'CancelIoEx'						CancelIoEx						kernel32	2
 imp	'CancelSynchronousIo'					CancelSynchronousIo					kernel32	1
 imp	'CheckRemoteDebuggerPresent'				CheckRemoteDebuggerPresent				kernel32	2
 imp	'ClearCommBreak'					ClearCommBreak						kernel32	1
+imp	'CloseHandle'						CloseHandle						kernel32	1
 imp	'ConnectNamedPipe'					ConnectNamedPipe					kernel32	2
 imp	'ContinueDebugEvent'					ContinueDebugEvent					kernel32	3
 imp	'CopyFile'						CopyFileW						kernel32	3
@@ -162,6 +162,7 @@ imp	'GetSystemTimes'					GetSystemTimes						kernel32	3
 imp	'GetTempPath'						GetTempPathW						kernel32	2
 imp	'GetTempPathA'						GetTempPathA						kernel32	2
 imp	'GetThreadContext'					GetThreadContext					kernel32	2
+imp	'GetThreadDescription'					GetThreadDescription					kernel32	2
 imp	'GetThreadIOPendingFlag'				GetThreadIOPendingFlag					kernel32	2
 imp	'GetThreadId'						GetThreadId						kernel32	1
 imp	'GetThreadPriority'					GetThreadPriority					kernel32	1
@@ -242,9 +243,9 @@ imp	'SetEndOfFile'						SetEndOfFile						kernel32	1
 imp	'SetEnvironmentVariable'				SetEnvironmentVariableW					kernel32	2
 imp	'SetErrorMode'						SetErrorMode						kernel32	1
 imp	'SetEvent'						SetEvent						kernel32	1
+imp	'SetFileInformationByHandle'				SetFileInformationByHandle				kernel32	4
 imp	'SetFileAttributes'					SetFileAttributesW					kernel32	2
 imp	'SetFileCompletionNotificationModes'			SetFileCompletionNotificationModes			kernel32	2
-imp	'SetFilePointerEx'					SetFilePointerEx					kernel32	4
 imp	'SetFileTime'						SetFileTime						kernel32	4
 imp	'SetFileValidData'					SetFileValidData					kernel32	2
 imp	'SetHandleCount'					SetHandleCount						kernel32	1
@@ -259,6 +260,7 @@ imp	'SetProcessWorkingSetSizeEx'				SetProcessWorkingSetSizeEx				kernel32	4
 imp	'SetStdHandle'						SetStdHandle						kernel32	2
 imp	'SetThreadAffinityMask'					SetThreadAffinityMask					kernel32	2
 imp	'SetThreadContext'					SetThreadContext					kernel32	2
+imp	'SetThreadDescription'					SetThreadDescription					kernel32	2
 imp	'SetThreadPriority'					SetThreadPriority					kernel32	2
 imp	'SetThreadPriorityBoost'				SetThreadPriorityBoost					kernel32	2
 imp	'SetUnhandledExceptionFilter'				SetUnhandledExceptionFilter				kernel32	1
@@ -481,15 +483,6 @@ imp	'GetSaveFileName'					GetSaveFileNameW					comdlg32	1
 imp	'PrintDlg'						PrintDlgW						comdlg32	1
 imp	'ReplaceText'						ReplaceTextW						comdlg32	1
 
-# MSWSOCK.DLL
-#
-#	Name							Actual							DLL		Arity
-imp	'AcceptEx'						AcceptEx						MsWSock		8
-imp	'DisconnectEx'						DisconnectEx						MsWSock		4
-imp	'GetAcceptExSockaddrs'					GetAcceptExSockaddrs					MsWSock		8
-imp	'TransmitFile'						TransmitFile						MsWSock		7
-imp	'WSARecvEx'						WSARecvEx						MsWSock		4
-
 # WS2_32.DLL
 #
 #	Name							Actual							DLL		Arity
@@ -512,6 +505,7 @@ imp	''							send							ws2_32		4	# we're using WSASendTo()
 imp	''							sendto							ws2_32		6	# we're using WSASendTo()
 imp	''							setsockopt						ws2_32		5
 imp	''							shutdown						ws2_32		2
+imp	''							socket							ws2_32		3
 imp	''							socket							ws2_32		3
 imp	''							socket							ws2_32		3
 imp	'FreeAddrInfo'						FreeAddrInfoW						ws2_32		1

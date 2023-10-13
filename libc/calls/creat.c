@@ -31,10 +31,9 @@
  * @param mode is octal bits, e.g. 0644 usually
  * @return file descriptor, or -1 w/ errno
  * @see openat() for further documentation
- * @cancellationpoint
+ * @cancelationpoint
  * @asyncsignalsafe
  * @restartable
- * @threadsafe
  * @vforksafe
  */
 int creat(const char *file, uint32_t mode) {

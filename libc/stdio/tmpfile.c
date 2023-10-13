@@ -55,9 +55,8 @@
  * @see tmpfd() if you don't want to link stdio/malloc
  * @raise ECANCELED if thread was cancelled in masked mode
  * @raise EINTR if signal was delivered
- * @cancellationpoint
+ * @cancelationpoint
  * @asyncsignalsafe
- * @threadsafe
  * @vforksafe
  */
 FILE *tmpfile(void) {

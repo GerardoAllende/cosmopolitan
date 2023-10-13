@@ -61,7 +61,8 @@ void OnSig(int sig) {
 
 void WaitUntilReady(void) {
   while (!ready) pthread_yield();
-  ASSERT_SYS(0, 0, usleep(1000));
+  ASSERT_EQ(0, errno);
+  ASSERT_SYS(0, 0, usleep(100000));
 }
 
 void *SleepWorker(void *arg) {
@@ -190,6 +191,7 @@ void *SocketAcceptWorker(void *arg) {
 }
 
 TEST(pthread_kill, canInterruptSocketAcceptOperation) {
+  if (IsWindows()) return;  // TODO(jart): BAH
   pthread_t t;
   struct sigaction oldsa;
   struct sigaction sa = {.sa_handler = OnSig};

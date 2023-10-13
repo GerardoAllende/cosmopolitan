@@ -19,6 +19,8 @@
 #include "libc/assert.h"
 #include "libc/calls/internal.h"
 #include "libc/calls/syscall_support-nt.internal.h"
+#include "libc/intrin/bits.h"
+#include "libc/intrin/nomultics.internal.h"
 #include "libc/intrin/weaken.h"
 #include "libc/limits.h"
 #include "libc/log/libfatal.internal.h"
@@ -55,12 +57,14 @@ __msabi extern typeof(FreeEnvironmentStrings) *const __imp_FreeEnvironmentString
 __msabi extern typeof(GetConsoleMode) *const __imp_GetConsoleMode;
 __msabi extern typeof(GetCurrentProcessId) *const __imp_GetCurrentProcessId;
 __msabi extern typeof(GetEnvironmentStrings) *const __imp_GetEnvironmentStringsW;
+__msabi extern typeof(GetEnvironmentVariable) *const __imp_GetEnvironmentVariableW;
 __msabi extern typeof(GetFileAttributes) *const __imp_GetFileAttributesW;
 __msabi extern typeof(GetStdHandle) *const __imp_GetStdHandle;
 __msabi extern typeof(MapViewOfFileEx) *const __imp_MapViewOfFileEx;
 __msabi extern typeof(SetConsoleCP) *const __imp_SetConsoleCP;
 __msabi extern typeof(SetConsoleMode) *const __imp_SetConsoleMode;
 __msabi extern typeof(SetConsoleOutputCP) *const __imp_SetConsoleOutputCP;
+__msabi extern typeof(SetEnvironmentVariable) *const __imp_SetEnvironmentVariableW;
 __msabi extern typeof(SetStdHandle) *const __imp_SetStdHandle;
 __msabi extern typeof(VirtualProtect) *const __imp_VirtualProtect;
 // clang-format on
@@ -69,12 +73,6 @@ void cosmo(int, char **, char **, long (*)[2]) wontreturn;
 void __stack_call(int, char **, char **, long (*)[2],
                   void (*)(int, char **, char **, long (*)[2]),
                   intptr_t) wontreturn;
-
-static const signed char kNtStdio[3] = {
-    (signed char)kNtStdInputHandle,
-    (signed char)kNtStdOutputHandle,
-    (signed char)kNtStdErrorHandle,
-};
 
 __funline int IsAlpha(int c) {
   return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z');
@@ -92,8 +90,7 @@ __funline char16_t *MyCommandLine(void) {
 
 // implements all win32 apis on non-windows hosts
 static abi long __oops_win32(void) {
-  assert(!"win32 api called on non-windows host");
-  return 0;
+  notpossible;
 }
 
 // returns true if utf-8 path is a win32-style path that exists
@@ -131,16 +128,29 @@ static abi wontreturn void WinInit(const char16_t *cmdline) {
       (intptr_t)v_ntsubsystem == kNtImageSubsystemWindowsCui) {
     __imp_SetConsoleCP(kNtCpUtf8);
     __imp_SetConsoleOutputCP(kNtCpUtf8);
-    for (int i = 1; i <= 2; ++i) {
+    for (int i = 0; i <= 2; ++i) {
       uint32_t m;
       intptr_t h = __imp_GetStdHandle(kNtStdio[i]);
-      __imp_GetConsoleMode(h, &m);
-      __imp_SetConsoleMode(h, m | kNtEnableVirtualTerminalProcessing);
+      if (__imp_GetConsoleMode(h, &m)) {
+        if (!i) {
+          m |= kNtEnableMouseInput | kNtEnableWindowInput |
+               kNtEnableProcessedInput;
+        } else {
+          m &= ~kNtDisableNewlineAutoReturn;
+          m |= kNtEnableProcessedOutput | kNtEnableVirtualTerminalProcessing;
+        }
+        __imp_SetConsoleMode(h, m);
+      }
     }
   }
 
+  // avoid programs like emacs nagging the user to define this
+  char16_t var[8];
+  if (!__imp_GetEnvironmentVariableW(u"TERM", var, 8)) {
+    __imp_SetEnvironmentVariableW(u"TERM", u"xterm-256color");
+  }
+
   // allocate memory for stack and argument block
-  _Static_assert(sizeof(struct WinArgs) % FRAMESIZE == 0, "");
   _mmi.p = _mmi.s;
   _mmi.n = ARRAYLEN(_mmi.s);
   uintptr_t stackaddr = GetStaticStackAddr(0);
@@ -154,6 +164,9 @@ static abi wontreturn void WinInit(const char16_t *cmdline) {
     uint32_t old;
     __imp_VirtualProtect((void *)stackaddr, stacksize, kNtPageReadwrite, &old);
   }
+  uint32_t oldattr;
+  __imp_VirtualProtect((void *)stackaddr, GetGuardSize(),
+                       kNtPageReadwrite | kNtPageGuard, &oldattr);
   _mmi.p[0].x = stackaddr >> 16;
   _mmi.p[0].y = (stackaddr >> 16) + ((stacksize - 1) >> 16);
   _mmi.p[0].prot = prot;
@@ -166,6 +179,21 @@ static abi wontreturn void WinInit(const char16_t *cmdline) {
   // parse utf-16 command into utf-8 argv array in argument block
   int count = GetDosArgv(cmdline, wa->argblock, ARRAYLEN(wa->argblock),
                          wa->argv, ARRAYLEN(wa->argv));
+
+  // normalize executable path
+  if (wa->argv[0] && !WinFileExists(wa->argv[0])) {
+    unsigned i, n = 0;
+    while (wa->argv[0][n]) ++n;
+    if (n + 4 < sizeof(wa->argv0buf)) {
+      for (i = 0; i < n; ++i) {
+        wa->argv0buf[i] = wa->argv[0][i];
+      }
+      WRITE32LE(wa->argv0buf + i, READ32LE(".com"));
+      if (WinFileExists(wa->argv0buf)) {
+        wa->argv[0] = wa->argv0buf;
+      }
+    }
+  }
 
   // munge argv so dos paths become cosmo paths
   for (int i = 0; wa->argv[i]; ++i) {
@@ -222,9 +250,6 @@ abi int64_t WinMain(int64_t hInstance, int64_t hPrevInstance,
     _weaken(WinSockInit)();
   }
   DeduplicateStdioHandles();
-  if (_weaken(WinMainStdin)) {
-    _weaken(WinMainStdin)();
-  }
   if (_weaken(WinMainForked)) {
     _weaken(WinMainForked)();
   }

@@ -38,7 +38,6 @@
 #include "libc/runtime/internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/stack.h"
-#include "libc/str/path.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/at.h"
 #include "libc/sysv/consts/audit.h"
@@ -331,9 +330,9 @@ int sys_unveil_linux(const char *path, const char *permissions) {
   }
 
   // now we can open the path
-  BLOCK_CANCELLATIONS;
+  BLOCK_CANCELATION;
   rc = sys_openat(AT_FDCWD, path, O_PATH | O_NOFOLLOW | O_CLOEXEC, 0);
-  ALLOW_CANCELLATIONS;
+  ALLOW_CANCELATION;
   if (rc == -1) return rc;
 
   pb.parent_fd = rc;
@@ -461,7 +460,6 @@ int sys_unveil_linux(const char *path, const char *permissions) {
  * @note on Linux this function requires Linux Kernel 5.13+ and version 6.2+
  *     to properly support truncation operations
  * @see [1] https://docs.kernel.org/userspace-api/landlock.html
- * @threadsafe
  */
 int unveil(const char *path, const char *permissions) {
   int e, rc;

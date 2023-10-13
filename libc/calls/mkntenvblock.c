@@ -16,50 +16,43 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/proc/ntspawn.h"
-#include "libc/fmt/conv.h"
-#include "libc/intrin/bits.h"
+#include "libc/assert.h"
 #include "libc/intrin/getenv.internal.h"
-#include "libc/macros.internal.h"
 #include "libc/mem/alloca.h"
-#include "libc/mem/arraylist2.internal.h"
-#include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/stack.h"
 #include "libc/str/str.h"
-#include "libc/str/thompike.h"
-#include "libc/str/utf16.h"
 #include "libc/sysv/errfuns.h"
 
 #define ToUpper(c) ((c) >= 'a' && (c) <= 'z' ? (c) - 'a' + 'A' : (c))
+
+struct EnvBuilder {
+  char *buf;
+  char **var;
+  int bufi;
+  int vari;
+};
 
 static inline int IsAlpha(int c) {
   return ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z');
 }
 
-static inline char *StrChr(const char *s, int c) {
-  for (;; ++s) {
-    if ((*s & 255) == (c & 255)) return (char *)s;
-    if (!*s) return 0;
-  }
-}
-
-static textwindows inline int CompareStrings(const char *l, const char *r) {
+static textwindows int Compare(const char *l, const char *r) {
   int a, b;
   size_t i = 0;
-  while ((a = ToUpper(l[i] & 255)) == (b = ToUpper(r[i] & 255)) && r[i]) ++i;
+  for (;;) {
+    a = l[i] & 255;
+    b = r[i] & 255;
+    if (a == '=') a = 0;
+    if (b == '=') b = 0;
+    if (a != b || !b) break;
+    ++i;
+  }
   return a - b;
 }
 
 static textwindows void FixPath(char *path) {
   char *p;
-
-  // skip over variable name
-  while (*path++) {
-    if (path[-1] == '=') {
-      break;
-    }
-  }
 
   // turn colon into semicolon
   // unless it already looks like a dos path
@@ -69,16 +62,14 @@ static textwindows void FixPath(char *path) {
     }
   }
 
-  // turn \c\... into c:\...
+  // turn /c/... into c:\...
   p = path;
-  if ((p[0] == '/' || p[0] == '\\') && IsAlpha(p[1]) &&
-      (p[2] == '/' || p[2] == '\\')) {
+  if (p[0] == '/' && IsAlpha(p[1]) && p[2] == '/') {
     p[0] = p[1];
     p[1] = ':';
   }
   for (; *p; ++p) {
-    if (p[0] == ';' && (p[1] == '/' || p[1] == '\\') && IsAlpha(p[2]) &&
-        (p[3] == '/' || p[3] == '\\')) {
+    if (p[0] == ';' && p[1] == '/' && IsAlpha(p[2]) && p[3] == '/') {
       p[1] = p[2];
       p[2] = ':';
     }
@@ -92,34 +83,68 @@ static textwindows void FixPath(char *path) {
   }
 }
 
-static textwindows void InsertString(char **a, size_t i, const char *s,
-                                     char buf[ARG_MAX], size_t *bufi,
-                                     bool *have_systemroot) {
-  char *v;
-  size_t j, k;
+static textwindows int InsertString(struct EnvBuilder *env, const char *str) {
+  int c, i, cmp;
+  char *var, *path = 0;
 
-  v = StrChr(s, '=');
+  if (!str) return 0;
 
-  // apply fixups to var=/c/...
-  if (v && v[1] == '/' && IsAlpha(v[2]) && v[3] == '/') {
-    v = buf + *bufi;
-    for (k = 0; s[k]; ++k) {
-      if (*bufi + 1 < ARG_MAX) {
-        buf[(*bufi)++] = s[k];
+  // copy key=val to buf
+  var = env->buf + env->bufi;
+  do {
+    c = *str++;
+    if (env->bufi + 2 > 32767) return e2big();
+    env->buf[env->bufi++] = c;
+    if (c == '=' && str[0] == '/' && IsAlpha(str[1]) && str[2] == '/') {
+      path = env->buf + env->bufi;
+    }
+  } while (c);
+
+  // fixup key=/c/... → key=c:\...
+  if (path) FixPath(path);
+
+  // append key=val to sorted list using insertion sort technique
+  for (i = env->vari;; --i) {
+    if (!i || (cmp = Compare(var, env->var[i - 1])) > 0) {
+      // insert entry for new key
+      env->var[i] = var;
+      env->vari++;
+      break;
+    }
+    if (!cmp) {
+      // deduplicate preferring latter
+      env->var[i - 1] = var;
+      for (; i < env->vari; ++i) {
+        env->var[i] = env->var[i + 1];
+      }
+      break;
+    }
+    // sift items right to create empty slot at insertion point
+    env->var[i] = env->var[i - 1];
+  }
+  return 0;
+}
+
+static textwindows int InsertStrings(struct EnvBuilder *env,
+                                     char *const strs[]) {
+  if (strs) {
+    for (int i = 0; strs[i]; ++i) {
+      if (InsertString(env, strs[i]) == -1) {
+        return -1;
       }
     }
-    if (*bufi < ARG_MAX) {
-      buf[(*bufi)++] = 0;
-      FixPath(v);
-      s = v;
+  }
+  return 0;
+}
+
+static textwindows int CountStrings(char *const strs[]) {
+  int n = 0;
+  if (strs) {
+    while (*strs++) {
+      ++n;
     }
   }
-
-  // append to sorted list
-  for (j = i; j > 0 && CompareStrings(s, a[j - 1]) < 0; --j) {
-    a[j] = a[j - 1];
-  }
-  a[j] = (char *)s;
+  return n;
 }
 
 /**
@@ -127,76 +152,45 @@ static textwindows void InsertString(char **a, size_t i, const char *s,
  *
  * This is designed to meet the requirements of CreateProcess().
  *
- * @param envvars receives sorted double-NUL terminated string list
+ * @param envblock receives sorted double-NUL terminated string list
  * @param envp is an a NULL-terminated array of UTF-8 strings
  * @param extravar is a VAR=val string we consider part of envp or NULL
  * @return 0 on success, or -1 w/ errno
- * @error E2BIG if total number of shorts exceeded ARG_MAX/2 (32767)
+ * @error E2BIG if total number of shorts (including nul) exceeded 32767
+ * @asyncsignalsafe
  */
-textwindows int mkntenvblock(char16_t envvars[ARG_MAX / 2], char *const envp[],
-                             const char *extravar, char buf[ARG_MAX]) {
-  bool v;
-  uint64_t w;
-  char **vars;
-  wint_t x, y;
-  bool have_systemroot = false;
-  size_t i, j, k, n, m, bufi = 0;
-  for (n = 0; envp[n];) n++;
+textwindows int mkntenvblock(char16_t envblock[32767], char *const envp[],
+                             char *const extravars[], char buf[32767]) {
+  int i, k, n;
+  struct Env e;
+  struct EnvBuilder env = {buf};
+
+  // allocate string pointer array for sorting purposes
+  n = (CountStrings(envp) + CountStrings(extravars) + 1) * sizeof(char *);
 #pragma GCC push_options
 #pragma GCC diagnostic ignored "-Walloca-larger-than="
-  int nbytes = (n + 1) * sizeof(char *);
-  vars = alloca(nbytes);
-  CheckLargeStackAllocation(vars, nbytes);
+  env.var = alloca(n);
+  CheckLargeStackAllocation(env.var, n);
 #pragma GCC pop_options
-  for (i = 0; i < n; ++i) {
-    InsertString(vars, i, envp[i], buf, &bufi, &have_systemroot);
-  }
-  if (extravar) {
-    InsertString(vars, n++, extravar, buf, &bufi, &have_systemroot);
-  }
-  if (!have_systemroot && environ) {
+
+  // load new environment into string pointer array and fix file paths
+  if (InsertStrings(&env, envp) == -1) return -1;
+  if (InsertStrings(&env, extravars) == -1) return -1;
+  if (environ) {
     // https://jpassing.com/2009/12/28/the-hidden-danger-of-forgetting-to-specify-systemroot-in-a-custom-environment-block/
-    struct Env systemroot;
-    systemroot = __getenv(environ, "SYSTEMROOT");
-    if (systemroot.s) {
-      InsertString(vars, n++, environ[systemroot.i], buf, &bufi,
-                   &have_systemroot);
+    e = __getenv(environ, "SYSTEMROOT");
+    if (e.s && InsertString(&env, environ[e.i]) == -1) {
+      return -1;
     }
   }
-  for (k = i = 0; i < n; ++i) {
-    j = 0;
-    v = false;
-    do {
-      x = vars[i][j++] & 0xff;
-      if (x >= 0200) {
-        if (x < 0300) continue;
-        m = ThomPikeLen(x);
-        x = ThomPikeByte(x);
-        while (--m) {
-          if ((y = vars[i][j++] & 0xff)) {
-            x = ThomPikeMerge(x, y);
-          } else {
-            x = 0;
-            break;
-          }
-        }
-      }
-      if (!v) {
-        if (x != '=') {
-          x = ToUpper(x);
-        } else {
-          v = true;
-        }
-      }
-      w = EncodeUtf16(x);
-      do {
-        envvars[k++] = w & 0xffff;
-        if (k == ARG_MAX / 2) {
-          return e2big();
-        }
-      } while ((w >>= 16));
-    } while (x);
+
+  // copy utf-8 sorted string pointer array into contiguous utf-16 block
+  // in other words, we're creating a double-nul terminated string list!
+  for (k = i = 0; i < env.vari; ++i) {
+    k += tprecode8to16(envblock + k, -1, env.var[i]).ax + 1;
   }
-  envvars[k] = u'\0';
+  unassert(k <= env.bufi);
+  envblock[k] = 0;
+
   return 0;
 }

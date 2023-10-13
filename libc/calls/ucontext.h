@@ -91,11 +91,11 @@ struct ucontext {
 #ifdef __x86_64__
   struct sigcontext uc_mcontext;
   sigset_t uc_sigmask;
-  uint64_t __pad;
+  uint64_t __pad[2];
   struct FpuState __fpustate; /* for cosmo on non-linux */
 #elif defined(__aarch64__)
   sigset_t uc_sigmask;
-  uint8_t __unused[1024 / 8 - sizeof(sigset_t)];
+  uint8_t __unused[1024 / 8];
   struct sigcontext uc_mcontext;
 #endif
 } forcealign(16);
@@ -106,6 +106,7 @@ int getcontext(ucontext_t *) dontthrow;
 int setcontext(const ucontext_t *) dontthrow;
 int swapcontext(ucontext_t *, const ucontext_t *) dontthrow returnstwice;
 void makecontext(ucontext_t *, void (*)(), int, ...) dontthrow nocallback;
+void __sig_restore(const ucontext_t *) wontreturn;
 
 COSMOPOLITAN_C_END_
 #endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */

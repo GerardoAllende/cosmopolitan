@@ -17,15 +17,16 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
-#include "libc/calls/bo.internal.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/internal.h"
 #include "libc/calls/sig.internal.h"
 #include "libc/calls/struct/rusage.h"
+#include "libc/calls/struct/sigset.internal.h"
 #include "libc/calls/struct/timespec.h"
 #include "libc/cosmo.h"
 #include "libc/errno.h"
-#include "libc/fmt/conv.h"
+#include "libc/fmt/wintime.internal.h"
+#include "libc/intrin/atomic.h"
 #include "libc/intrin/dll.h"
 #include "libc/intrin/strace.internal.h"
 #include "libc/macros.internal.h"
@@ -36,31 +37,14 @@
 #include "libc/nt/struct/processmemorycounters.h"
 #include "libc/proc/proc.internal.h"
 #include "libc/str/str.h"
+#include "libc/sysv/consts/sig.h"
 #include "libc/sysv/consts/w.h"
 #include "libc/sysv/errfuns.h"
+#include "libc/thread/thread.h"
 #include "libc/thread/tls.h"
-
 #ifdef __x86_64__
 
-static textwindows void GetProcessStats(int64_t h, struct rusage *ru) {
-  bzero(ru, sizeof(*ru));
-  struct NtProcessMemoryCountersEx memcount = {sizeof(memcount)};
-  unassert(GetProcessMemoryInfo(h, &memcount, sizeof(memcount)));
-  ru->ru_maxrss = memcount.PeakWorkingSetSize / 1024;
-  ru->ru_majflt = memcount.PageFaultCount;
-  struct NtFileTime createtime, exittime;
-  struct NtFileTime kerneltime, usertime;
-  unassert(GetProcessTimes(h, &createtime, &exittime, &kerneltime, &usertime));
-  ru->ru_utime = WindowsDurationToTimeVal(ReadFileTime(usertime));
-  ru->ru_stime = WindowsDurationToTimeVal(ReadFileTime(kerneltime));
-  struct NtIoCounters iocount;
-  unassert(GetProcessIoCounters(h, &iocount));
-  ru->ru_inblock = iocount.ReadOperationCount;
-  ru->ru_oublock = iocount.WriteOperationCount;
-}
-
 static textwindows struct timespec GetNextDeadline(struct timespec deadline) {
-  if (__tls_enabled && __get_tls()->tib_sigmask == -1) return timespec_max;
   if (timespec_iszero(deadline)) deadline = timespec_real();
   struct timespec delay = timespec_frommillis(__SIG_PROC_INTERVAL_MS);
   return timespec_add(deadline, delay);
@@ -72,10 +56,9 @@ static textwindows int ReapZombie(struct Proc *pr, int *wstatus,
     *wstatus = pr->wstatus;
   }
   if (opt_out_rusage) {
-    GetProcessStats(pr->handle, opt_out_rusage);
+    *opt_out_rusage = pr->ru;
   }
   if (!pr->waiters) {
-    CloseHandle(pr->handle);
     dll_remove(&__proc.zombies, &pr->elem);
     dll_make_first(&__proc.free, &pr->elem);
   }
@@ -97,8 +80,15 @@ static textwindows int CheckZombies(int pid, int *wstatus,
   return 0;
 }
 
+static textwindows void UnwindWaiterCount(void *arg) {
+  int *waiters = arg;
+  --*waiters;
+}
+
 static textwindows int WaitForProcess(int pid, int *wstatus, int options,
-                                      struct rusage *opt_out_rusage) {
+                                      struct rusage *rusage,
+                                      uint64_t waitmask) {
+  uint64_t m;
   int rc, *wv;
   nsync_cv *cv;
   struct Dll *e;
@@ -106,7 +96,7 @@ static textwindows int WaitForProcess(int pid, int *wstatus, int options,
   struct timespec deadline = timespec_zero;
 
   // check list of processes that've already exited
-  if ((rc = CheckZombies(pid, wstatus, opt_out_rusage))) {
+  if ((rc = CheckZombies(pid, wstatus, rusage))) {
     return rc;
   }
 
@@ -135,37 +125,44 @@ static textwindows int WaitForProcess(int pid, int *wstatus, int options,
 
   // wait for status change
   if (options & WNOHANG) return 0;
-CheckForInterrupt:
-  if (_check_interrupts(kSigOpRestartable) == -1) return -1;
+WaitMore:
   deadline = GetNextDeadline(deadline);
 SpuriousWakeup:
-  BEGIN_BLOCKING_OPERATION;
   ++*wv;
-  rc = nsync_cv_wait_with_deadline(cv, &__proc.lock, deadline, 0);
-  --*wv;
-  END_BLOCKING_OPERATION;
+  pthread_cleanup_push(UnwindWaiterCount, wv);
+  m = __sig_beginwait(waitmask);
+  if ((rc = _check_signal(true)) != -1) {
+    rc = nsync_cv_wait_with_deadline(cv, &__proc.lock, deadline, 0);
+  }
+  __sig_finishwait(m);
+  pthread_cleanup_pop(true);
+  if (rc == -1) return -1;
+  if (rc == ETIMEDOUT) goto WaitMore;
   if (rc == ECANCELED) return ecanceled();
-  if (pr && pr->iszombie) return ReapZombie(pr, wstatus, opt_out_rusage);
-  if (rc == ETIMEDOUT) goto CheckForInterrupt;
-  unassert(!rc);
-  if (!pr && (rc = CheckZombies(pid, wstatus, opt_out_rusage))) return rc;
+  if (pr && pr->iszombie) return ReapZombie(pr, wstatus, rusage);
+  unassert(!rc);  // i have to follow my dreams however crazy they seem
+  if (!pr && (rc = CheckZombies(pid, wstatus, rusage))) return rc;
   goto SpuriousWakeup;
 }
 
 textwindows int sys_wait4_nt(int pid, int *opt_out_wstatus, int options,
                              struct rusage *opt_out_rusage) {
   int rc;
-  if (options & ~WNOHANG) {
-    return einval();  // no support for WCONTINUED and WUNTRACED yet
-  }
+  uint64_t m;
+  // no support for WCONTINUED and WUNTRACED yet
+  if (options & ~WNOHANG) return einval();
   // XXX: NT doesn't really have process groups. For instance the
   //      CreateProcess() flag for starting a process group actually
   //      just does an "ignore ctrl-c" internally.
   if (pid == 0) pid = -1;
   if (pid < -1) pid = -pid;
+  m = __sig_block();
   __proc_lock();
-  rc = WaitForProcess(pid, opt_out_wstatus, options, opt_out_rusage);
-  __proc_unlock();
+  pthread_cleanup_push((void *)__proc_unlock, 0);
+  rc = WaitForProcess(pid, opt_out_wstatus, options, opt_out_rusage,
+                      m | 1ull << (SIGCHLD - 1));
+  pthread_cleanup_pop(true);
+  __sig_unblock(m);
   return rc;
 }
 

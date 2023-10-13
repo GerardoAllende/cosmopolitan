@@ -17,8 +17,8 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/atomic.h"
-#include "libc/calls/blocksigs.internal.h"
 #include "libc/calls/calls.h"
+#include "libc/calls/struct/sigaction.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/intrin/kprintf.h"
@@ -27,11 +27,13 @@
 #include "libc/nexgen32e/nexgen32e.h"
 #include "libc/runtime/internal.h"
 #include "libc/runtime/runtime.h"
+#include "libc/sysv/consts/sig.h"
 #include "libc/testlib/testlib.h"
 #include "libc/thread/thread.h"
 #include "libc/thread/thread2.h"
 
 int pfds[2];
+atomic_bool ready;
 pthread_cond_t cv;
 pthread_mutex_t mu;
 atomic_int gotcleanup;
@@ -58,7 +60,7 @@ void *CancelSelfWorkerDeferred(void *arg) {
   return 0;
 }
 
-TEST(pthread_cancel, self_deferred_waitsForCancellationPoint) {
+TEST(pthread_cancel, self_deferred_waitsForCancelationPoint) {
   void *rc;
   pthread_t th;
   ASSERT_SYS(0, 0, pipe(pfds));
@@ -72,6 +74,7 @@ TEST(pthread_cancel, self_deferred_waitsForCancellationPoint) {
 
 void *Worker(void *arg) {
   char buf[8];
+  ready = true;
   pthread_cleanup_push(OnCleanup, 0);
   read(pfds[0], buf, sizeof(buf));
   pthread_cleanup_pop(0);
@@ -91,11 +94,13 @@ TEST(pthread_cancel, synchronous) {
   ASSERT_SYS(0, 0, close(pfds[0]));
 }
 
-TEST(pthread_cancel, synchronous_delayed) {
+TEST(pthread_cancel, synchronous_deferred) {
   void *rc;
   pthread_t th;
+  if (!IsWindows()) return;
   ASSERT_SYS(0, 0, pipe(pfds));
   ASSERT_EQ(0, pthread_create(&th, 0, Worker, 0));
+  while (!ready) pthread_yield();
   ASSERT_SYS(0, 0, usleep(10));
   EXPECT_EQ(0, pthread_cancel(th));
   EXPECT_EQ(0, pthread_join(th, &rc));
@@ -279,4 +284,29 @@ TEST(pthread_cancel, self_asynchronous_takesImmediateEffect) {
   ASSERT_TRUE(gotcleanup);
   ASSERT_SYS(0, 0, close(pfds[1]));
   ASSERT_SYS(0, 0, close(pfds[0]));
+}
+
+atomic_bool was_completed;
+
+void WaitUntilReady(void) {
+  while (!ready) pthread_yield();
+  ASSERT_EQ(0, errno);
+  ASSERT_SYS(0, 0, usleep(1000));
+}
+
+void *SleepWorker(void *arg) {
+  pthread_setcancelstate(PTHREAD_CANCEL_MASKED, 0);
+  ready = true;
+  ASSERT_SYS(ECANCELED, -1, usleep(30 * 1e6));
+  was_completed = true;
+  return 0;
+}
+
+TEST(pthread_cancel, canInterruptSleepOperation) {
+  pthread_t th;
+  ASSERT_EQ(0, pthread_create(&th, 0, SleepWorker, 0));
+  WaitUntilReady();
+  ASSERT_EQ(0, pthread_cancel(th));
+  ASSERT_EQ(0, pthread_join(th, 0));
+  ASSERT_TRUE(was_completed);
 }

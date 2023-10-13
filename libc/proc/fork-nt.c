@@ -51,12 +51,14 @@
 #include "libc/nt/synchronization.h"
 #include "libc/nt/thread.h"
 #include "libc/nt/thunk/msabi.h"
+#include "libc/proc/describefds.internal.h"
 #include "libc/proc/ntspawn.h"
 #include "libc/proc/proc.internal.h"
 #include "libc/runtime/internal.h"
 #include "libc/runtime/memtrack.internal.h"
 #include "libc/runtime/symbols.internal.h"
 #include "libc/str/str.h"
+#include "libc/sysv/consts/at.h"
 #include "libc/sysv/consts/limits.h"
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/prot.h"
@@ -68,9 +70,8 @@
 
 #ifdef __x86_64__
 
-extern long __klog_handle;
 extern int64_t __wincrashearly;
-bool32 __onntconsoleevent(uint32_t);
+void __keystroke_wipe(void);
 
 static textwindows wontreturn void AbortFork(const char *func) {
 #ifdef SYSDEBUG
@@ -130,7 +131,6 @@ static textwindows dontinline void ReadOrDie(int64_t h, void *buf, size_t n) {
   if (!ForkIo2(h, buf, n, ReadFile, "ReadFile", true)) {
     AbortFork("ReadFile1");
   }
-  if (_weaken(__klog_handle)) *_weaken(__klog_handle) = 0;
 #ifndef NDEBUG
   size_t got;
   if (!ForkIo2(h, &got, sizeof(got), ReadFile, "ReadFile", true)) {
@@ -199,10 +199,7 @@ textwindows void WinMainForked(void) {
   char16_t fvar[21 + 1 + 21 + 1];
   uint32_t i, varlen, oldprot, savepid;
   long mapcount, mapcapacity, specialz;
-
-  struct StdinRelay stdin;
   struct Fds *fds = __veil("r", &g_fds);
-  stdin = fds->stdin;
 
   // check to see if the process was actually forked
   // this variable should have the pipe handle numba
@@ -282,19 +279,9 @@ textwindows void WinMainForked(void) {
 
   // rewrap the stdin named pipe hack
   // since the handles closed on fork
-  fds->stdin = stdin;
   fds->p[0].handle = GetStdHandle(kNtStdInputHandle);
   fds->p[1].handle = GetStdHandle(kNtStdOutputHandle);
   fds->p[2].handle = GetStdHandle(kNtStdErrorHandle);
-
-  // untrack children of parent since we specify with both
-  // CreateProcess() and CreateThread() as non-inheritable
-  for (i = 0; i < fds->n; ++i) {
-    if (fds->p[i].kind == kFdProcess) {
-      fds->p[i].kind = 0;
-      atomic_store_explicit(&fds->f, MIN(i, fds->f), memory_order_relaxed);
-    }
-  }
 
   // restore the crash reporting stuff
 #ifdef SYSDEBUG
@@ -308,24 +295,6 @@ textwindows void WinMainForked(void) {
   longjmp(jb, 1);
 }
 
-static void __hand_inherit(bool32 bInherit) {
-  struct CosmoTib *tib = __get_tls();
-  SetHandleInformation(tib->tib_syshand, kNtHandleFlagInherit, bInherit);
-  SetHandleInformation(tib->tib_syshand, kNtHandleFlagInherit, bInherit);
-  for (int i = 0; i < _mmi.i; ++i) {
-    if ((_mmi.p[i].flags & MAP_TYPE) == MAP_SHARED) {
-      SetHandleInformation(_mmi.p[i].h, kNtHandleFlagInherit, bInherit);
-    }
-  }
-  for (int i = 0; i < g_fds.n; ++i) {
-    if (g_fds.p[i].kind == kFdEmpty) continue;
-    SetHandleInformation(g_fds.p[i].handle, kNtHandleFlagInherit, bInherit);
-    if (g_fds.p[i].kind == kFdConsole) {
-      SetHandleInformation(g_fds.p[i].extra, kNtHandleFlagInherit, bInherit);
-    }
-  }
-}
-
 textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
   char ok;
   jmp_buf jb;
@@ -337,8 +306,8 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
   char16_t pipename[64];
   int64_t reader, writer;
   struct NtStartupInfo startinfo;
-  char *p, forkvar[6 + 21 + 1 + 21 + 1];
   struct NtProcessInformation procinfo;
+  char *p, forkvar[6 + 21 + 1 + 21 + 1];
   tib = __get_tls();
   ftrace_enabled(-1);
   strace_enabled(-1);
@@ -376,12 +345,10 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
         args = args2;
       }
 #endif
-      __hand_inherit(true);
       NTTRACE("STARTING SPAWN");
-      int spawnrc =
-          ntspawn(GetProgramExecutableName(), args, environ, forkvar, 0, 0,
-                  true, dwCreationFlags, 0, &startinfo, &procinfo);
-      __hand_inherit(false);
+      int spawnrc = ntspawn(AT_FDCWD, GetProgramExecutableName(), args, environ,
+                            (char *[]){forkvar, 0}, dwCreationFlags, 0, 0, 0, 0,
+                            &startinfo, &procinfo);
       if (spawnrc != -1) {
         CloseHandle(procinfo.hThread);
         ok = WriteAll(writer, jb, sizeof(jb)) &&
@@ -439,9 +406,11 @@ textwindows int sys_fork_nt(uint32_t dwCreationFlags) {
     if (ftrace_stackdigs) {
       _weaken(__hook)(_weaken(ftrace_hook), _weaken(GetSymbolTable)());
     }
+    // reset console
+    __keystroke_wipe();
     // reset alarms
-    if (_weaken(__itimer_reset)) {
-      _weaken(__itimer_reset)();
+    if (_weaken(__itimer_wipe)) {
+      _weaken(__itimer_wipe)();
     }
   }
   if (rc == -1) {

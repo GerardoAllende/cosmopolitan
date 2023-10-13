@@ -25,13 +25,13 @@
 │  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                      │
 │                                                                              │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#include "third_party/musl/lockf.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/flock.h"
 #include "libc/calls/weirdtypes.h"
 #include "libc/errno.h"
 #include "libc/sysv/consts/f.h"
 #include "libc/sysv/errfuns.h"
-#include "third_party/musl/lockf.h"
 
 asm(".ident\t\"\\n\\n\
 Musl libc (MIT License)\\n\
@@ -42,7 +42,7 @@ asm(".include \"libc/disclaimer.inc\"");
 /**
  * Locks file.
  *
- * @cancellationpoint when `op` is `F_LOCK`
+ * @cancelationpoint when `op` is `F_LOCK`
  */
 int lockf(int fd, int op, off_t size)
 {
@@ -68,3 +68,5 @@ int lockf(int fd, int op, off_t size)
 	}
 	return einval();
 }
+
+__weak_reference(lockf, lockf64);

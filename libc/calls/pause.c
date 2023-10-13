@@ -37,15 +37,17 @@
  *
  * However this has a tinier footprint and better logging.
  *
- * @return -1 w/ errno set to EINTR
- * @cancellationpoint
+ * @return -1 w/ errno
+ * @raise ECANCELED if this thread was canceled in masked mode
+ * @raise EINTR if interrupted by a signal
+ * @cancelationpoint
  * @see sigsuspend()
  * @norestart
  */
 int pause(void) {
   int rc;
   STRACE("pause() → [...]");
-  BEGIN_CANCELLATION_POINT;
+  BEGIN_CANCELATION_POINT;
 
   if (!IsWindows()) {
     // We'll polyfill pause() using select() with a null timeout, which
@@ -70,7 +72,7 @@ int pause(void) {
     rc = sys_pause_nt();
   }
 
-  END_CANCELLATION_POINT;
+  END_CANCELATION_POINT;
   STRACE("[...] pause → %d% m", rc);
   return rc;
 }

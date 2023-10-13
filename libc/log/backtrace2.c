@@ -107,7 +107,7 @@ static int PrintBacktraceUsingAddr2line(int fd, const struct StackFrame *bp) {
     }
     addr = frame->addr;
 #ifdef __x86_64__
-    if (addr == (uintptr_t)_weaken(__gc)) {
+    if (gi && addr == (uintptr_t)_weaken(__gc)) {
       do {
         --gi;
       } while ((addr = garbage->p[gi].ret) == (uintptr_t)_weaken(__gc));
@@ -116,7 +116,7 @@ static int PrintBacktraceUsingAddr2line(int fd, const struct StackFrame *bp) {
     argv[i++] = buf + j;
     buf[j++] = '0';
     buf[j++] = 'x';
-    j += uint64toarray_radix16(addr - 1, buf + j) + 1;
+    j += uint64toarray_radix16(addr, buf + j) + 1;
   }
   argv[i++] = NULL;
   if (sys_pipe2(pipefds, O_CLOEXEC) == -1) {
@@ -186,7 +186,7 @@ static int PrintBacktrace(int fd, const struct StackFrame *bp) {
 }
 
 void ShowBacktrace(int fd, const struct StackFrame *bp) {
-  BLOCK_CANCELLATIONS;
+  BLOCK_CANCELATION;
 #ifdef __FNO_OMIT_FRAME_POINTER__
   /* asan runtime depends on this function */
   ftrace_enabled(-1);
@@ -200,5 +200,5 @@ void ShowBacktrace(int fd, const struct StackFrame *bp) {
                     "\t-D__FNO_OMIT_FRAME_POINTER__\n"
                     "\t-fno-omit-frame-pointer\n");
 #endif
-  ALLOW_CANCELLATIONS;
+  ALLOW_CANCELATION;
 }

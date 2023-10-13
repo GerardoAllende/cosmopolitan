@@ -19,24 +19,12 @@
 #include "libc/calls/internal.h"
 #include "libc/calls/sig.internal.h"
 #include "libc/calls/syscall_support-nt.internal.h"
-#include "libc/errno.h"
-#include "libc/nt/synchronization.h"
-#include "libc/thread/posixthread.internal.h"
-#include "libc/thread/tls.h"
+#ifdef __x86_64__
 
 textwindows int sys_pause_nt(void) {
   int rc;
-  while (!(rc = _check_interrupts(0))) {
-    struct PosixThread *pt = _pthread_self();
-    pt->abort_errno = 0;
-    pt->pt_flags |= PT_INSEMAPHORE;
-    WaitForSingleObject(pt->semaphore, __SIG_SIG_INTERVAL_MS);
-    pt->pt_flags &= ~PT_INSEMAPHORE;
-    if (pt->abort_errno) {
-      errno = pt->abort_errno;
-      rc = -1;
-      break;
-    }
-  }
+  while (!(rc = _park_norestart(-1u, 0))) donothing;
   return rc;
 }
+
+#endif /* __x86_64__ */

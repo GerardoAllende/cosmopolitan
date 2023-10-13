@@ -38,6 +38,7 @@
 #include "libc/errno.h"
 #include "libc/fmt/conv.h"
 #include "libc/fmt/itoa.h"
+#include "libc/fmt/wintime.internal.h"
 #include "libc/intrin/atomic.h"
 #include "libc/intrin/bits.h"
 #include "libc/intrin/bsr.h"
@@ -505,7 +506,6 @@ static struct Strings hidepaths;
 static const char *launchbrowser;
 static const char ctIdx = 'c';  // a pseudo variable to get address of
 
-static pthread_t replth;
 static pthread_t monitorth;
 static struct Buffer inbuf_actual;
 static struct Buffer inbuf;
@@ -2613,14 +2613,14 @@ static int LuaCallWithYield(lua_State *L) {
   // the second set of headers is not going to be sent
   struct sigaction sa, saold;
   lua_State *co = lua_newthread(L);
-  if (__replmode) {
+  if (__ttyconf.replmode) {
     sa.sa_flags = SA_RESETHAND;
     sa.sa_handler = OnLuaServerPageCtrlc;
     sigemptyset(&sa.sa_mask);
     sigaction(SIGINT, &sa, &saold);
   }
   status = LuaCallWithTrace(L, 0, 0, co);
-  if (__replmode) {
+  if (__ttyconf.replmode) {
     sigaction(SIGINT, &saold, 0);
   }
   if (status == LUA_YIELD) {
@@ -2870,7 +2870,7 @@ static char *GetBasicAuthorization(size_t *z) {
 
 static const char *GetSystemUrlLauncherCommand(void) {
   if (IsWindows()) {
-    return "explorer";
+    return "explorer.exe";
   } else if (IsXnu()) {
     return "open";
   } else {
@@ -4864,6 +4864,7 @@ static int LuaBlackhole(lua_State *L) {
 wontreturn static void Replenisher(void) {
   struct timespec ts;
   VERBOSEF("(token) replenish worker started");
+  strace_enabled(-1);
   signal(SIGINT, OnTerm);
   signal(SIGHUP, OnTerm);
   signal(SIGTERM, OnTerm);
@@ -4987,6 +4988,7 @@ static int LuaProgramTokenBucket(lua_State *L) {
   int pid = fork();
   npassert(pid != -1);
   if (!pid) Replenisher();
+  ++shared->workers;
   return 0;
 }
 
@@ -4997,12 +4999,15 @@ static const char *GetContentTypeExt(const char *path, size_t n) {
   if ((r = FindContentType(path, n))) return r;
 
   // extract the last .; use the entire path if none is present
-  if ((e = strrchr(path, '.'))) path = e + 1;
+  if ((e = memrchr(path, '.', n))) {
+    n -= e - path + 1;
+    path = e + 1;
+  }
   top = lua_gettop(L);
   lua_pushlightuserdata(L, (void *)&ctIdx);  // push address as unique key
   CHECK_EQ(lua_gettable(L, LUA_REGISTRYINDEX), LUA_TTABLE);
 
-  lua_pushstring(L, path);
+  lua_pushlstring(L, path, n);
   if (lua_gettable(L, -2) == LUA_TSTRING)
     r = FreeLater(strdup(lua_tostring(L, -1)));
   lua_settop(L, top);
@@ -5164,11 +5169,13 @@ static const luaL_Reg kLuaFuncs[] = {
     {"Crc32", LuaCrc32},                                        //
     {"Crc32c", LuaCrc32c},                                      //
     {"Decimate", LuaDecimate},                                  //
+    {"DecodeBase32", LuaDecodeBase32},                          //
     {"DecodeBase64", LuaDecodeBase64},                          //
     {"DecodeHex", LuaDecodeHex},                                //
     {"DecodeJson", LuaDecodeJson},                              //
     {"DecodeLatin1", LuaDecodeLatin1},                          //
     {"Deflate", LuaDeflate},                                    //
+    {"EncodeBase32", LuaEncodeBase32},                          //
     {"EncodeBase64", LuaEncodeBase64},                          //
     {"EncodeHex", LuaEncodeHex},                                //
     {"EncodeJson", LuaEncodeJson},                              //
@@ -6931,7 +6938,7 @@ static int HandleConnection(size_t i) {
     } else if (errno == ECONNABORTED) {
       LockInc(&shared->c.accepterrors);
       LockInc(&shared->c.acceptresets);
-      WARNF("(srvr) %S accept error: %s", DescribeServer(),
+      WARNF("(srvr) %s accept error: %s", DescribeServer(),
             "acceptreset: connection reset before accept");
     } else if (errno == ENETUNREACH || errno == EHOSTUNREACH ||
                errno == EOPNOTSUPP || errno == ENOPROTOOPT || errno == EPROTO) {
@@ -6940,7 +6947,7 @@ static int HandleConnection(size_t i) {
       WARNF("(srvr) accept error: %s ephemeral accept error: %m",
             DescribeServer());
     } else {
-      DIEF("(srvr) %s accept error: %m", DescribeServer());
+      WARNF("(srvr) %s accept error: %m", DescribeServer());
     }
     errno = 0;
   }
@@ -7040,7 +7047,7 @@ static int HandlePoll(int ms) {
         }
       }
 #ifndef STATIC
-    } else if (__replmode) {
+    } else if (__ttyconf.replmode) {
       // handle refresh repl line
       rc = HandleReadline();
       if (rc < 0) return rc;
@@ -7186,7 +7193,7 @@ static void ReplEventLoop(void) {
   lua_repl_completions_callback = HandleCompletions;
   lua_initrepl(L);
   EnableRawMode();
-  EventLoop(100);
+  EventLoop(-1);
   DisableRawMode();
   lua_freerepl();
   lua_settop(L, 0);  // clear stack
@@ -7444,7 +7451,7 @@ void RedBean(int argc, char *argv[]) {
     Daemonize();
   }
   if (pidpath) {
-    fd = open(pidpath, O_CREAT | O_WRONLY, 0644);
+    fd = open(pidpath, O_CREAT | O_WRONLY | O_TRUNC, 0644);
     WRITE(fd, ibuf, FormatInt32(ibuf, getpid()) - ibuf);
     close(fd);
   }
@@ -7485,12 +7492,6 @@ void RedBean(int argc, char *argv[]) {
         monitorth = 0;
       }
     }
-#ifndef STATIC
-    if (replth) {
-      pthread_join(replth, 0);
-      replth = 0;
-    }
-#endif
     HandleShutdown();
     CallSimpleHookIfDefined("OnServerStop");
   }
@@ -7502,9 +7503,12 @@ void RedBean(int argc, char *argv[]) {
 }
 
 int main(int argc, char *argv[]) {
+  lua_progname = "redbean";
+
 #if !IsTiny()
   ShowCrashReports();
 #endif
+
   LoadZipArgs(&argc, &argv);
   RedBean(argc, argv);
 
@@ -7513,10 +7517,6 @@ int main(int argc, char *argv[]) {
   // 2. unwound worker exit
   if (IsModeDbg()) {
     if (isexitingworker) {
-      if (replth) {
-        pthread_join(replth, 0);
-        replth = 0;
-      }
       linenoiseDisableRawMode();
       linenoiseHistoryFree();
     }

@@ -29,7 +29,13 @@
 #include "libc/str/str.h"
 
 /**
- * Prints miniature crash report.
+ * Prints miniature crash report, e.g.
+ *
+ *     struct sigaction sa = {
+ *         .sa_sigaction = __minicrash,
+ *         .sa_flags = SA_SIGINFO | SA_RESETHAND,
+ *     };
+ *     sigaction(SIGSEGV, &sa, 0);
  *
  * This function may be called from a signal handler to print vital
  * information about the cause of a crash. Only vital number values
@@ -49,7 +55,6 @@
  *
  * @see __die() for crashing from normal code without aborting
  * @asyncsignalsafe
- * @threadsafe
  * @vforksafe
  */
 relegated dontinstrument void __minicrash(int sig, siginfo_t *si, void *arg) {

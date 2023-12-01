@@ -18,19 +18,23 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
 #include "libc/calls/calls.h"
+#include "libc/calls/struct/sigset.internal.h"
 #include "libc/errno.h"
 #include "libc/fmt/itoa.h"
 #include "libc/intrin/describebacktrace.internal.h"
 #include "libc/runtime/runtime.h"
+#include "libc/runtime/symbols.internal.h"
 
 /**
  * Handles assert() failure.
  */
 void __assert_fail(const char *expr, const char *file, int line) {
   char ibuf[12];
+  sigset_t m = __sig_block();
   FormatInt32(ibuf, line);
-  tinyprint(2, file, ":", ibuf, ": assert(", expr, ") failed (",
-            program_invocation_short_name, " ",
+  tinyprint(2, file, ":", ibuf, ": \e[31;1massert(", expr,
+            ") failed\e[0m (cosmoaddr2line ", FindDebugBinary(), " ",
             DescribeBacktrace(__builtin_frame_address(0)), ")\n", NULL);
+  __sig_unblock(m);
   abort();
 }

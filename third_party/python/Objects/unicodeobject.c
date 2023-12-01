@@ -8,7 +8,6 @@
 #include "third_party/python/Include/unicodeobject.h"
 #include "libc/assert.h"
 #include "libc/errno.h"
-#include "libc/fmt/fmt.h"
 #include "libc/intrin/likely.h"
 #include "libc/intrin/weaken.h"
 #include "libc/log/countbranch.h"
@@ -43,7 +42,6 @@
 #include "third_party/python/Include/warnings.h"
 #include "third_party/python/Include/yoink.h"
 #include "third_party/python/Modules/unicodedata.h"
-/* clang-format off */
 
 PYTHON_PROVIDE("_string");
 PYTHON_PROVIDE("_string.__doc__");

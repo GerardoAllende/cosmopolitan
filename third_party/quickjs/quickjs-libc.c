@@ -33,11 +33,10 @@
 #include "libc/calls/termios.h"
 #include "libc/errno.h"
 #include "libc/fmt/conv.h"
-#include "libc/fmt/fmt.h"
 #include "libc/limits.h"
 #include "libc/mem/mem.h"
 #include "libc/nt/synchronization.h"
-#include "libc/runtime/dlfcn.h"
+#include "libc/dlopen/dlfcn.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/sysconf.h"
 #include "libc/sock/select.h"
@@ -61,7 +60,6 @@ asm(".include \"libc/disclaimer.inc\"");
 
 #define MAXPATH 1024
 
-/* clang-format off */
 
 /* TODO:
    - add socket calls

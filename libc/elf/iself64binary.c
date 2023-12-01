@@ -19,7 +19,7 @@
 #include "libc/elf/def.h"
 #include "libc/elf/elf.h"
 #include "libc/elf/struct/ehdr.h"
-#include "libc/intrin/bits.h"
+#include "libc/serialize.h"
 
 /**
  * Returns true if `elf` is a 64-bit elf executable.
@@ -28,7 +28,7 @@
  * @param mapsize is the number of bytes past `elf` we can access
  * @return true if elf header looks legit
  */
-bool IsElf64Binary(const Elf64_Ehdr *elf, size_t mapsize) {
+bool32 IsElf64Binary(const Elf64_Ehdr *elf, size_t mapsize) {
   if (mapsize < sizeof(Elf64_Ehdr)) return false;
   if (READ32LE(elf->e_ident) != READ32LE(ELFMAG)) return false;
   return elf->e_ident[EI_CLASS] != ELFCLASS32;

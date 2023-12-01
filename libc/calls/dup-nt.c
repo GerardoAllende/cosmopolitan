@@ -18,14 +18,17 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
 #include "libc/calls/calls.h"
+#include "libc/calls/createfileflags.internal.h"
 #include "libc/calls/internal.h"
 #include "libc/calls/state.internal.h"
 #include "libc/calls/struct/sigset.internal.h"
 #include "libc/calls/syscall_support-nt.internal.h"
 #include "libc/errno.h"
+#include "libc/intrin/kprintf.h"
 #include "libc/intrin/weaken.h"
 #include "libc/nt/files.h"
 #include "libc/nt/runtime.h"
+#include "libc/runtime/zipos.internal.h"
 #include "libc/sock/internal.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/o.h"
@@ -56,7 +59,11 @@ static textwindows int sys_dup_nt_impl(int oldfd, int newfd, int flags,
       return -1;
     }
     if (g_fds.p[newfd].kind) {
-      sys_close_nt(newfd, newfd);
+      if (g_fds.p[newfd].kind == kFdZip) {
+        _weaken(__zipos_close)(newfd);
+      } else {
+        sys_close_nt(newfd, newfd);
+      }
     }
   }
 
@@ -65,10 +72,10 @@ static textwindows int sys_dup_nt_impl(int oldfd, int newfd, int flags,
                       kNtDuplicateSameAccess)) {
     g_fds.p[newfd] = g_fds.p[oldfd];
     g_fds.p[newfd].handle = handle;
-    if (flags & O_CLOEXEC) {
-      g_fds.p[newfd].flags |= O_CLOEXEC;
+    if (flags & _O_CLOEXEC) {
+      g_fds.p[newfd].flags |= _O_CLOEXEC;
     } else {
-      g_fds.p[newfd].flags &= ~O_CLOEXEC;
+      g_fds.p[newfd].flags &= ~_O_CLOEXEC;
     }
     rc = newfd;
   } else {

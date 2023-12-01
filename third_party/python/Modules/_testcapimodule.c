@@ -9,7 +9,6 @@
 #include "libc/calls/calls.h"
 #include "libc/calls/weirdtypes.h"
 #include "libc/errno.h"
-#include "libc/fmt/fmt.h"
 #include "libc/limits.h"
 #include "libc/math.h"
 #include "libc/mem/mem.h"
@@ -45,7 +44,6 @@
 #include "third_party/python/Include/traceback.h"
 #include "third_party/python/Include/yoink.h"
 #include "third_party/python/pyconfig.h"
-/* clang-format off */
 
 PYTHON_PROVIDE("_testcapi");
 PYTHON_PROVIDE("_testcapi.CHAR_MAX");

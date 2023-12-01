@@ -43,7 +43,6 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "libc/sysv/consts/pr.h"
 #include "libc/sysv/consts/sig.h"
 #include "third_party/make/getopt.h"
-// clang-format off
 
 STATIC_STACK_SIZE(0x00800000);  // 8mb stack
 
@@ -971,7 +970,7 @@ reset_jobserver (void)
 int
 main (int argc, char **argv, char **envp)
 {
-  ShowCrashReports();
+  // ShowCrashReports();
 
   static char *stdin_nm = 0;
   int makefile_status = MAKE_SUCCESS;
@@ -982,7 +981,7 @@ main (int argc, char **argv, char **envp)
   int argv_slots;
 
   // [jart] workaround to prevent make -j fork bomb
-  default_load_average = __get_cpu_count();
+  default_load_average = __get_cpu_count() * 1.5;
   max_load_average = default_load_average;
 
   /* Useful for attaching debuggers, etc.  */
@@ -1041,10 +1040,6 @@ main (int argc, char **argv, char **envp)
   FATAL_SIG (SIGPIPE); /* [jart] handle case of piped into less */
 
 #undef  FATAL_SIG
-
-#ifndef NDEBUG
-  ShowCrashReports();
-#endif
 
   /* Do not ignore the child-death signal.  This must be done before
      any children could possibly be created; otherwise, the wait

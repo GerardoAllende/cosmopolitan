@@ -17,7 +17,6 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
-#include "libc/atomic.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/sigset.h"
 #include "libc/calls/struct/sigset.internal.h"
@@ -26,8 +25,6 @@
 #include "libc/errno.h"
 #include "libc/fmt/itoa.h"
 #include "libc/intrin/asan.internal.h"
-#include "libc/intrin/atomic.h"
-#include "libc/intrin/bits.h"
 #include "libc/intrin/bsr.h"
 #include "libc/intrin/describeflags.internal.h"
 #include "libc/intrin/dll.h"
@@ -59,6 +56,7 @@
 
 __static_yoink("nsync_mu_lock");
 __static_yoink("nsync_mu_unlock");
+__static_yoink("nsync_mu_trylock");
 __static_yoink("nsync_mu_rlock");
 __static_yoink("nsync_mu_runlock");
 __static_yoink("_pthread_atfork");
@@ -67,6 +65,7 @@ __static_yoink("_pthread_atfork");
 #define MAP_STACK_OPENBSD 0x4000
 
 void _pthread_free(struct PosixThread *pt, bool isfork) {
+  unassert(dll_is_alone(&pt->list) && &pt->list != _pthread_list);
   if (pt->pt_flags & PT_STATIC) return;
   if (pt->pt_flags & PT_OWNSTACK) {
     unassert(!munmap(pt->pt_attr.__stackaddr, pt->pt_attr.__stacksize));
@@ -86,6 +85,26 @@ void _pthread_free(struct PosixThread *pt, bool isfork) {
   free(pt);
 }
 
+void _pthread_decimate(void) {
+  struct Dll *e;
+  struct PosixThread *pt;
+  enum PosixThreadStatus status;
+StartOver:
+  _pthread_lock();
+  for (e = dll_last(_pthread_list); e; e = dll_prev(_pthread_list, e)) {
+    pt = POSIXTHREAD_CONTAINER(e);
+    status = atomic_load_explicit(&pt->pt_status, memory_order_acquire);
+    if (status != kPosixThreadZombie) break;
+    if (!atomic_load_explicit(&pt->tib->tib_tid, memory_order_acquire)) {
+      dll_remove(&_pthread_list, e);
+      _pthread_unlock();
+      _pthread_unref(pt);
+      goto StartOver;
+    }
+  }
+  _pthread_unlock();
+}
+
 static int PosixThread(void *arg, int tid) {
   void *rc;
   struct PosixThread *pt = arg;
@@ -95,7 +114,12 @@ static int PosixThread(void *arg, int tid) {
   }
   // set long jump handler so pthread_exit can bring control back here
   if (!setjmp(pt->pt_exiter)) {
-    pthread_sigmask(SIG_SETMASK, &pt->pt_attr.__sigmask, 0);
+    if (IsWindows()) {
+      atomic_store_explicit(&__get_tls()->tib_sigmask, pt->pt_attr.__sigmask,
+                            memory_order_release);
+    } else {
+      sys_sigprocmask(SIG_SETMASK, &pt->pt_attr.__sigmask, 0);
+    }
     rc = pt->pt_start(pt->pt_arg);
     // ensure pthread_cleanup_pop(), and pthread_exit() popped cleanup
     unassert(!pt->pt_cleanup);

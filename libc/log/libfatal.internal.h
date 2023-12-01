@@ -1,12 +1,6 @@
 #ifndef COSMOPOLITAN_LIBC_LOG_LIBFATAL_INTERNAL_H_
 #define COSMOPOLITAN_LIBC_LOG_LIBFATAL_INTERNAL_H_
-#include "libc/calls/calls.h"
-#include "libc/calls/syscall-sysv.internal.h"
-#include "libc/dce.h"
 #include "libc/macros.internal.h"
-#include "libc/nt/runtime.h"
-#include "libc/sysv/consts/nr.h"
-#if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 
 __funline unsigned long __strlen(const char *s) {
@@ -30,15 +24,6 @@ __funline char *__stpcpy(char *d, const char *s) {
   }
 }
 
-__funline long __write_linux(int fd, const void *p, long n) {
-  long ax = 1;
-  asm volatile("syscall"
-               : "+a"(ax)
-               : "D"(fd), "S"(p), "d"(n)
-               : "rcx", "r11", "memory");
-  return ax;
-}
-
 __funline void *__repstosb(void *di, char al, size_t cx) {
 #if defined(__x86__) && defined(__GNUC__) && !defined(__STRICT_ANSI__)
   asm("rep stosb"
@@ -46,8 +31,11 @@ __funline void *__repstosb(void *di, char al, size_t cx) {
       : "0"(di), "1"(cx), "a"(al));
   return di;
 #else
-  volatile char *volatile d = di;
-  while (cx--) *d++ = al;
+  char *d = di;
+  while (cx--) {
+    *d++ = al;
+    asm volatile("" ::: "memory");
+  }
   return (void *)d;
 #endif
 }
@@ -59,9 +47,12 @@ __funline void *__repmovsb(void *di, const void *si, size_t cx) {
       : "0"(di), "1"(si), "2"(cx), "m"(*(char(*)[cx])si));
   return di;
 #else
-  volatile char *volatile d = di;
-  volatile const char *volatile s = si;
-  while (cx--) *d++ = *s++;
+  char *d = di;
+  const char *s = si;
+  while (cx--) {
+    *d++ = *s++;
+    asm volatile("" ::: "memory");
+  }
   return (void *)d;
 #endif
 }
@@ -70,6 +61,7 @@ __funline void *__mempcpy(void *d, const void *s, size_t n) {
   size_t i;
   for (i = 0; i < n; ++i) {
     ((char *)d)[i] = ((const char *)s)[i];
+    asm volatile("" ::: "memory");
   }
   return (char *)d + n;
 }
@@ -204,5 +196,4 @@ __funline void *__memmove(void *a, const void *b, unsigned long n) {
 }
 
 COSMOPOLITAN_C_END_
-#endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */
 #endif /* COSMOPOLITAN_LIBC_LOG_LIBFATAL_INTERNAL_H_ */

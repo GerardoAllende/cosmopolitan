@@ -55,7 +55,7 @@ vfork:
 #if !IsTiny()
 	push	%rbp
 	mov	%rsp,%rbp
-#ifdef SYSDEBUG
+#if SYSDEBUG
 	ezlea	.Llog,di
 	call	__stracef
 #endif
@@ -91,7 +91,18 @@ vfork:
 	ldr	w0,[x0,#:lo12:__hostos]
 	tbz	x0,3,1f			// bit 3 is xnu
 	b	fork			// which doesn't support vfork()
-1:	mov	x8,#220			// __NR_clone
+1:
+
+#if SYSDEBUG
+	stp	x29,x30,[sp,-16]!
+	adrp	x0,.Llog
+	add	x0,x0,:lo12:.Llog
+	mov	x29,sp
+	bl	__stracef
+	ldp	x29,x30,[sp],16
+#endif
+
+	mov	x8,#220			// __NR_clone
 	mov	x0,#0x4111		// SIGCHLD | CLONE_VM | CLONE_VFORK
 	mov	x1,#0
 	svc	0
@@ -101,7 +112,7 @@ vfork:
 //	} else {
 //	  __get_tls()->tib_flags &= ~TIB_FLAG_VFORKED;
 //	}
-	sub	x1,x28,#0x80		// RELIES ON TLS TIB ABI!
+	sub	x1,x28,#192		// sizeof(CosmoTib)
 	ldr	x2,[x1,64]
 	cbnz	x0,2f
 	orr	x2,x2,#TIB_FLAG_VFORKED
@@ -119,7 +130,7 @@ vfork:
 #endif
 	.endfn	vfork,globl
 
-#ifdef SYSDEBUG
+#if SYSDEBUG
 	.rodata.str1.1
 .Llog:	.ascii	STRACE_PROLOGUE
 	.asciz	"vfork()\n"

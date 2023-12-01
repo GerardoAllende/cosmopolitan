@@ -1,4 +1,3 @@
-/* clang-format off */
 /* Error handler for noninteractive utilities
    Copyright (C) 1990-1998, 2000-2007, 2009-2020 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
@@ -23,8 +22,6 @@
 #include "third_party/make/config.h"
 #include "third_party/make/error.h"
 #include "libc/stdio/stdio.h"
-#include "libc/fmt/fmt.h"
-#include "libc/fmt/fmt.h"
 #include "libc/str/str.h"
 #include "libc/runtime/runtime.h"
 #include "third_party/make/stdio.h"

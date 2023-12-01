@@ -46,7 +46,7 @@ void IgnoreStderr(void) {
 
 const char *SemPath(const char *name) {
   static _Thread_local char buf[PATH_MAX];
-  return sem_path_np(name, buf, sizeof(buf));
+  return shm_path_np(name, buf, sizeof(buf));
 }
 
 void SetUp(void) {
@@ -118,7 +118,7 @@ TEST(sem_close, withUnnamedSemaphore_isUndefinedBehavior) {
   SPAWN(fork);
   IgnoreStderr();
   sem_close(&sem);
-  TERMS(SIGABRT);  // see __assert_fail
+  TERMS(SIGILL);  // see __assert_fail
   ASSERT_SYS(0, 0, sem_destroy(&sem));
 }
 

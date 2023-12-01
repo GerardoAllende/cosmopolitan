@@ -25,7 +25,7 @@
 #include "libc/fmt/conv.h"
 #include "libc/fmt/itoa.h"
 #include "libc/fmt/magnumstrs.internal.h"
-#include "libc/intrin/bits.h"
+#include "libc/serialize.h"
 #include "libc/intrin/getenv.internal.h"
 #include "libc/intrin/weaken.h"
 #include "libc/limits.h"
@@ -96,10 +96,18 @@ static wontreturn void UnsupportedSyntax(unsigned char c) {
 }
 
 static void Open(const char *path, int fd, int flags) {
-  close(fd);
-  if (open(path, flags, 0644) == -1) {
+  int tmpfd;
+  // use open+dup2 to support things like >/dev/stdout
+  if ((tmpfd = open(path, flags, 0644)) == -1) {
     perror(path);
     _Exit(1);
+  }
+  if (tmpfd != fd) {
+    if (dup2(tmpfd, fd) == -1) {
+      perror("dup2");
+      _Exit(1);
+    }
+    close(tmpfd);
   }
 }
 
@@ -297,9 +305,11 @@ static int Chmod(void) {
 }
 
 static int Pwd(void) {
-  char path[PATH_MAX + 2];
-  if (getcwd(path, PATH_MAX)) {
-    strlcat(path, "\n", sizeof(path));
+  int got;
+  char path[PATH_MAX];
+  if ((got = __getcwd(path, PATH_MAX - 1)) != -1) {
+    path[got - 1] = '\n';
+    path[got] = 0;
     Write(1, path);
     return 0;
   } else {
@@ -782,7 +792,7 @@ static const char *GetVar(const char *key) {
   } else if (key[0] == '?' && !key[1]) {
     return IntToStr(exitstatus);
   } else if (!strcmp(key, "PWD")) {
-    npassert(getcwd(vbuf, sizeof(vbuf)));
+    npassert(__getcwd(vbuf, sizeof(vbuf)) != -1);
     return vbuf;
   } else if (!strcmp(key, "UID")) {
     FormatInt32(vbuf, getuid());

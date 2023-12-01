@@ -16,7 +16,6 @@
 │                                                                              │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "third_party/argon2/encoding.h"
-#include "libc/fmt/fmt.h"
 #include "libc/limits.h"
 #include "libc/stdio/stdio.h"
 #include "libc/str/str.h"
@@ -26,7 +25,6 @@ asm(".ident\t\"\\n\\n\
 argon2 (CC0 or Apache2)\\n\
 Copyright 2016 Daniel Dinu, Dmitry Khovratovich\\n\
 Copyright 2016 Jean-Philippe Aumasson, Samuel Neves\"");
-/* clang-format off */
 
 /*
  * Example code for a decoder and encoder of "hash strings", with Argon2

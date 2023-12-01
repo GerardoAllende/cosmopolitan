@@ -25,7 +25,9 @@
 │ OTHER DEALINGS IN THE SOFTWARE.                                              │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
+#include "libc/intrin/kprintf.h"
 #include "libc/macros.internal.h"
+#include "libc/intrin/kprintf.h"
 #include "libc/runtime/pc.internal.h"
 
 //	Code and data structures for bare metal interrupt handling.
@@ -90,6 +92,7 @@ __excep0_isr:
 	mov	%eax,%ss
 	mov	%eax,%ds
 	mov	%eax,%es
+	cld				# make sure DF is reset, for C code
 	ezlea	.excep_msg,di		# stack should be 16-byte aligned now
 	xor	%eax,%eax		# kprintf is variadic, remember to
 					# pass no. of vector regs. used (= 0)

@@ -23,7 +23,7 @@
 #include "libc/cosmo.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/intrin/bits.h"
+#include "libc/serialize.h"
 #include "libc/limits.h"
 #include "libc/macros.internal.h"
 #include "libc/nt/runtime.h"
@@ -86,8 +86,9 @@ static inline void InitProgramExecutableNameImpl(void) {
       if (q[0] == '.' && q[1] == '/') {
         q += 2;
       }
-      if (getcwd(p, e - p - 1 - 4)) {  // for / and .com
-        while (*p) ++p;
+      int got = __getcwd(p, e - p - 1 - 4);  // for / and .com
+      if (got != -1) {
+        p += got - 1;
         *p++ = '/';
       }
     }

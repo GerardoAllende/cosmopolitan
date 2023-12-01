@@ -29,6 +29,7 @@
 #include "libc/nt/thread.h"
 #include "libc/runtime/clktck.h"
 #include "libc/sock/struct/pollfd.h"
+#include "libc/sysv/consts/limits.h"
 #include "libc/sysv/consts/poll.h"
 #include "libc/testlib/testlib.h"
 #include "libc/thread/posixthread.internal.h"
@@ -115,4 +116,8 @@ TEST(poll, interrupt) {
   ASSERT_SYS(0, 0, close(pfds[0]));
   ASSERT_TRUE(gotsig);
   ASSERT_TRUE(didit);
+}
+
+TEST(raise, zero) {
+  ASSERT_SYS(0, 0, raise(0));
 }

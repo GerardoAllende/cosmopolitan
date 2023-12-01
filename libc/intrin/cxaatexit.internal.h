@@ -2,7 +2,6 @@
 #define COSMOPOLITAN_LIBC_RUNTIME_CXAATEXIT_H_
 #include "libc/stdio/stdio.h"
 #include "libc/thread/tls.h"
-#if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 
 struct CxaAtexitBlocks {
@@ -21,8 +20,9 @@ extern struct CxaAtexitBlocks __cxa_blocks;
 
 void __cxa_lock(void);
 void __cxa_unlock(void);
+void __cxa_thread_finalize(void);
 void __cxa_printexits(FILE *, void *);
+int __cxa_thread_atexit_impl(void *, void *, void *);
 
 COSMOPOLITAN_C_END_
-#endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */
 #endif /* COSMOPOLITAN_LIBC_RUNTIME_CXAATEXIT_H_ */

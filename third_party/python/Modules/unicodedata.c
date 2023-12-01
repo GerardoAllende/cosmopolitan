@@ -6,7 +6,6 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #define PY_SSIZE_T_CLEAN
 #include "third_party/python/Modules/unicodedata.h"
-#include "libc/fmt/fmt.h"
 #include "libc/nexgen32e/kompressor.h"
 #include "third_party/python/Include/floatobject.h"
 #include "third_party/python/Include/import.h"
@@ -22,7 +21,6 @@
 #include "third_party/python/Include/yoink.h"
 #include "third_party/python/Modules/bextra.h"
 #include "third_party/python/Modules/unicodedata_unidata.h"
-/* clang-format off */
 
 PYTHON_PROVIDE("unicodedata");
 PYTHON_PROVIDE("unicodedata.UCD");

@@ -1,6 +1,5 @@
 #ifndef COSMOPOLITAN_LIBC_RUNTIME_RUNTIME_H_
 #define COSMOPOLITAN_LIBC_RUNTIME_RUNTIME_H_
-#if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 /*───────────────────────────────────────────────────────────────────────────│─╗
 │ cosmopolitan § runtime                                                   ─╬─│┼
@@ -36,7 +35,6 @@ void _exit(int) libcesque wontreturn;
 void _Exit(int) libcesque wontreturn;
 void quick_exit(int) wontreturn;
 void abort(void) wontreturn;
-int __cxa_atexit(void *, void *, void *) paramsnonnull((1)) libcesque;
 int atexit(void (*)(void)) paramsnonnull() libcesque;
 char *getenv(const char *) paramsnonnull() __wur nosideeffect libcesque;
 int putenv(char *);
@@ -72,7 +70,6 @@ extern int __argc;
 extern char **__argv;
 extern char **__envp;
 extern unsigned long *__auxv;
-extern bool __interruptible;
 extern intptr_t __oldstack;
 extern uint64_t __nosync;
 extern int __strace;
@@ -83,7 +80,7 @@ extern const char kNtSystemDirectory[];
 extern const char kNtWindowsDirectory[];
 extern size_t __virtualmax;
 extern size_t __stackmax;
-extern bool __isworker;
+extern bool32 __isworker;
 /* utilities */
 void _intsort(int *, size_t);
 void _longsort(long *, size_t);
@@ -92,7 +89,6 @@ void ShowCrashReports(void);
 int ftrace_install(void);
 int ftrace_enabled(int);
 int strace_enabled(int);
-bool strace_enter(void);
 void __print_maps(void);
 void __printargs(const char *);
 /* builtin sh-like system/popen dsl */
@@ -114,14 +110,17 @@ void CheckForMemoryLeaks(void);
 void CheckForFileLeaks(void);
 void __enable_threads(void);
 void __oom_hook(size_t);
-bool _isheap(void *);
+bool32 _isheap(void *);
 /* code morphing */
 void __morph_begin(void);
 void __morph_end(void);
+void __jit_begin(void);
+void __jit_end(void);
+void __clear_cache(void *, void *);
 /* portability */
 int NtGetVersion(void) pureconst;
-bool IsGenuineBlink(void);
-bool IsCygwin(void);
+bool32 IsGenuineBlink(void);
+bool32 IsCygwin(void);
 const char *GetCpuidOs(void);
 const char *GetCpuidEmulator(void);
 void GetCpuidBrand(char[13], uint32_t);
@@ -140,13 +139,12 @@ __funline int __trace_disabled(int x) {
   return 0;
 }
 #ifndef FTRACE
-#define ftrace_enabled __trace_disabled
+#define ftrace_enabled(...) __trace_disabled(__VA_ARGS__)
 #endif
 #ifndef SYSDEBUG
-#define strace_enabled __trace_disabled
+#define strace_enabled(...) __trace_disabled(__VA_ARGS__)
 #endif
 #endif /* _COSMO_SOURCE */
 
 COSMOPOLITAN_C_END_
-#endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */
 #endif /* COSMOPOLITAN_LIBC_RUNTIME_RUNTIME_H_ */

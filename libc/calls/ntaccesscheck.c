@@ -24,7 +24,6 @@
 #include "libc/calls/syscall_support-nt.internal.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/fmt/fmt.h"
 #include "libc/intrin/strace.internal.h"
 #include "libc/intrin/weaken.h"
 #include "libc/mem/mem.h"
@@ -108,7 +107,7 @@ textwindows int ntaccesscheck(const char16_t *pathname, uint32_t flags) {
                        0)) != -1) {
                 unassert(GetFileInformationByHandle(hFile, &wst));
                 if ((wst.dwFileAttributes & kNtFileAttributeDirectory) ||
-                    IsWindowsExecutable(hFile)) {
+                    IsWindowsExecutable(hFile, pathname)) {
                   rc = 0;
                 } else {
                   rc = eacces();

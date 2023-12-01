@@ -11,7 +11,6 @@
 #include "libc/macros.internal.h"
 #include "libc/mem/mem.h"
 #include "libc/nexgen32e/rdtsc.h"
-#include "libc/nexgen32e/yield.h"
 #include "libc/runtime/internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/sysconf.h"
@@ -25,7 +24,6 @@
 #include "libc/thread/tls.h"
 #include "third_party/dlmalloc/vespene.internal.h"
 #include "third_party/nsync/mu.h"
-// clang-format off
 
 #define FOOTERS 0
 #define MSPACES 0

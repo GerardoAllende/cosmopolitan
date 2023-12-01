@@ -26,7 +26,6 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "libc/calls/weirdtypes.h"
 #include "libc/errno.h"
 #include "libc/fmt/conv.h"
-#include "libc/fmt/fmt.h"
 #include "libc/limits.h"
 #include "libc/log/log.h"
 #include "libc/macros.internal.h"
@@ -35,7 +34,6 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "libc/mem/mem.h"
 #include "libc/runtime/stack.h"
 #include "libc/stdio/stdio.h"
-#include "libc/temp.h"
 #include "libc/str/locale.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/f.h"
@@ -48,11 +46,11 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "libc/sysv/consts/sa.h"
 #include "libc/sysv/consts/sicode.h"
 #include "libc/sysv/consts/w.h"
+#include "libc/temp.h"
 #include "libc/time/struct/tm.h"
 #include "libc/time/time.h"
 #include "third_party/gdtoa/gdtoa.h"
 #include "third_party/musl/glob.h"
-/* clang-format off */
 
 /* We use <config.h> instead of "config.h" so that a compilation
    using -I. -I$srcdir will use ./config.h rather than $srcdir/config.h

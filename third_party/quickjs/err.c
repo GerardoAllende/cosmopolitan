@@ -22,7 +22,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#include "libc/fmt/fmt.h"
 #include "third_party/quickjs/internal.h"
 #include "third_party/quickjs/leb128.h"
 #include "third_party/quickjs/libregexp.h"
@@ -33,7 +32,6 @@ QuickJS (MIT License)\\n\
 Copyright (c) 2017-2021 Fabrice Bellard\\n\
 Copyright (c) 2017-2021 Charlie Gordon\"");
 asm(".include \"libc/disclaimer.inc\"");
-/* clang-format off */
 
 int js_parse_error(JSParseState *s, const char *fmt, ...)
 {

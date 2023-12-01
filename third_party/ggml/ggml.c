@@ -30,7 +30,6 @@
 #include "libc/atomic.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/timespec.h"
-#include "libc/fmt/fmt.h"
 #include "libc/intrin/atomic.h"
 #include "libc/inttypes.h"
 #include "libc/literal.h"
@@ -56,7 +55,6 @@ asm(".ident\t\"\\n\\n\
 GGML (MIT License)\\n\
 Copyright (c) 2023 Georgi Gerganov\"");
 asm(".include \"libc/disclaimer.inc\"");
-// clang-format off
 
 typedef void* thread_ret_t;
 

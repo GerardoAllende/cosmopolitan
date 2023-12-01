@@ -124,7 +124,7 @@ syscon	errno	ECANCELED				125			125			89			89			85			88			87			1223			# kNtError
 syscon	errno	EOWNERDEAD				130			130			105			105			96			94			97			105			# kNtErrorSemOwnerDied; raised by pthread_cond_timedwait(3), pthread_mutex_consistent(3), pthread_mutex_getprioceiling(3), pthread_mutex_lock(3), pthread_mutex_timedlock(3), pthread_mutexattr_getrobust(3), pthread_mutexattr_setrobust(3)
 syscon	errno	ENOTRECOVERABLE				131			131			104			104			95			93			98			0			# raised by pthread_cond_timedwait(3), pthread_mutex_consistent(3), pthread_mutex_getprioceiling(3), pthread_mutex_lock(3), pthread_mutex_timedlock(3), pthread_mutexattr_getrobust(3), pthread_mutexattr_setrobust(3)
 syscon	errno	ENONET					64			64			317			317			317			317			317			0			# made up on BSDs; raised by accept(2)
-syscon	errno	ERESTART				85			85			-1			-1			-1			-1			-3			0			# should only be seen in ptrace()
+syscon	errno	ERESTART				85			85			318			318			318			318			-3			20000			# should only be seen in ptrace()
 syscon	errno	ENODATA					61			61			96			96			0			0			89			232			# no message is available in xsi stream or named pipe is being closed; no data available; barely in posix; returned by ioctl; very close in spirit to EPIPE?
 syscon	errno	ENOSR					63			63			98			98			0			90			90			0			# out of streams resources; something like EAGAIN; it's in POSIX; maybe some commercial UNIX returns it with openat, putmsg, putpmsg, posix_openpt, ioctl, open
 syscon	errno	ENOSTR					60			60			99			99			0			0			91			0			# not a stream; returned by getmsg, putmsg, putpmsg, getpmsg
@@ -234,6 +234,7 @@ syscon	mmap	MAP_INHERIT				-1			-1			-1			-1			-1			-1			0x00000080		-1			# make
 syscon	mmap	MAP_HASSEMAPHORE			0			0			0x00000200		0x00000200		0x00000200		0			0x00000200		0			# does it matter on x86?
 syscon	mmap	MAP_NOSYNC				0			0			0			0			0x00000800		0			0			0			# flush to physical media only when necessary rather than gratuitously; be sure to use write() rather than ftruncate() with this!
 syscon	mmap	MAP_CONCEAL				0			0			0			0			0x00020000		0x00008000		0x00008000		0			# omit from core dumps; MAP_NOCORE on FreeBSD
+syscon	mmap	MAP_JIT					0			0			0			0x00000800		0			0			0			0			# omit from core dumps; MAP_NOCORE on FreeBSD
 syscon	compat	MAP_NOCORE				0			0			0			0			0x00020000		0x00008000		0x00008000		0			# use MAP_CONCEAL
 syscon	compat	MAP_ANON				0x00000020		0x00000020		0x00001000		0x00001000		0x00001000		0x00001000		0x00001000		0x00000020		# bsd consensus; faked nt
 syscon	compat	MAP_EXECUTABLE				0x00001000		0x00001000		0			0			0			0			0			0			# ignored
@@ -469,7 +470,7 @@ syscon	rlimit	RLIMIT_RSS				5			5			5			5			5			5			5			127			# max physical mem
 syscon	rlimit	RLIMIT_NPROC				6			6			7			7			7			7			7			127			# max number of processes; see fork()→EAGAIN; bsd consensus
 syscon	rlimit	RLIMIT_NOFILE				7			7			8			8			8			8			8			127			# max number of open files; see accept()→EMFILE/ENFILE; bsd consensus
 syscon	rlimit	RLIMIT_MEMLOCK				8			8			6			6			6			6			6			127			# max locked-in-memory address space; bsd consensus
-syscon	rlimit	RLIMIT_AS				9			9			5			5			10			2			10			0			# max virtual memory size in bytes; this one actually works; fudged as RLIMIT_DATA on OpenBSD
+syscon	rlimit	RLIMIT_AS				9\			9			5			5			10			2			10			0			# max virtual memory size in bytes; this one actually works; fudged as RLIMIT_DATA on OpenBSD
 syscon	rlimit	RLIMIT_LOCKS				10			10			127			127			127			127			127			127			# max flock() / fcntl() locks; bsd consensus
 syscon	rlimit	RLIMIT_SIGPENDING			11			11			127			127			127			127			127			127			# max sigqueue() can enqueue; bsd consensus
 syscon	rlimit	RLIMIT_MSGQUEUE				12			12			127			127			127			127			127			127			# meh posix message queues; bsd consensus
@@ -577,7 +578,7 @@ syscon	close	CLOSE_RANGE_CLOEXEC			4			4			-1			-1			-1			-1			-1			-1			#
 syscon	clock	CLOCK_REALTIME				0			0			0			0			0			0			0			0			# consensus
 syscon	clock	CLOCK_REALTIME_PRECISE			0			0			0			0			9			0			0			0			#
 syscon	clock	CLOCK_REALTIME_FAST			0			0			0			0			10			0			0			0			#
-syscon	clock	CLOCK_REALTIME_COARSE			5			5			0			0			10			0			0			0			# Linux 2.6.32+; bsd consensus; not available on RHEL5
+syscon	clock	CLOCK_REALTIME_COARSE			5			5			0			0			10			0			0			2			# Linux 2.6.32+; bsd consensus; not available on RHEL5
 syscon	clock	CLOCK_MONOTONIC				1			1			1			6			4			3			3			1			# XNU/NT faked; could move backwards if NTP introduces negative leap second
 syscon	clock	CLOCK_MONOTONIC_PRECISE			1			1			1			6			11			3			3			1			#
 syscon	clock	CLOCK_MONOTONIC_FAST			1			1			1			6			12			3			3			1			#
@@ -586,7 +587,7 @@ syscon	clock	CLOCK_MONOTONIC_RAW			4			4			127			4			127			127			127			127			# a
 syscon	clock	CLOCK_PROCESS_CPUTIME_ID		2			2			127			12			15			2			0x40000000		127			# NetBSD lets you bitwise a PID into clockid_t
 syscon	clock	CLOCK_THREAD_CPUTIME_ID			3			3			127			16			14			4			0x20000000		127			#
 syscon	clock	CLOCK_PROF				127			127			127			127			2			127			2			127			#
-syscon	clock	CLOCK_BOOTTIME				7			7			7			127			127			6			127			7			#
+syscon	clock	CLOCK_BOOTTIME				7			7			7			127			127			6			127			3			#
 syscon	clock	CLOCK_REALTIME_ALARM			8			8			127			127			127			127			127			127			#
 syscon	clock	CLOCK_BOOTTIME_ALARM			9			9			127			127			127			127			127			127			#
 syscon	clock	CLOCK_TAI				11			11			127			127			127			127			127			127			#
@@ -1044,7 +1045,7 @@ syscon	mount	MNT_SNAPSHOT				0			0			0x40000000		0x40000000		0x01000000		0			0		
 #	limits
 #
 #	group	name					GNU/Systemd		GNU/Systemd (Aarch64)	XNU's Not UNIX!		MacOS (Arm64)		FreeBSD			OpenBSD			NetBSD			The New Technology	Commentary
-syscon	limits	PIPE_BUF				4096			4096			512			512			512			512			512			512			# bsd consensus
+syscon	limits	PIPE_BUF				4096			4096			512			512			512			512			512			4096			# bsd consensus
 syscon	limits	NGROUPS_MAX				65536			65536			16			16			1023			16			16			0			#
 syscon	limits	LINK_MAX				127			127			32767			32767			32767			32767			32767			64			# freebsd/windows are educated guesses
 syscon	limits	MAX_CANON				255			255			1024			1024			255			255			255			255			# windows is guessed
@@ -1351,7 +1352,7 @@ syscon	iff	IFF_ALLMULTI				0x0200			0x0200			0x0200			0x0200			0x0200			0x0200		
 syscon	iff	IFF_NOARP				0x80			0x80			0x80			0x80			0x80			0x80			0x80			0x80			# faked nt as linux; unix consensus
 syscon	iff	IFF_POINTOPOINT				0x10			0x10			0x10			0x10			0x10			0x10			0x10			0x10			# point-to-point; faked nt as linux; unix consensus
 syscon	iff	IFF_PROMISC				0x100			0x100			0x100			0x100			0x100			0x100			0x100			0			# in packet capture mode; unix consensus
-syscon	iff	IFF_RUNNING				0x40			0x40			0x40			0x40			0x40			0x40			0x40			0			# unix consensus
+syscon	iff	IFF_RUNNING				0x40			0x40			0x40			0x40			0x40			0x40			0x40			0			# unix consensus (mostly for bsd compatibility?)
 syscon	iff	IFF_NOTRAILERS				0x20			0x20			0x20			0x20			0			0			0			0
 syscon	iff	IFF_AUTOMEDIA				0x4000			0x4000			0			0			0			0			0			0
 syscon	iff	IFF_DYNAMIC				0x8000			0x8000			0			0			0			0			0			0
@@ -1390,9 +1391,6 @@ syscon	lock	LOCK_UNLOCK_CACHE			54			54			0			0			0			0			0			0			# wut
 syscon	misc	IP6F_MORE_FRAG				0x0100			0x0100			0x0100			0x0100			0x0100			0x0100			0x0100			0x0100			# consensus
 syscon	misc	IP6F_OFF_MASK				0xf8ff			0xf8ff			0xf8ff			0xf8ff			0xf8ff			0xf8ff			0xf8ff			0xf8ff			# consensus
 syscon	misc	IP6F_RESERVED_MASK			0x0600			0x0600			0x0600			0x0600			0x0600			0x0600			0x0600			0x0600			# consensus
-
-syscon	misc	NO_SENSE				0			0			0			0			0			0			0			0			# consensus
-syscon	misc	NO_ADDRESS				4			4			4			4			4			4			4			0x2afc			# unix consensus
 
 syscon	misc	L_SET					0			0			0			0			0			0			0			0			# consensus
 syscon	misc	L_INCR					1			1			1			1			1			1			1			0			# unix consensus
@@ -1463,10 +1461,6 @@ syscon	misc	CTIME					0			0			0			0			0			0			0			0			# consensus
 syscon	misc	EFD_CLOEXEC				0x080000		0x080000		0			0			0			0			0			0
 syscon	misc	EFD_NONBLOCK				0x0800			0x0800			0			0			0			0			0			0
 syscon	misc	EFD_SEMAPHORE				1			1			0			0			0			0			0			0
-
-syscon	misc	SYNC_FILE_RANGE_WAIT_AFTER		4			4			0			0			0			0			0			0
-syscon	misc	SYNC_FILE_RANGE_WAIT_BEFORE		1			1			0			0			0			0			0			0
-syscon	misc	SYNC_FILE_RANGE_WRITE			2			2			0			0			0			0			0			0
 
 syscon	misc	TEST_UNIT_READY				0			0			0			0			0			0			0			0
 syscon	misc	TFD_CLOEXEC				0x080000		0x080000		0			0			0			0			0			0
@@ -1810,7 +1804,6 @@ syscon	nr	__NR_faccessat				0x010d			0x0030			0x20001d2		0x01d2			0x01e9			0x013
 syscon	nr	__NR_unshare				0x0110			0x0061			0xfff			0xfff			0xfff			0xfff			0xfff			0xfff
 syscon	nr	__NR_splice				0x0113			0x004c			0xfff			0xfff			0xfff			0xfff			0xfff			0xfff
 syscon	nr	__NR_tee				0x0114			0x004d			0xfff			0xfff			0xfff			0xfff			0xfff			0xfff
-syscon	nr	__NR_sync_file_range			0x0115			0x0054			0xfff			0xfff			0xfff			0xfff			0xfff			0xfff
 syscon	nr	__NR_vmsplice				0x0116			0x004b			0xfff			0xfff			0xfff			0xfff			0xfff			0xfff
 syscon	nr	__NR_migrate_pages			0x0100			0x00ee			0xfff			0xfff			0xfff			0xfff			0xfff			0xfff
 syscon	nr	__NR_move_pages				0x0117			0x00ef			0xfff			0xfff			0xfff			0xfff			0xfff			0xfff

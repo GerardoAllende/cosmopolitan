@@ -27,7 +27,6 @@
 │ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,            │
 │ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                           │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/fmt/fmt.h"
 #include "third_party/python/Include/abstract.h"
 #include "third_party/python/Include/boolobject.h"
 #include "third_party/python/Include/complexobject.h"
@@ -48,7 +47,6 @@
 #include "third_party/python/Include/yoink.h"
 #include "third_party/python/Modules/_decimal/docstrings.h"
 #include "third_party/python/Modules/_decimal/libmpdec/mpdecimal.h"
-/* clang-format off */
 
 PYTHON_PROVIDE("_decimal");
 PYTHON_PROVIDE("_decimal.BasicContext");

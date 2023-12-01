@@ -10,7 +10,6 @@ asm(".ident\t\"\\n\\n\
 zlib 1.2.13 (zlib License)\\n\
 Copyright 1995-2022 Jean-loup Gailly and Mark Adler\\n\
 Invented 1990 Phillip Walter Katz\"");
-// clang-format off
 
 /*
  * Change history:
@@ -330,7 +329,6 @@ struct inflate_state FAR *state;
 #include "libc/calls/calls.h"
 #include "libc/stdio/dprintf.h"
 #include "libc/calls/weirdtypes.h"
-#include "libc/fmt/fmt.h"
 #include "libc/stdio/stdio.h"
 #include "libc/temp.h"
 #include "third_party/musl/tempnam.h"

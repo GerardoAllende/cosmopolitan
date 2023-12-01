@@ -4,7 +4,8 @@
 #define LOCALTIME_IMPLEMENTATION
 #include "libc/calls/blockcancel.internal.h"
 #include "libc/calls/calls.h"
-#include "libc/intrin/bits.h"
+#include "libc/cxxabi.h"
+#include "libc/serialize.h"
 #include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/str/str.h"

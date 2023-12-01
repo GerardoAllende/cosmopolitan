@@ -21,7 +21,6 @@
 #include "libc/calls/ucontext.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/fmt/fmt.h"
 #include "libc/intrin/describeflags.internal.h"
 #include "libc/log/log.h"
 #include "libc/mem/gc.internal.h"
@@ -197,6 +196,7 @@ TEST(mprotect, testRwxMap_vonNeumannRules) {
 }
 
 TEST(mprotect, testExecuteFlatFileMapOpenedAsReadonly) {
+  if (IsXnuSilicon()) return;  // TODO(jart): Use APE Loader SIP workaround?
   int (*p)(void);
   size_t n = sizeof(kRet31337);
   ASSERT_SYS(0, 3, creat("return31337", 0755));

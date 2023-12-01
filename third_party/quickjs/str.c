@@ -25,7 +25,6 @@
 #include "libc/str/str.h"
 #include "libc/assert.h"
 #include "libc/fmt/conv.h"
-#include "libc/fmt/fmt.h"
 #include "libc/runtime/fenv.h"
 #include "third_party/gdtoa/gdtoa.h"
 #include "third_party/quickjs/internal.h"
@@ -37,7 +36,6 @@ QuickJS (MIT License)\\n\
 Copyright (c) 2017-2021 Fabrice Bellard\\n\
 Copyright (c) 2017-2021 Charlie Gordon\"");
 asm(".include \"libc/disclaimer.inc\"");
-/* clang-format off */
 
 static int memcmp16_8(const uint16_t *src1, const uint8_t *src2, int len)
 {

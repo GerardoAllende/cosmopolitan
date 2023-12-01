@@ -56,17 +56,14 @@ int iswseparator(wint_t);
 wint_t towlower(wint_t);
 wint_t towupper(wint_t);
 
-void bzero(void *, size_t) memcpyesque;
 void *memset(void *, int, size_t) memcpyesque;
 void *memmove(void *, const void *, size_t) memcpyesque;
 void *memcpy(void *restrict, const void *restrict, size_t) memcpyesque;
 void *mempcpy(void *restrict, const void *restrict, size_t) memcpyesque;
 char *hexpcpy(char *restrict, const void *restrict, size_t) memcpyesque;
 void *memccpy(void *restrict, const void *restrict, int, size_t) memcpyesque;
-void bcopy(const void *, void *, size_t) memcpyesque;
 void explicit_bzero(void *, size_t);
 
-int bcmp(const void *, const void *, size_t) strlenesque;
 int memcmp(const void *, const void *, size_t) strlenesque;
 int timingsafe_bcmp(const void *, const void *, size_t);
 int timingsafe_memcmp(const void *, const void *, size_t);
@@ -75,7 +72,6 @@ size_t strlen(const char *) strlenesque;
 size_t strnlen(const char *, size_t) strlenesque;
 size_t strnlen_s(const char *, size_t);
 char *strchr(const char *, int) strlenesque;
-char *index(const char *, int) strlenesque;
 void *memchr(const void *, int, size_t) strlenesque;
 char *strchrnul(const char *, int) strlenesque returnsnonnull;
 void *rawmemchr(const void *, int) strlenesque returnsnonnull;
@@ -138,11 +134,6 @@ ssize_t strfmon(char *, size_t, const char *, ...);
 long a64l(const char *);
 char *l64a(long);
 
-char *strntolower(char *, size_t) libcesque;
-char *strtolower(char *) libcesque paramsnonnull();
-char *strntoupper(char *, size_t) libcesque;
-char *strtoupper(char *) libcesque paramsnonnull();
-
 typedef unsigned mbstate_t;
 
 wchar_t *wcsncpy(wchar_t *, const wchar_t *, size_t);
@@ -177,23 +168,20 @@ wint_t towctrans(wint_t, wctrans_t);
 int getsubopt(char **, char *const *, char **) paramsnonnull();
 char *strsignal(int) returnsnonnull libcesque;
 char *strerror(int) returnsnonnull dontthrow nocallback;
-int strerror_r(int, char *, size_t)
-dontthrow nocallback;
-int __xpg_strerror_r(int, char *, size_t)
-dontthrow nocallback;
+errno_t strerror_r(int, char *, size_t) libcesque;
+char *__xpg_strerror_r(int, char *, size_t) libcesque;
 
 #ifdef _COSMO_SOURCE
 uint64_t tpenc(uint32_t) pureconst;
 char *chomp(char *) libcesque;
 wchar_t *wchomp(wchar_t *) libcesque;
-bool startswith(const char *, const char *) strlenesque;
-bool startswithi(const char *, const char *) strlenesque;
-bool endswith(const char *, const char *) strlenesque;
-bool istext(const void *, size_t) libcesque;
-bool isutf8(const void *, size_t) libcesque;
-char *strsignal_r(int, char[21]) returnsnonnull libcesque __wur;
-int strerror_wr(int, uint32_t, char *, size_t)
-dontthrow nocallback;
+uint64_t __fnv(const void *, size_t) strlenesque;
+bool32 startswith(const char *, const char *) strlenesque;
+bool32 startswithi(const char *, const char *) strlenesque;
+bool32 endswith(const char *, const char *) strlenesque;
+bool32 istext(const void *, size_t) libcesque;
+bool32 isutf8(const void *, size_t) libcesque;
+const char *strsignal_r(int, char[21]) returnsnonnull libcesque __wur;
 char16_t *chomp16(char16_t *) libcesque;
 size_t strlen16(const char16_t *) strlenesque;
 size_t strnlen16(const char16_t *, size_t) strlenesque;
@@ -215,13 +203,26 @@ char16_t *strcat16(char16_t *, const char16_t *) memcpyesque;
 char16_t *strcpy16(char16_t *, const char16_t *) memcpyesque;
 char16_t *strncat16(char16_t *, const char16_t *, size_t) memcpyesque;
 char16_t *memset16(char16_t *, char16_t, size_t) memcpyesque;
-bool startswith16(const char16_t *, const char16_t *) strlenesque;
-bool endswith16(const char16_t *, const char16_t *) strlenesque;
+bool32 startswith16(const char16_t *, const char16_t *) strlenesque;
+bool32 endswith16(const char16_t *, const char16_t *) strlenesque;
 axdx_t tprecode8to16(char16_t *, size_t, const char *);
 axdx_t tprecode16to8(char *, size_t, const char16_t *);
-bool wcsstartswith(const wchar_t *, const wchar_t *) strlenesque;
-bool wcsendswith(const wchar_t *, const wchar_t *) strlenesque;
+bool32 wcsstartswith(const wchar_t *, const wchar_t *) strlenesque;
+bool32 wcsendswith(const wchar_t *, const wchar_t *) strlenesque;
+char *__join_paths(char *, size_t, const char *, const char *) __wur;
+int __mkntpathat(int, const char *, int, char16_t[hasatleast 1024]);
 #endif /* _COSMO_SOURCE */
+
+#if defined(_COSMO_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE) || \
+    defined(_POSIX_SOURCE) ||                                                 \
+    (defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE + 0 < 200809L) ||            \
+    (defined(_XOPEN_SOURCE) && _XOPEN_SOURCE + 0 < 700)
+int bcmp(const void *, const void *, size_t) strlenesque;
+void bcopy(const void *, void *, size_t) memcpyesque;
+void bzero(void *, size_t) memcpyesque;
+char *index(const char *, int) strlenesque;
+char *rindex(const char *, int) strlenesque;
+#endif
 
 COSMOPOLITAN_C_END_
 #endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */

@@ -30,6 +30,7 @@
 #include "libc/calls/struct/utsname.h"
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/calls/ucontext.h"
+#include "libc/cxxabi.h"
 #include "libc/errno.h"
 #include "libc/intrin/describebacktrace.internal.h"
 #include "libc/intrin/describeflags.internal.h"
@@ -49,9 +50,6 @@
 #include "libc/sysv/consts/sig.h"
 #include "libc/thread/thread.h"
 #ifdef __aarch64__
-
-__static_yoink("strerror_wr");  // for kprintf %m
-__static_yoink("strsignal_r");  // for kprintf %G
 
 #define STACK_ERROR "error: not enough room on stack to print crash report\n"
 
@@ -231,8 +229,8 @@ static relegated void __oncrash_impl(int sig, struct siginfo *si,
   Append(b, " %s %s %s %s\n", names.sysname, names.version, names.nodename,
          names.release);
   Append(
-      b, " cosmoaddr2line %s%s %lx %s\n", __argv[0],
-      endswith(__argv[0], ".com") ? ".dbg" : "", ctx ? ctx->uc_mcontext.PC : 0,
+      b, " cosmoaddr2line %s %lx %s\n", FindDebugBinary(),
+      ctx ? ctx->uc_mcontext.PC : 0,
       DescribeBacktrace(ctx ? (struct StackFrame *)ctx->uc_mcontext.BP
                             : (struct StackFrame *)__builtin_frame_address(0)));
   if (ctx) {
@@ -366,7 +364,7 @@ static relegated void __oncrash_impl(int sig, struct siginfo *si,
     free(mem);
   }
   b->p[b->n - 1] = '\n';
-  sys_write(2, b->p, MIN(b->i, b->n));
+  klog(b->p, MIN(b->i, b->n));
 }
 
 relegated void __oncrash(int sig, struct siginfo *si, void *arg) {

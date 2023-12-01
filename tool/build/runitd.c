@@ -30,7 +30,7 @@
 #include "libc/fmt/conv.h"
 #include "libc/fmt/itoa.h"
 #include "libc/fmt/libgen.h"
-#include "libc/intrin/bits.h"
+#include "libc/serialize.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/log/appendresourcereport.internal.h"
 #include "libc/log/check.h"
@@ -552,7 +552,8 @@ RetryOnEtxtbsyRaceCondition:
   started = timespec_real();
   pipe2(client->pipe, O_CLOEXEC);
   posix_spawnattr_init(&spawnattr);
-  posix_spawnattr_setflags(&spawnattr, POSIX_SPAWN_SETPGROUP);
+  posix_spawnattr_setflags(&spawnattr,
+                           POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETPGROUP);
   posix_spawnattr_setsigmask(&spawnattr, &sigmask);
   posix_spawn_file_actions_init(&spawnfila);
   posix_spawn_file_actions_adddup2(&spawnfila, g_bogusfd, 0);
@@ -620,9 +621,8 @@ RetryOnEtxtbsyRaceCondition:
           goto TerminateJob;
         }
         if (received > 0) {
-          WARNF("%s client sent %d unexpected bytes so killing job", origname,
-                received);
-          goto HangupClientAndTerminateJob;
+          WARNF("%s client sent %d unexpected bytes", origname, received);
+          continue;
         }
         if (received == MBEDTLS_ERR_SSL_WANT_READ) {  // EAGAIN SO_RCVTIMEO
           WARNF("%s (pid %d) is taking a really long time", origname,
@@ -792,9 +792,6 @@ void Daemonize(void) {
 }
 
 int main(int argc, char *argv[]) {
-  /* #ifndef NDEBUG */
-  ShowCrashReports();
-  /* #endif */
   GetOpts(argc, argv);
   g_psk = GetRunitPsk();
   signal(SIGPIPE, SIG_IGN);
@@ -812,7 +809,7 @@ int main(int argc, char *argv[]) {
   if (g_daemonize) Daemonize();
   Serve();
   free(g_psk);
-#if IsModeDbg()
+#ifdef MODE_DBG
   CheckForMemoryLeaks();
   CheckForFileLeaks();
 #endif

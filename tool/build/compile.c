@@ -32,7 +32,7 @@
 #include "libc/fmt/itoa.h"
 #include "libc/fmt/libgen.h"
 #include "libc/fmt/magnumstrs.internal.h"
-#include "libc/intrin/bits.h"
+#include "libc/serialize.h"
 #include "libc/intrin/safemacros.internal.h"
 #include "libc/limits.h"
 #include "libc/log/appendresourcereport.internal.h"
@@ -637,6 +637,8 @@ int Launch(void) {
 
   posix_spawnattr_init(&spawnattr);
   posix_spawnattr_setsigmask(&spawnattr, &savemask);
+  posix_spawnattr_setflags(&spawnattr,
+                           POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETRLIMIT);
   SetCpuLimit(cpuquota);
   SetFszLimit(fszquota);
   SetMemLimit(memquota);
@@ -835,7 +837,7 @@ int main(int argc, char *argv[]) {
   char *s, *q, **envp;
   int ws, opt, exitcode;
 
-#ifndef NDEBUG
+#ifdef MODE_DBG
   ShowCrashReports();
 #endif
 

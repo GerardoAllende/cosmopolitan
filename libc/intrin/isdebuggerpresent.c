@@ -33,20 +33,24 @@
 #define kPid     "TracerPid:\t"
 
 static textwindows bool IsBeingDebugged(void) {
+#ifdef __x86_64__
   return !!NtGetPeb()->BeingDebugged;
+#else
+  return false;
+#endif
 }
 
 /**
  * Determines if gdb, strace, windbg, etc. is controlling process.
  * @return non-zero if attached, otherwise 0
  */
-int IsDebuggerPresent(bool force) {
+bool32 IsDebuggerPresent(bool32 force) {
   /* asan runtime depends on this function */
   ssize_t got;
   int e, fd, res;
   char *p, buf[1024];
   if (!force && IsGenuineBlink()) return 0;
-  if (!force && __getenv(environ, "HEISENDEBUG").s) return 0;
+  if (!force && environ && __getenv(environ, "HEISENDEBUG").s) return 0;
   if (IsWindows()) return IsBeingDebugged();
   if (__isworker) return false;
   if (!PLEDGED(RPATH)) return false;

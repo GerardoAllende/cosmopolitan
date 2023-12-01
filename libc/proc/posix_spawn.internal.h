@@ -11,7 +11,6 @@
 #define _POSIX_SPAWN_CHDIR  4
 #define _POSIX_SPAWN_FCHDIR 5
 
-#if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 
 struct _posix_spawna {
@@ -19,8 +18,8 @@ struct _posix_spawna {
   bool schedparam_isset;
   bool schedpolicy_isset;
   int pgroup;
-  int rlimset;
   int schedpolicy;
+  int rlimset;
   struct sched_param schedparam;
   sigset_t sigmask;
   sigset_t sigdefault;
@@ -43,5 +42,4 @@ int __posix_spawn_add_file_action(posix_spawn_file_actions_t *,
                                   struct _posix_faction);
 
 COSMOPOLITAN_C_END_
-#endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */
 #endif /* COSMOPOLITAN_LIBC_STDIO_SPAWNA_INTERNAL_H_ */

@@ -17,6 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include <dispatch/dispatch.h>
+#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libkern/OSCacheControl.h>
@@ -26,6 +27,7 @@
 #include <signal.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/random.h>
 #include <sys/uio.h>
@@ -34,7 +36,7 @@
 
 #define pagesz         16384
 #define SYSLIB_MAGIC   ('s' | 'l' << 8 | 'i' << 16 | 'b' << 24)
-#define SYSLIB_VERSION 5
+#define SYSLIB_VERSION 8
 
 struct Syslib {
   int magic;
@@ -60,7 +62,7 @@ struct Syslib {
   /* v2 (2023-09-10) */
   pthread_t (*pthread_self)(void);
   void (*dispatch_release)(dispatch_semaphore_t);
-  int (*raise)(int);
+  long (*raise)(int);
   int (*pthread_join)(pthread_t, void **);
   void (*pthread_yield_np)(void);
   int pthread_stack_min;
@@ -91,6 +93,11 @@ struct Syslib {
   long (*sem_trywait)(int *);
   long (*getrlimit)(int, struct rlimit *);
   long (*setrlimit)(int, const struct rlimit *);
+  // v6 (2023-11-03)
+  void *(*dlopen)(const char *, int);
+  void *(*dlsym)(void *, const char *);
+  int (*dlclose)(void *);
+  char *(*dlerror)(void);
 };
 
 #define ELFCLASS32  1
@@ -225,60 +232,6 @@ static const char *BaseName(const char *s) {
   return b;
 }
 
-static void Bzero(void *a, unsigned long n) {
-  long z;
-  char *p, *e;
-  p = (char *)a;
-  e = p + n;
-  z = 0;
-  while (p + sizeof(z) <= e) {
-    __builtin_memcpy(p, &z, sizeof(z));
-    p += sizeof(z);
-  }
-  while (p < e) {
-    *p++ = 0;
-  }
-}
-
-static const char *MemChr(const char *s, unsigned char c, unsigned long n) {
-  for (; n; --n, ++s) {
-    if ((*s & 255) == c) {
-      return s;
-    }
-  }
-  return 0;
-}
-
-static void *MemMove(void *a, const void *b, unsigned long n) {
-  long w;
-  char *d;
-  const char *s;
-  unsigned long i;
-  d = (char *)a;
-  s = (const char *)b;
-  if (d > s) {
-    while (n >= sizeof(w)) {
-      n -= sizeof(w);
-      __builtin_memcpy(&w, s + n, sizeof(n));
-      __builtin_memcpy(d + n, &w, sizeof(n));
-    }
-    while (n--) {
-      d[n] = s[n];
-    }
-  } else {
-    i = 0;
-    while (i + sizeof(w) <= n) {
-      __builtin_memcpy(&w, s + i, sizeof(i));
-      __builtin_memcpy(d + i, &w, sizeof(i));
-      i += sizeof(w);
-    }
-    for (; i < n; ++i) {
-      d[i] = s[i];
-    }
-  }
-  return d;
-}
-
 static char *GetEnv(char **p, const char *s) {
   unsigned long i, j;
   if (p) {
@@ -361,7 +314,7 @@ __attribute__((__noreturn__)) static void Pexit(const char *c, int failed,
 static char AccessCommand(struct PathSearcher *ps, unsigned long pathlen) {
   if (pathlen + 1 + ps->namelen + 1 > sizeof(ps->path)) return 0;
   if (pathlen && ps->path[pathlen - 1] != '/') ps->path[pathlen++] = '/';
-  MemMove(ps->path + pathlen, ps->name, ps->namelen);
+  memmove(ps->path + pathlen, ps->name, ps->namelen);
   ps->path[pathlen + ps->namelen] = 0;
   return !access(ps->path, X_OK);
 }
@@ -390,7 +343,7 @@ static char FindCommand(struct PathSearcher *ps) {
 
   /* paths are always 100% taken literally when a slash exists
        $ ape foo/bar.com arg1 arg2 */
-  if (MemChr(ps->name, '/', ps->namelen)) {
+  if (memchr(ps->name, '/', ps->namelen)) {
     return AccessCommand(ps, 0);
   }
 
@@ -476,6 +429,111 @@ static void pthread_jit_write_protect_np_workaround(int enabled) {
   Pexit("ape", 0, "failed to set jit write protection");
 }
 
+__attribute__((__noinline__)) static long sysret(long rc) {
+  return rc == -1 ? -errno : rc;
+}
+
+static long sys_fork(void) {
+  return sysret(fork());
+}
+
+static long sys_close(int fd) {
+  return sysret(close(fd));
+}
+
+static long sys_raise(int sig) {
+  return sysret(raise(sig));
+}
+
+static long sys_pipe(int pfds[2]) {
+  return sysret(pipe(pfds));
+}
+
+static long sys_munmap(void *addr, size_t size) {
+  return sysret(munmap(addr, size));
+}
+
+static long sys_read(int fd, void *data, size_t size) {
+  return sysret(read(fd, data, size));
+}
+
+static long sys_mprotect(void *data, size_t size, int prot) {
+  return sysret(mprotect(data, size, prot));
+}
+
+static long sys_sigaltstack(const stack_t *ss, stack_t *oss) {
+  return sysret(sigaltstack(ss, oss));
+}
+
+static long sys_getentropy(void *buf, size_t buflen) {
+  return sysret(getentropy(buf, buflen));
+}
+
+static long sys_sem_open(const char *name, int oflags, mode_t mode,
+                         unsigned value) {
+  return sysret((long)sem_open(name, oflags, mode, value));
+}
+
+static long sys_sem_unlink(const char *name) {
+  return sysret(sem_unlink(name));
+}
+
+static long sys_sem_close(sem_t *sem) {
+  return sysret(sem_close(sem));
+}
+
+static long sys_sem_post(sem_t *sem) {
+  return sysret(sem_post(sem));
+}
+
+static long sys_sem_wait(sem_t *sem) {
+  return sysret(sem_wait(sem));
+}
+
+static long sys_sem_trywait(sem_t *sem) {
+  return sysret(sem_trywait(sem));
+}
+
+static long sys_getrlimit(int which, struct rlimit *rlim) {
+  return sysret(getrlimit(which, rlim));
+}
+
+static long sys_setrlimit(int which, const struct rlimit *rlim) {
+  return sysret(setrlimit(which, rlim));
+}
+
+static long sys_write(int fd, const void *data, size_t size) {
+  return sysret(write(fd, data, size));
+}
+
+static long sys_clock_gettime(int clock, struct timespec *ts) {
+  return sysret(clock_gettime((clockid_t)clock, ts));
+}
+
+static long sys_openat(int fd, const char *path, int flags, int mode) {
+  return sysret(openat(fd, path, flags, mode));
+}
+
+static long sys_nanosleep(const struct timespec *req, struct timespec *rem) {
+  return sysret(nanosleep(req, rem));
+}
+
+static long sys_mmap(void *addr, size_t size, int prot, int flags, int fd,
+                     off_t off) {
+  return sysret((long)mmap(addr, size, prot, flags, fd, off));
+}
+
+static long sys_sigaction(int sig, const struct sigaction *act,
+                          struct sigaction *oact) {
+  return sysret(sigaction(sig, act, oact));
+}
+
+static long sys_pselect(int nfds, fd_set *readfds, fd_set *writefds,
+                        fd_set *errorfds, const struct timespec *timeout,
+                        const sigset_t *sigmask) {
+  return sysret(pselect(nfds, readfds, writefds, errorfds, timeout, sigmask));
+}
+
 __attribute__((__noreturn__)) static void Spawn(const char *exe, int fd,
                                                 long *sp, struct ElfEhdr *e,
                                                 struct ElfPhdr *p,
@@ -542,8 +600,8 @@ __attribute__((__noreturn__)) static void Spawn(const char *exe, int fd,
   /* choose loading address for dynamic elf executables
      that maintains relative distances between segments */
   if (e->e_type == ET_DYN) {
-    rc = (long)mmap(0, virtmax - virtmin, PROT_NONE,
-                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    rc = sys_mmap(0, virtmax - virtmin, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS,
+                  -1, 0);
     if (rc < 0) Pexit(exe, rc, "pie mmap");
     dynbase = rc;
     if (dynbase & (pagesz - 1)) {
@@ -593,17 +651,47 @@ __attribute__((__noreturn__)) static void Spawn(const char *exe, int fd,
       }
       addr = (void *)(dynbase + (p[i].p_vaddr & -pagesz));
       size = (p[i].p_vaddr & (pagesz - 1)) + p[i].p_filesz;
-      rc = (long)mmap(addr, size, prot1, flags, fd, p[i].p_offset & -pagesz);
-      if (rc < 0) Pexit(exe, rc, "prog mmap");
-      if (wipe) Bzero((void *)(dynbase + a), wipe);
+      if (prot1 & PROT_EXEC) {
+#ifdef SIP_DISABLED
+        // if sip is disabled then we can load the executable segments
+        // off the binary into memory without needing to copy anything
+        // which provides considerably better performance for building
+        rc = sys_mmap(addr, size, prot1, flags, fd, p[i].p_offset & -pagesz);
+        if (rc < 0) {
+          if (rc == -EPERM) {
+            Pexit(exe, rc,
+                  "map(exec) failed because SIP (System Integrity Protection) "
+                  "is enabled, but APE Loader was compiled with SIP_DISABLED");
+          } else {
+            Pexit(exe, rc, "map(exec) failed");
+          }
+        }
+#else
+        // the issue is that if sip is enabled then, attempting to map
+        // it with exec permission will cause xnu to phone home a hash
+        // of the entire file to apple intelligence as a one time cost
+        // which is literally minutes for executables holding big data
+        // since there's no public apple api for detecting sip we read
+        // as the default strategy which is slow but it works for both
+        rc = sys_mmap(addr, size, (prot1 = PROT_READ | PROT_WRITE),
+                      MAP_PRIVATE | MAP_FIXED | MAP_ANONYMOUS, -1, 0);
+        if (rc < 0) Pexit(exe, rc, "prog mmap anon");
+        rc = pread(fd, addr, p[i].p_filesz, p[i].p_offset & -pagesz);
+        if (rc != p[i].p_filesz) Pexit(exe, -errno, "prog pread");
+#endif
+      } else {
+        rc = sys_mmap(addr, size, prot1, flags, fd, p[i].p_offset & -pagesz);
+        if (rc < 0) Pexit(exe, rc, "prog mmap");
+      }
+      if (wipe) memset((void *)(dynbase + a), 0, wipe);
       if (prot2 != prot1) {
-        rc = mprotect(addr, size, prot2);
+        rc = sys_mprotect(addr, size, prot2);
         if (rc < 0) Pexit(exe, rc, "prog mprotect");
       }
       /* allocate extra bss */
       if (c > b) {
         flags |= MAP_ANONYMOUS;
-        rc = (long)mmap((void *)(dynbase + b), c - b, prot, flags, -1, 0);
+        rc = sys_mmap((void *)(dynbase + b), c - b, prot, flags, -1, 0);
         if (rc < 0) Pexit(exe, rc, "extra bss mmap");
       }
     } else {
@@ -611,7 +699,7 @@ __attribute__((__noreturn__)) static void Spawn(const char *exe, int fd,
       addr = (void *)(dynbase + (p[i].p_vaddr & -pagesz));
       size = (p[i].p_vaddr & (pagesz - 1)) + p[i].p_memsz;
       flags |= MAP_ANONYMOUS;
-      rc = (long)mmap(addr, size, prot, flags, -1, 0);
+      rc = sys_mmap(addr, size, prot, flags, -1, 0);
       if (rc < 0) Pexit(exe, rc, "bss mmap");
     }
   }
@@ -708,7 +796,7 @@ static const char *TryElf(struct ApeLoader *M, union ElfEhdrBuf *ebuf,
   for (i = 0; i < e->e_phnum;) {
     if (p[i].p_type == PT_LOAD && !p[i].p_memsz) {
       if (i + 1 < e->e_phnum) {
-        MemMove(p + i, p + i + 1,
+        memmove(p + i, p + i + 1,
                 (e->e_phnum - (i + 1)) * sizeof(struct ElfPhdr));
       }
       --e->e_phnum;
@@ -736,7 +824,7 @@ static const char *TryElf(struct ApeLoader *M, union ElfEhdrBuf *ebuf,
       p[i].p_memsz = (p[i + 1].p_vaddr + p[i + 1].p_memsz) - p[i].p_vaddr;
       p[i].p_filesz = (p[i + 1].p_offset + p[i + 1].p_filesz) - p[i].p_offset;
       if (i + 2 < e->e_phnum) {
-        MemMove(p + i + 1, p + i + 2,
+        memmove(p + i + 1, p + i + 2,
                 (e->e_phnum - (i + 2)) * sizeof(struct ElfPhdr));
       }
       --e->e_phnum;
@@ -780,107 +868,6 @@ static const char *TryElf(struct ApeLoader *M, union ElfEhdrBuf *ebuf,
   Spawn(exe, fd, sp, e, p, &M->lib);
 }
 
-__attribute__((__noinline__)) static long sysret(long rc) {
-  return rc == -1 ? -errno : rc;
-}
-
-static long sys_fork(void) {
-  return sysret(fork());
-}
-
-static long sys_close(int fd) {
-  return sysret(close(fd));
-}
-
-static long sys_pipe(int pfds[2]) {
-  return sysret(pipe(pfds));
-}
-
-static long sys_munmap(void *addr, size_t size) {
-  return sysret(munmap(addr, size));
-}
-
-static long sys_read(int fd, void *data, size_t size) {
-  return sysret(read(fd, data, size));
-}
-
-static long sys_mprotect(void *data, size_t size, int prot) {
-  return sysret(mprotect(data, size, prot));
-}
-
-static long sys_sigaltstack(const stack_t *ss, stack_t *oss) {
-  return sysret(sigaltstack(ss, oss));
-}
-
-static long sys_getentropy(void *buf, size_t buflen) {
-  return sysret(getentropy(buf, buflen));
-}
-
-static long sys_sem_open(const char *name, int oflags, mode_t mode,
-                         unsigned value) {
-  return sysret((long)sem_open(name, oflags, mode, value));
-}
-
-static long sys_sem_unlink(const char *name) {
-  return sysret(sem_unlink(name));
-}
-
-static long sys_sem_close(sem_t *sem) {
-  return sysret(sem_close(sem));
-}
-
-static long sys_sem_post(sem_t *sem) {
-  return sysret(sem_post(sem));
-}
-
-static long sys_sem_wait(sem_t *sem) {
-  return sysret(sem_wait(sem));
-}
-
-static long sys_sem_trywait(sem_t *sem) {
-  return sysret(sem_trywait(sem));
-}
-
-static long sys_getrlimit(int which, struct rlimit *rlim) {
-  return sysret(getrlimit(which, rlim));
-}
-
-static long sys_setrlimit(int which, const struct rlimit *rlim) {
-  return sysret(setrlimit(which, rlim));
-}
-
-static long sys_write(int fd, const void *data, size_t size) {
-  return sysret(write(fd, data, size));
-}
-
-static long sys_clock_gettime(int clock, struct timespec *ts) {
-  return sysret(clock_gettime((clockid_t)clock, ts));
-}
-
-static long sys_openat(int fd, const char *path, int flags, int mode) {
-  return sysret(openat(fd, path, flags, mode));
-}
-
-static long sys_nanosleep(const struct timespec *req, struct timespec *rem) {
-  return sysret(nanosleep(req, rem));
-}
-
-static long sys_mmap(void *addr, size_t size, int prot, int flags, int fd,
-                     off_t off) {
-  return sysret((long)mmap(addr, size, prot, flags, fd, off));
-}
-
-static long sys_sigaction(int sig, const struct sigaction *act,
-                          struct sigaction *oact) {
-  return sysret(sigaction(sig, act, oact));
-}
-
-static long sys_pselect(int nfds, fd_set *readfds, fd_set *writefds,
-                        fd_set *errorfds, const struct timespec *timeout,
-                        const sigset_t *sigmask) {
-  return sysret(pselect(nfds, readfds, writefds, errorfds, timeout, sigmask));
-}
-
 int main(int argc, char **argv, char **envp) {
   unsigned i;
   int c, n, fd, rc;
@@ -904,6 +891,7 @@ int main(int argc, char **argv, char **envp) {
   M->lib.pthread_jit_write_protect_supported_np =
       pthread_jit_write_protect_supported_np;
   M->lib.pthread_jit_write_protect_np = pthread_jit_write_protect_np_workaround;
+  M->lib.sys_icache_invalidate = sys_icache_invalidate;
   M->lib.pthread_create = pthread_create;
   M->lib.pthread_exit = pthread_exit;
   M->lib.pthread_kill = pthread_kill;
@@ -915,7 +903,7 @@ int main(int argc, char **argv, char **envp) {
   M->lib.dispatch_walltime = dispatch_walltime;
   M->lib.pthread_self = pthread_self;
   M->lib.dispatch_release = dispatch_release;
-  M->lib.raise = raise;
+  M->lib.raise = sys_raise;
   M->lib.pthread_join = pthread_join;
   M->lib.pthread_yield_np = pthread_yield_np;
   M->lib.pthread_stack_min = PTHREAD_STACK_MIN;
@@ -943,6 +931,10 @@ int main(int argc, char **argv, char **envp) {
   M->lib.sem_trywait = sys_sem_trywait;
   M->lib.getrlimit = sys_getrlimit;
   M->lib.setrlimit = sys_setrlimit;
+  M->lib.dlopen = dlopen;
+  M->lib.dlsym = dlsym;
+  M->lib.dlclose = dlclose;
+  M->lib.dlerror = dlerror;
 
   /* getenv("_") is close enough to at_execfn */
   execfn = argc > 0 ? argv[0] : 0;
@@ -956,6 +948,21 @@ int main(int argc, char **argv, char **envp) {
   sp = (long *)(argv - 1);
   auxv = (long *)(envp + i + 1);
 
+  /* create new bottom of stack for spawned program
+     system v abi aligns this on a 16-byte boundary
+     grows down the alloc by poking the guard pages */
+  n = (auxv - sp + AUXV_WORDS + 1) * sizeof(long);
+  sp2 = (long *)__builtin_alloca(n);
+  if ((long)sp2 & 15) ++sp2;
+  for (; n > 0; n -= pagesz) {
+    ((char *)sp2)[n - 1] = 0;
+  }
+  memmove(sp2, sp, (auxv - sp) * sizeof(long));
+  argv = (char **)(sp2 + 1);
+  envp = (char **)(sp2 + 1 + argc + 1);
+  auxv = sp2 + (auxv - sp);
+  sp = sp2;
+
   /* interpret command line arguments */
   if ((M->ps.literally = argc >= 3 && !StrCmp(argv[1], "-"))) {
     /* if the first argument is a hyphen then we give the user the
@@ -968,7 +975,7 @@ int main(int argc, char **argv, char **envp) {
   } else if (argc < 2) {
     Emit("usage: ape   PROG [ARGV1,ARGV2,...]\n"
          "       ape - PROG [ARGV0,ARGV1,...]\n"
-         "actually portable executable loader silicon 1.8\n"
+         "actually portable executable loader silicon 1.9\n"
          "copyright 2023 justine alexandra roberts tunney\n"
          "https://justine.lol/ape.html\n");
     _exit(1);
@@ -977,21 +984,6 @@ int main(int argc, char **argv, char **envp) {
     argc = sp[1] = sp[0] - 1;
     argv = (char **)((sp += 1) + 1);
   }
-
-  /* create new bottom of stack for spawned program
-     system v abi aligns this on a 16-byte boundary
-     grows down the alloc by poking the guard pages */
-  n = (auxv - sp + AUXV_WORDS + 1) * sizeof(long);
-  sp2 = (long *)__builtin_alloca(n);
-  if ((long)sp2 & 15) ++sp2;
-  for (; n > 0; n -= pagesz) {
-    ((char *)sp2)[n - 1] = 0;
-  }
-  MemMove(sp2, sp, (auxv - sp) * sizeof(long));
-  argv = (char **)(sp2 + 1);
-  envp = (char **)(sp2 + 1 + argc + 1);
-  auxv = sp2 + (auxv - sp);
-  sp = sp2;
 
   /* allocate ephemeral memory for reading file */
   n = sizeof(union ElfEhdrBuf);
@@ -1003,10 +995,10 @@ int main(int argc, char **argv, char **envp) {
   /* search for executable */
   if (!(exe = Commandv(&M->ps, prog, GetEnv(envp, "PATH")))) {
     Pexit(prog, 0, "not found (maybe chmod +x)");
-  } else if ((fd = openat(AT_FDCWD, exe, O_RDONLY)) < 0) {
-    Pexit(exe, -1, "open");
-  } else if ((rc = read(fd, ebuf->buf, sizeof(ebuf->buf))) < 0) {
-    Pexit(exe, -1, "read");
+  } else if ((fd = sys_openat(AT_FDCWD, exe, O_RDONLY, 0)) < 0) {
+    Pexit(exe, fd, "open");
+  } else if ((rc = sys_read(fd, ebuf->buf, sizeof(ebuf->buf))) < 0) {
+    Pexit(exe, rc, "read");
   } else if ((unsigned long)rc < sizeof(ebuf->ehdr)) {
     Pexit(exe, 0, "too small");
   }
@@ -1019,8 +1011,8 @@ int main(int argc, char **argv, char **envp) {
   }
 
   /* generate some hard random data */
-  if (getentropy(M->rando, sizeof(M->rando))) {
-    Pexit(argv[0], -1, "getentropy");
+  if ((rc = sys_getentropy(M->rando, sizeof(M->rando))) < 0) {
+    Pexit(argv[0], rc, "getentropy");
   }
 
   /* ape intended behavior

@@ -18,8 +18,10 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
 #include "libc/atomic.h"
+#include "libc/cxxabi.h"
 #include "libc/dce.h"
 #include "libc/intrin/atomic.h"
+#include "libc/intrin/cxaatexit.internal.h"
 #include "libc/intrin/strace.internal.h"
 #include "libc/intrin/weaken.h"
 #include "libc/limits.h"
@@ -31,6 +33,7 @@
 #include "libc/thread/thread.h"
 #include "libc/thread/tls.h"
 #include "third_party/nsync/futex.internal.h"
+#include "third_party/nsync/wait_s.internal.h"
 
 void _pthread_unwind(struct PosixThread *pt) {
   struct _pthread_cleanup_buffer *cb;
@@ -110,7 +113,13 @@ wontreturn void pthread_exit(void *rc) {
 
   // free resources
   _pthread_unwind(pt);
+  if (_weaken(__cxa_thread_finalize)) {
+    _weaken(__cxa_thread_finalize)();
+  }
   _pthread_unkey(tib);
+  if (tib->tib_nsync) {
+    nsync_waiter_destroy(tib->tib_nsync);
+  }
   _pthread_ungarbage();
   _pthread_decimate();
 

@@ -21,11 +21,10 @@
 #include "libc/intrin/describebacktrace.internal.h"
 #include "libc/runtime/runtime.h"
 #include "third_party/nsync/common.internal.h"
-// clang-format off
 
 /* Aborts after printing the nul-terminated string s[]. */
 void nsync_panic_ (const char *s) {
-	tinyprint(2, "error: nsync panic: ", s, "\n",
+	tinyprint(2, "error: nsync panic: ", s,
 		"cosmoaddr2line ", program_invocation_name, " ",
 		DescribeBacktrace (__builtin_frame_address (0)), "\n",
 		NULL);

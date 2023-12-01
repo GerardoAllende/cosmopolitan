@@ -45,7 +45,7 @@ scall	sys_ppoll		0xfff86da21ffff90f	0x849	globl hidden # consider INTON/INTOFF t
 scall	sys_lseek		0x0c70a61de20c7008	0x03e	globl hidden # netbsd:evilpad, OpenBSD 7.3+
 scall	__sys_mmap		0x0c50311dd20c5009	0x0de	globl hidden # netbsd:pad, OpenBSD 7.3+
 scall	sys_msync		0x915900841284181a	0x8e3	globl hidden
-scall	sys_mprotect		0x04a04a04a204a00a	0x0e2	globl hidden
+scall	__sys_mprotect		0x04a04a04a204a00a	0x0e2	globl hidden
 scall	__sys_munmap		0x049049049204900b	0x0d7	globl hidden
 scall	sys_sigaction		0x15402e1a0202e00d	0x086	globl hidden # rt_sigaction on Lunix; __sigaction_sigtramp() on NetBSD
 scall	__sys_sigprocmask	0x125030154214900e	0x087	globl hidden # a.k.a. rt_sigprocmask, openbsd:byvalue, a.k.a. pthread_sigmask
@@ -289,7 +289,6 @@ scall	sys_faccessat		0x1ce1391e921d210d	0x030	globl hidden
 scall	sys_unshare		0xfffffffffffff110	0x061	globl # no wrapper
 scall	sys_splice		0xfffffffffffff113	0x04c	globl hidden # Linux 2.6.17+ (c. 2007)
 scall	sys_tee			0xfffffffffffff114	0x04d	globl        # Linux 2.6.17+; no wrapper
-scall	sys_sync_file_range	0xfffffffffffff115	0x054	globl hidden # Linux 2.6.17+
 scall	sys_vmsplice		0xfffffffffffff116	0x04b	globl hidden
 scall	sys_migrate_pages	0xfffffffffffff100	0x0ee	globl        # no wrapper; numa numa yay
 scall	sys_move_pages		0xfffffffffffff117	0x0ef	globl        # no wrapper; NOTE: We view Red Hat versions as "epochs" for all distros.
@@ -384,6 +383,8 @@ scall	sys_memfd_secret	0xfffffffffffff1bf	0xfff	globl # no wrapper
 scall	sys_process_mrelease	0xfffffffffffff1c0	0xfff	globl # no wrapper
 scall	sys_futex_waitv		0xfffffffffffff1c1	0xfff	globl # no wrapper
 scall	sys_set_mempolicy_home_node 0xfffffffffffff1c2	0xfff	globl # no wrapper
+scall	sys_cachestat		0xfffffffffffff1c3	0x1c3	globl # Linux 6.5+
+scall	sys_fchmodat2		0xfffffffffffff1c4	0x1c4	globl # no wrapper Linux 6.6+
 
 #	The Fifth Bell System Interface, Community Edition
 #	» besiyata dishmaya

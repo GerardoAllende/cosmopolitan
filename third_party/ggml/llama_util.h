@@ -3,7 +3,6 @@
 #define LLAMA_UTIL_H
 #include "libc/calls/struct/rlimit.h"
 #include "libc/dce.h"
-#include "libc/fmt/fmt.h"
 #include "libc/runtime/sysconf.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/madv.h"
@@ -19,7 +18,6 @@
 #include "third_party/libcxx/cstring"
 #include "third_party/libcxx/string"
 #include "third_party/libcxx/vector"
-// clang-format off
 
 // Internal header to be included only by llama.cpp.
 // Contains wrappers around OS interfaces.

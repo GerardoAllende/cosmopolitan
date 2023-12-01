@@ -6,8 +6,8 @@
 #define TRY_AGAIN      2
 #define NO_RECOVERY    3
 #define NO_DATA        4
+#define NO_ADDRESS     NO_DATA
 
-#if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 
 struct netent {
@@ -68,5 +68,4 @@ void setservent(int);
 void endservent(void);
 
 COSMOPOLITAN_C_END_
-#endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */
 #endif /* COSMOPOLITAN_LIBC_DNS_ENT_H_ */

@@ -27,7 +27,6 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/calls.h"
 #include "libc/fmt/conv.h"
-#include "libc/fmt/fmt.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/stdio/stdio.h"
@@ -35,7 +34,6 @@
 #include "third_party/awk/awk.h"
 #include "third_party/awk/awkgram.tab.h"
 #include "third_party/gdtoa/gdtoa.h"
-// clang-format off
 
 extern bool	infunc;
 

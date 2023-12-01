@@ -31,7 +31,6 @@
 #include "libc/calls/ucontext.h"
 #include "libc/dce.h"
 #include "libc/intrin/asan.internal.h"
-#include "libc/intrin/bits.h"
 #include "libc/intrin/describeflags.internal.h"
 #include "libc/intrin/dll.h"
 #include "libc/intrin/strace.internal.h"
@@ -251,16 +250,24 @@ static int __sigaction(int sig, const struct sigaction *act,
     }
     if (rc != -1) {
       sigaction_native2cosmo((union metasigaction *)oldact);
+      if (oldact &&                         //
+          oldact->sa_handler != SIG_DFL &&  //
+          oldact->sa_handler != SIG_IGN &&  //
+          (IsFreebsd() || IsOpenbsd() || IsNetbsd() || IsXnu())) {
+        oldact->sa_handler =
+            (sighandler_t)((uintptr_t)__executable_start + __sighandrvas[sig]);
+      }
     }
   } else {
     if (oldact) {
       bzero(oldact, sizeof(*oldact));
       oldrva = __sighandrvas[sig];
+      oldact->sa_mask = __sighandmask[sig];
       oldact->sa_flags = __sighandflags[sig];
       oldact->sa_sigaction =
           (sigaction_f)(oldrva < kSigactionMinRva
                             ? oldrva
-                            : (intptr_t)&__executable_start + oldrva);
+                            : (uintptr_t)&__executable_start + oldrva);
     }
     rc = 0;
   }
@@ -479,13 +486,6 @@ static int __sigaction(int sig, const struct sigaction *act,
  *   spawned your process, happened to call `setrlimit()`. Doing this is
  *   a wonderful idea.
  *
- * Using signals might make your C runtime slower. Upon successfully
- * installing its first signal handling function, sigaction() will set
- * the global variable `__interruptible` to true, to let everything else
- * know that signals are in play. That way code which would otherwise be
- * frequently calling sigprocmask() out of an abundance of caution, will
- * no longer need to pay its outrageous cost.
- *
  * Signal handlers should avoid clobbering global variables like `errno`
  * because most signals are asynchronous, i.e. the signal handler might
  * be called at any assembly instruction. If something like a `SIGCHLD`
@@ -506,13 +506,6 @@ int sigaction(int sig, const struct sigaction *act, struct sigaction *oldact) {
     rc = einval();
   } else {
     rc = __sigaction(sig, act, oldact);
-    if (!rc && act && (uintptr_t)act->sa_handler >= kSigactionMinRva) {
-      static bool once;
-      if (!once) {
-        __interruptible = true;
-        once = true;
-      }
-    }
   }
   STRACE("sigaction(%G, %s, [%s]) → %d% m", sig, DescribeSigaction(0, act),
          DescribeSigaction(rc, oldact), rc);

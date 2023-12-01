@@ -19,8 +19,10 @@
 #include "libc/calls/syscall_support-nt.internal.h"
 #include "libc/intrin/strace.internal.h"
 #include "libc/nt/files.h"
+#include "libc/nt/runtime.h"
 
 __msabi extern typeof(FlushFileBuffers) *const __imp_FlushFileBuffers;
+__msabi extern typeof(GetLastError) *const __imp_GetLastError;
 
 /**
  * Flushes buffers of specified file to disk.
@@ -36,6 +38,7 @@ __msabi extern typeof(FlushFileBuffers) *const __imp_FlushFileBuffers;
 textwindows bool32 FlushFileBuffers(int64_t hFile) {
   bool32 ok;
   ok = __imp_FlushFileBuffers(hFile);
-  NTTRACE("FlushFileBuffers(%ld) → %hhhd% m", hFile, ok);
+  NTTRACE("FlushFileBuffers(%ld) → {%hhhd, %d}", hFile, ok,
+          __imp_GetLastError());
   return ok;
 }

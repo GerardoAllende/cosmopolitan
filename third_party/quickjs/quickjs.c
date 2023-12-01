@@ -27,8 +27,6 @@
 #include "third_party/quickjs/list.h"
 #include "third_party/quickjs/quickjs.h"
 #include "libc/assert.h"
-#include "libc/fmt/fmt.h"
-#include "libc/fmt/fmt.h"
 #include "libc/inttypes.h"
 #include "libc/mem/alloca.h"
 #include "third_party/gdtoa/gdtoa.h"
@@ -56,7 +54,6 @@ Copyright (c) 2017-2021 Fabrice Bellard\\n\
 Copyright (c) 2017-2021 Charlie Gordon\"");
 asm(".include \"libc/disclaimer.inc\"");
 
-/* clang-format off */
 
 static const char js_atom_init[] =
 #define DEF(name, str) str "\0"
@@ -4861,6 +4858,15 @@ BOOL JS_SetConstructorBit(JSContext *ctx, JSValueConst func_obj, BOOL val)
     p = JS_VALUE_GET_OBJ(func_obj);
     p->is_constructor = val;
     return TRUE;
+}
+
+BOOL JS_IsArrayBuffer(JSContext *ctx, JSValueConst val)
+{
+    JSObject *p;
+    if (JS_VALUE_GET_TAG(val) != JS_TAG_OBJECT)
+        return FALSE;
+    p = JS_VALUE_GET_OBJ(val);
+    return (p->class_id == JS_CLASS_ARRAY_BUFFER || p->class_id == JS_CLASS_SHARED_ARRAY_BUFFER);
 }
 
 BOOL JS_IsError(JSContext *ctx, JSValueConst val)

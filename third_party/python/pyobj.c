@@ -22,7 +22,6 @@
 #include "libc/calls/struct/stat.h"
 #include "libc/elf/def.h"
 #include "libc/fmt/conv.h"
-#include "libc/intrin/bits.h"
 #include "libc/log/check.h"
 #include "libc/log/log.h"
 #include "libc/macros.internal.h"
@@ -62,8 +61,8 @@
 #include "third_party/python/Include/unicodeobject.h"
 #include "tool/build/lib/elfwriter.h"
 #include "tool/build/lib/interner.h"
+#include "libc/serialize.h"
 #include "tool/build/lib/stripcomponents.h"
-/* clang-format off */
 
 STATIC_STACK_ALIGN(GetStackSize());
 
@@ -646,7 +645,7 @@ Objectify(void)
     memcpy(pycdata + sizeof(header), mardata, marsize);
     yoinked = newinterner();
     forcepulls = newinterner();
-    elf = elfwriter_open(outpath, 0644);
+    elf = elfwriter_open(outpath, 0644, 0);
     elfwriter_cargoculting(elf);
     if (ispkg) {
         elfwriter_zip(elf, zipdir, zipdir, strlen(zipdir),

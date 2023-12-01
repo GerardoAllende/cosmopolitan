@@ -5,7 +5,6 @@
 │ https://docs.python.org/3/license.html                                       │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "third_party/python/Include/pyexpat.h"
-#include "libc/fmt/fmt.h"
 #include "third_party/python/Include/abstract.h"
 #include "third_party/python/Include/boolobject.h"
 #include "third_party/python/Include/bytearrayobject.h"
@@ -23,7 +22,6 @@
 #include "third_party/python/Include/traceback.h"
 #include "third_party/python/Include/yoink.h"
 #include "third_party/python/Modules/expat/expat.h"
-/* clang-format off */
 
 PYTHON_PROVIDE("pyexpat");
 PYTHON_PROVIDE("pyexpat.EXPAT_VERSION");

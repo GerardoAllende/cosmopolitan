@@ -24,7 +24,7 @@
 #include "libc/calls/termios.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/intrin/bits.h"
+#include "libc/serialize.h"
 #include "libc/intrin/cmpxchg.h"
 #include "libc/intrin/strace.internal.h"
 #include "libc/intrin/weaken.h"
@@ -66,7 +66,7 @@ static struct HostAdapterInfoNode {
   struct sockaddr netmask;
   struct sockaddr broadcast;
   short flags;
-} * __hostInfo;
+} *__hostInfo;
 
 static int ioctl_default(int fd, unsigned long request, void *arg) {
   int rc;
@@ -75,7 +75,7 @@ static int ioctl_default(int fd, unsigned long request, void *arg) {
     return sys_ioctl(fd, request, arg);
   } else if (__isfdopen(fd)) {
     if (g_fds.p[fd].kind == kFdSocket) {
-      handle = __getfdhandleactual(fd);
+      handle = g_fds.p[fd].handle;
       if ((rc = _weaken(__sys_ioctlsocket_nt)(handle, request, arg)) != -1) {
         return rc;
       } else {
@@ -106,12 +106,16 @@ static int ioctl_fionread(int fd, uint32_t *arg) {
       int bytes = CountConsoleInputBytes();
       *arg = MAX(0, bytes);
       return 0;
+    } else if (g_fds.p[fd].kind == kFdDevNull) {
+      *arg = 1;
+      return 0;
     } else if (GetFileType(handle) == kNtFileTypePipe) {
       uint32_t avail;
       if (PeekNamedPipe(handle, 0, 0, 0, &avail, 0)) {
         *arg = avail;
         return 0;
       } else if (GetLastError() == kNtErrorBrokenPipe) {
+        *arg = 0;  // win32 can give epipe on reader end
         return 0;
       } else {
         return __winerr();

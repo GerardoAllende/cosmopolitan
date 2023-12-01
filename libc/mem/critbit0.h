@@ -1,6 +1,6 @@
 #ifndef COSMOPOLITAN_LIBC_ALG_CRITBIT0_H_
 #define COSMOPOLITAN_LIBC_ALG_CRITBIT0_H_
-#if !(__ASSEMBLER__ + __LINKER__ + 0)
+#include "libc/stdbool.h"
 COSMOPOLITAN_C_START_
 /*───────────────────────────────────────────────────────────────────────────│─╗
 │ cosmopolitan § data structures » critical bit tree (for c strings)       ─╬─│┼
@@ -23,5 +23,4 @@ intptr_t critbit0_allprefixed(struct critbit0 *, const char *,
 int critbit0_emplace(struct critbit0 *, const void *, size_t) paramsnonnull();
 
 COSMOPOLITAN_C_END_
-#endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */
 #endif /* COSMOPOLITAN_LIBC_ALG_CRITBIT0_H_ */

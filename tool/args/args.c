@@ -38,6 +38,21 @@ static struct ZipArgs {
   char **oldargv;
 } g_zipargs;
 
+// remap \n → newline
+static char *Decode(char *arg) {
+  int i, j;
+  for (i = j = 0; arg[i]; ++i) {
+    if (arg[i] == '\\' && arg[i + 1] == 'n') {
+      arg[j++] = '\n';
+      ++i;
+    } else {
+      arg[j++] = arg[i];
+    }
+  }
+  arg[j] = 0;
+  return arg;
+}
+
 static void AddZipArg(int *argc, char ***argv, char *arg) {
   *argv = xrealloc(*argv, (++(*argc) + 1) * sizeof(*(*argv)));
   (*argv)[*argc - 1] = arg;
@@ -66,13 +81,13 @@ int LoadZipArgsImpl(int *argc, char ***argv, char *data) {
     founddots = false;
     AddZipArg(&n, &args, (*argv)[0]);
     while ((arg = strtok_r(start, "\r\n", &state))) {
-      if (!strcmp(arg, "...")) {
+      if (!strcmp(arg, "...") && !state) {
         founddots = true;
         for (i = 1; i < *argc; ++i) {
           AddZipArg(&n, &args, (*argv)[i]);
         }
       } else {
-        AddZipArg(&n, &args, arg);
+        AddZipArg(&n, &args, Decode(arg));
       }
       start = 0;
     }

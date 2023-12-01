@@ -17,9 +17,10 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
+#include "libc/calls/createfileflags.internal.h"
 #include "libc/calls/internal.h"
-#include "libc/calls/ntmagicpaths.internal.h"
 #include "libc/calls/state.internal.h"
+#include "libc/calls/struct/sigset.internal.h"
 #include "libc/calls/syscall-nt.internal.h"
 #include "libc/calls/syscall_support-nt.internal.h"
 #include "libc/errno.h"
@@ -56,31 +57,31 @@ static textwindows int64_t sys_open_nt_impl(int dirfd, const char *path,
   // implement no follow flag
   // you can't open symlinks; use readlink
   // this flag only applies to the final path component
-  // if O_NOFOLLOW_ANY is passed (-1 on NT) it'll be rejected later
+  // if _O_NOFOLLOW_ANY is passed (-1 on NT) it'll be rejected later
   uint32_t fattr = GetFileAttributes(path16);
-  if (flags & O_NOFOLLOW) {
+  if (flags & _O_NOFOLLOW) {
     if (fattr != -1u && (fattr & kNtFileAttributeReparsePoint)) {
       return eloop();
     }
-    flags &= ~O_NOFOLLOW;  // don't actually pass this to win32
+    flags &= ~_O_NOFOLLOW;  // don't actually pass this to win32
   }
 
   // handle some obvious cases while we have the attributes
   // we should ideally resolve symlinks ourself before doing this
   if (fattr != -1u) {
     if (fattr & kNtFileAttributeDirectory) {
-      if ((flags & O_ACCMODE) != O_RDONLY || (flags & O_CREAT)) {
+      if ((flags & O_ACCMODE) != O_RDONLY || (flags & _O_CREAT)) {
         // tried to open directory for writing. note that our
-        // undocumented O_TMPFILE support on windows requires that a
+        // undocumented _O_TMPFILE support on windows requires that a
         // filename be passed, rather than a directory like linux.
         return eisdir();
       }
       // on posix, the o_directory flag is an advisory safeguard that
       // isn't required. on windows, it's mandatory for opening a dir
-      flags |= O_DIRECTORY;
+      flags |= _O_DIRECTORY;
     } else if (!(fattr & kNtFileAttributeReparsePoint)) {
       // we know for certain file isn't a directory
-      if (flags & O_DIRECTORY) {
+      if (flags & _O_DIRECTORY) {
         return enotdir();
       }
     }
@@ -131,24 +132,13 @@ static textwindows int64_t sys_open_nt_impl(int dirfd, const char *path,
   return __fix_enotdir(hand, path16);
 }
 
-static textwindows int sys_open_nt_console(int dirfd,
-                                           const struct NtMagicPaths *mp,
-                                           uint32_t flags, int32_t mode,
-                                           size_t fd) {
-  g_fds.p[fd].kind = kFdConsole;
-  g_fds.p[fd].flags = flags;
-  g_fds.p[fd].mode = mode;
-  g_fds.p[fd].handle =
-      CreateFile(u"CONIN$", kNtGenericRead | kNtGenericWrite, kNtFileShareRead,
-                 &kNtIsInheritable, kNtOpenExisting, 0, 0);
-  return fd;
-}
-
 static textwindows int sys_open_nt_file(int dirfd, const char *file,
                                         uint32_t flags, int32_t mode,
                                         size_t fd) {
-  if ((g_fds.p[fd].handle = sys_open_nt_impl(dirfd, file, flags, mode,
-                                             kNtFileFlagOverlapped)) != -1) {
+  int64_t handle;
+  if ((handle = sys_open_nt_impl(dirfd, file, flags, mode,
+                                 kNtFileFlagOverlapped)) != -1) {
+    g_fds.p[fd].handle = handle;
     g_fds.p[fd].kind = kFdFile;
     g_fds.p[fd].flags = flags;
     g_fds.p[fd].mode = mode;
@@ -158,15 +148,61 @@ static textwindows int sys_open_nt_file(int dirfd, const char *file,
   }
 }
 
+static textwindows int sys_open_nt_special(int fd, int flags, int mode,
+                                           int kind, const char16_t *name) {
+  g_fds.p[fd].kind = kind;
+  g_fds.p[fd].mode = mode;
+  g_fds.p[fd].flags = flags;
+  g_fds.p[fd].handle = CreateFile(name, kNtGenericRead | kNtGenericWrite,
+                                  kNtFileShareRead | kNtFileShareWrite,
+                                  &kNtIsInheritable, kNtOpenExisting, 0, 0);
+  return fd;
+}
+
+static textwindows int sys_open_nt_dup(int fd, int flags, int mode, int oldfd) {
+  int64_t handle;
+  if (!__isfdopen(oldfd)) {
+    return enoent();
+  }
+  if (DuplicateHandle(GetCurrentProcess(), g_fds.p[oldfd].handle,
+                      GetCurrentProcess(), &handle, 0, true,
+                      kNtDuplicateSameAccess)) {
+    g_fds.p[fd] = g_fds.p[oldfd];
+    g_fds.p[fd].handle = handle;
+    g_fds.p[fd].mode = mode;
+    if (!sys_fcntl_nt_setfl(fd, flags)) {
+      return fd;
+    } else {
+      CloseHandle(handle);
+      return -1;
+    }
+  } else {
+    return __winerr();
+  }
+}
+
 textwindows int sys_open_nt(int dirfd, const char *file, uint32_t flags,
                             int32_t mode) {
   int fd;
   ssize_t rc;
+  BLOCK_SIGNALS;
   __fds_lock();
-  if (!(flags & O_CREAT)) mode = 0;
+  if (!(flags & _O_CREAT)) mode = 0;
   if ((rc = fd = __reservefd_unlocked(-1)) != -1) {
-    if (!strcmp(file, kNtMagicPaths.devtty)) {
-      rc = sys_open_nt_console(dirfd, &kNtMagicPaths, flags, mode, fd);
+    if (startswith(file, "/dev/")) {
+      if (!strcmp(file + 5, "tty")) {
+        rc = sys_open_nt_special(fd, flags, mode, kFdConsole, u"CONIN$");
+      } else if (!strcmp(file + 5, "null")) {
+        rc = sys_open_nt_special(fd, flags, mode, kFdDevNull, u"NUL");
+      } else if (!strcmp(file + 5, "stdin")) {
+        rc = sys_open_nt_dup(fd, flags, mode, STDIN_FILENO);
+      } else if (!strcmp(file + 5, "stdout")) {
+        rc = sys_open_nt_dup(fd, flags, mode, STDOUT_FILENO);
+      } else if (!strcmp(file + 5, "stderr")) {
+        rc = sys_open_nt_dup(fd, flags, mode, STDERR_FILENO);
+      } else {
+        rc = enoent();
+      }
     } else {
       rc = sys_open_nt_file(dirfd, file, flags, mode, fd);
     }
@@ -175,5 +211,6 @@ textwindows int sys_open_nt(int dirfd, const char *file, uint32_t flags,
     }
     __fds_unlock();
   }
+  ALLOW_SIGNALS;
   return rc;
 }

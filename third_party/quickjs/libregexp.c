@@ -23,7 +23,6 @@
  */
 #include "libc/assert.h"
 #include "libc/intrin/likely.h"
-#include "libc/fmt/fmt.h"
 #include "libc/limits.h"
 #include "libc/mem/alloca.h"
 #include "libc/runtime/runtime.h"
@@ -38,7 +37,6 @@ Copyright (c) 2017-2021 Fabrice Bellard\\n\
 Copyright (c) 2017-2021 Charlie Gordon\"");
 asm(".include \"libc/disclaimer.inc\"");
 
-/* clang-format off */
 
 /*
   TODO:

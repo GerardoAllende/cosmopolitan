@@ -30,7 +30,6 @@ asm(".ident\t\"\\n\\n\
 *NSYNC (Apache 2.0)\\n\
 Copyright 2016 Google, Inc.\\n\
 https://github.com/google/nsync\"");
-// clang-format off
 
 int nsync_wait_n (void *mu, void (*lock) (void *), void (*unlock) (void *),
 		  nsync_time abs_deadline,
@@ -49,8 +48,7 @@ int nsync_wait_n (void *mu, void (*lock) (void *), void (*unlock) (void *),
 		int unlocked = 0;
 		int j;
 		int enqueued = 1;
-		waiter w[1];
-		nsync_waiter_init_ (w);
+		waiter *w = nsync_waiter_new_ ();
 		struct nsync_waiter_s nw_set[4];
 		struct nsync_waiter_s *nw = nw_set;
 		if (count > (int) (sizeof (nw_set) / sizeof (nw_set[0]))) {
@@ -97,10 +95,10 @@ int nsync_wait_n (void *mu, void (*lock) (void *), void (*unlock) (void *),
 			}
 		}
 
-		nsync_waiter_destroy_ (w);
 		if (nw != nw_set) {
 			free (nw);
 		}
+		nsync_waiter_free_ (w);
 		if (unlocked) {
 			(*lock) (mu);
 		}

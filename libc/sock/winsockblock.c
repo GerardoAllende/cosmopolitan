@@ -16,135 +16,86 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/assert.h"
 #include "libc/calls/internal.h"
-#include "libc/calls/struct/fd.internal.h"
-#include "libc/calls/struct/sigset.internal.h"
+#include "libc/calls/sig.internal.h"
+#include "libc/calls/struct/sigset.h"
 #include "libc/errno.h"
-#include "libc/intrin/atomic.h"
-#include "libc/intrin/kprintf.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/weaken.h"
 #include "libc/nt/enum/wait.h"
 #include "libc/nt/errors.h"
-#include "libc/nt/runtime.h"
-#include "libc/nt/struct/iovec.h"
 #include "libc/nt/struct/overlapped.h"
 #include "libc/nt/thread.h"
 #include "libc/nt/winsock.h"
-#include "libc/runtime/runtime.h"
 #include "libc/sock/internal.h"
-#include "libc/sock/syscall_fd.internal.h"
-#include "libc/sysv/consts/o.h"
+#include "libc/sysv/consts/sicode.h"
 #include "libc/sysv/errfuns.h"
 #include "libc/thread/posixthread.internal.h"
 #ifdef __x86_64__
 
-struct WinsockBlockResources {
-  int64_t handle;
-  struct NtOverlapped *overlap;
-};
-
-static void UnwindWinsockBlock(void *arg) {
-  struct WinsockBlockResources *wbr = arg;
-  uint32_t got, flags;
-  CancelIoEx(wbr->handle, wbr->overlap);
-  WSAGetOverlappedResult(wbr->handle, wbr->overlap, &got, true, &flags);
-  WSACloseEvent(wbr->overlap->hEvent);
-}
-
-static void CancelWinsockBlock(int64_t handle, struct NtOverlapped *overlap) {
-  if (!CancelIoEx(handle, overlap)) {
-    unassert(WSAGetLastError() == kNtErrorNotFound);
-  }
-}
-
 textwindows ssize_t
 __winsock_block(int64_t handle, uint32_t flags, bool nonblock,
-                uint32_t srwtimeout, sigset_t wait_signal_mask,
+                uint32_t srwtimeout, sigset_t waitmask,
                 int StartSocketOp(int64_t handle, struct NtOverlapped *overlap,
                                   uint32_t *flags, void *arg),
                 void *arg) {
 
-  int rc;
-  uint64_t m;
-  uint32_t status;
-  uint32_t exchanged;
-  int olderror = errno;
-  bool eagained = false;
-  bool eintered = false;
-  bool canceled = false;
-  struct PosixThread *pt;
-  struct NtOverlapped overlap = {.hEvent = WSACreateEvent()};
-  struct WinsockBlockResources wbr = {handle, &overlap};
+RestartOperation:
+  int rc, sig, reason = 0;
+  uint32_t status, exchanged;
+  if (_check_cancel() == -1) return -1;  // ECANCELED
+  if (_weaken(__sig_get) && (sig = _weaken(__sig_get)(waitmask))) {
+    goto HandleInterrupt;
+  }
 
-  pthread_cleanup_push(UnwindWinsockBlock, &wbr);
+  struct NtOverlapped overlap = {.hEvent = WSACreateEvent()};
   rc = StartSocketOp(handle, &overlap, &flags, arg);
   if (rc && WSAGetLastError() == kNtErrorIoPending) {
-  BlockingOperation:
-    pt = _pthread_self();
-    pt->pt_iohandle = handle;
-    pt->pt_ioverlap = &overlap;
-    pt->pt_flags |= PT_RESTARTABLE;
-    atomic_store_explicit(&pt->pt_blocker, PT_BLOCKER_IO, memory_order_release);
-    m = __sig_beginwait(wait_signal_mask);
     if (nonblock) {
-      CancelWinsockBlock(handle, &overlap);
-      eagained = true;
-    } else if (_check_cancel()) {
-      CancelWinsockBlock(handle, &overlap);
-      canceled = true;
-    } else if (_check_signal(true)) {
-      CancelWinsockBlock(handle, &overlap);
-      eintered = true;
+      CancelIoEx(handle, &overlap);
+      reason = EAGAIN;
     } else {
+      struct PosixThread *pt;
+      pt = _pthread_self();
+      pt->pt_blkmask = waitmask;
+      pt->pt_iohandle = handle;
+      pt->pt_ioverlap = &overlap;
+      atomic_store_explicit(&pt->pt_blocker, PT_BLOCKER_IO,
+                            memory_order_release);
       status = WSAWaitForMultipleEvents(1, &overlap.hEvent, 0,
                                         srwtimeout ? srwtimeout : -1u, 0);
-      if (status == kNtWaitTimeout) {
-        // rcvtimeo or sndtimeo elapsed
-        CancelWinsockBlock(handle, &overlap);
-        eagained = true;
-      } else if (status == kNtWaitFailed) {
-        // Failure should be an impossible condition, but MSDN lists
-        // WSAENETDOWN and WSA_NOT_ENOUGH_MEMORY as possible errors.
-        CancelWinsockBlock(handle, &overlap);
-        eintered = true;
+      atomic_store_explicit(&pt->pt_blocker, 0, memory_order_release);
+      if (status) {
+        if (status == kNtWaitTimeout) {
+          reason = EAGAIN;  // SO_RCVTIMEO or SO_SNDTIMEO elapsed
+        } else {
+          reason = WSAGetLastError();  // ENETDOWN or ENOBUFS
+        }
+        CancelIoEx(handle, &overlap);
       }
     }
-    __sig_finishwait(m);
-    atomic_store_explicit(&pt->pt_blocker, PT_BLOCKER_CPU,
-                          memory_order_release);
-    pt->pt_flags &= ~PT_RESTARTABLE;
-    pt->pt_ioverlap = 0;
-    pt->pt_iohandle = 0;
     rc = 0;
   }
   if (!rc) {
-    bool32 should_wait = canceled || eagained;
-    bool32 ok = WSAGetOverlappedResult(handle, &overlap, &exchanged,
-                                       should_wait, &flags);
-    if (!ok && WSAGetLastError() == kNtErrorIoIncomplete) {
-      goto BlockingOperation;
-    }
-    rc = ok ? 0 : -1;
+    rc = WSAGetOverlappedResult(handle, &overlap, &exchanged, true, &flags)
+             ? 0
+             : -1;
   }
   WSACloseEvent(overlap.hEvent);
-  pthread_cleanup_pop(false);
 
-  if (canceled) {
-    return ecanceled();
-  }
   if (!rc) {
-    errno = olderror;
     return exchanged;
   }
-  if (eagained) {
-    return eagain();
-  }
-  if (GetLastError() == kNtErrorOperationAborted) {
-    if (_check_cancel() == -1) return ecanceled();
-    if (!eintered && _check_signal(false)) return eintr();
-  }
-  if (eintered) {
+  if (WSAGetLastError() == kNtErrorOperationAborted) {
+    if (reason) {
+      errno = reason;
+      return -1;
+    }
+    if (_weaken(__sig_get) && (sig = _weaken(__sig_get)(waitmask))) {
+    HandleInterrupt:
+      int handler_was_called = _weaken(__sig_relay)(sig, SI_KERNEL, waitmask);
+      if (_check_cancel() == -1) return -1;
+      if (handler_was_called != 1) goto RestartOperation;
+    }
     return eintr();
   }
   return __winsockerr();

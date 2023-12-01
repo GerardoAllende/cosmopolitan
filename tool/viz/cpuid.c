@@ -16,7 +16,6 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/intrin/bits.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/log/color.internal.h"
 #include "libc/mem/gc.h"
@@ -175,6 +174,7 @@ int main(int argc, char *argv[]) {
              ? " (disabled by operating system)"
              : "");
 
+  CANIUSE(AVXVNNI);
   CANIUSE(AVX512BW);
   CANIUSE(AVX512CD);
   CANIUSE(AVX512DQ);

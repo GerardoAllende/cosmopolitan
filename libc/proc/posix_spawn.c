@@ -37,6 +37,7 @@
 #include "libc/fmt/magnumstrs.internal.h"
 #include "libc/intrin/asan.internal.h"
 #include "libc/intrin/atomic.h"
+#include "libc/intrin/bsf.h"
 #include "libc/intrin/describeflags.internal.h"
 #include "libc/intrin/dll.h"
 #include "libc/intrin/strace.internal.h"
@@ -151,10 +152,11 @@ static textwindows bool spawnfds_exists(struct SpawnFds *fds, int fildes) {
   return fildes + 0u < fds->n && fds->p[fildes].kind;
 }
 
-static textwindows void spawnfds_close(struct SpawnFds *fds, int fildes) {
+static textwindows errno_t spawnfds_close(struct SpawnFds *fds, int fildes) {
   if (spawnfds_exists(fds, fildes)) {
     fds->p[fildes] = (struct Fd){0};
   }
+  return 0;
 }
 
 static textwindows errno_t spawnfds_dup2(struct SpawnFds *fds, int fildes,
@@ -181,8 +183,8 @@ static textwindows errno_t spawnfds_dup2(struct SpawnFds *fds, int fildes,
 }
 
 static textwindows errno_t spawnfds_open(struct SpawnFds *fds, int64_t dirhand,
-                                         int fildes, const char *path,
-                                         int oflag, int mode) {
+                                         const char *path, int oflag, int mode,
+                                         int fildes) {
   int64_t h;
   errno_t err;
   char16_t path16[PATH_MAX];
@@ -246,9 +248,9 @@ static textwindows errno_t posix_spawn_nt_impl(
   struct SpawnFds fds = {0};
   int64_t dirhand = AT_FDCWD;
   int64_t *lpExplicitHandles = 0;
+  sigset_t sigmask = __sig_block();
   uint32_t dwExplicitHandleCount = 0;
   int64_t hCreatorProcess = GetCurrentProcess();
-  sigset_t m = __sig_block();
 
   // reserve process tracking object
   __proc_lock();
@@ -264,11 +266,11 @@ static textwindows errno_t posix_spawn_nt_impl(
     free(fdspec);
     if (proc) {
       __proc_lock();
-      __proc_free(proc);
+      dll_make_first(&__proc.free, &proc->elem);
       __proc_unlock();
     }
     spawnfds_destroy(&fds);
-    __sig_unblock(m);
+    __sig_unblock(sigmask);
     errno = e;
     return err;
   }
@@ -283,54 +285,55 @@ static textwindows errno_t posix_spawn_nt_impl(
   // apply user file actions
   if (file_actions) {
     for (struct _posix_faction *a = *file_actions; a && !err; a = a->next) {
+      char errno_buf[30];
+      char oflags_buf[128];
+      char openmode_buf[15];
       switch (a->action) {
         case _POSIX_SPAWN_CLOSE:
-          spawnfds_close(&fds, a->fildes);
+          err = spawnfds_close(&fds, a->fildes);
+          STRACE("spawnfds_close(%d) → %s", a->fildes,
+                 (DescribeErrno)(errno_buf, err));
           break;
         case _POSIX_SPAWN_DUP2:
           err = spawnfds_dup2(&fds, a->fildes, a->newfildes);
-          if (err) {
-            STRACE("spawnfds_dup2(%d, %d) failed", a->fildes, a->newfildes);
-            goto ReturnErr;
-          }
+          STRACE("spawnfds_dup2(%d, %d) → %s", a->fildes, a->newfildes,
+                 (DescribeErrno)(errno_buf, err));
           break;
         case _POSIX_SPAWN_OPEN:
-          err = spawnfds_open(&fds, dirhand, a->fildes, a->path, a->oflag,
-                              a->mode);
-          if (err) {
-            STRACE("spawnfds_open(%d, %#s) failed", a->fildes, a->path);
-            goto ReturnErr;
-          }
+          err = spawnfds_open(&fds, dirhand, a->path, a->oflag, a->mode,
+                              a->fildes);
+          STRACE("spawnfds_open(%#s, %s, %s, %d) → %s", a->path,
+                 (DescribeOpenFlags)(oflags_buf, a->oflag),
+                 (DescribeOpenMode)(openmode_buf, a->oflag, a->mode), a->fildes,
+                 (DescribeErrno)(errno_buf, err));
           break;
         case _POSIX_SPAWN_CHDIR:
           err = spawnfds_chdir(&fds, dirhand, a->path, &dirhand);
-          if (err) {
-            STRACE("spawnfds_chdir(%#s) failed", a->path);
-            goto ReturnErr;
-          }
+          STRACE("spawnfds_chdir(%#s) → %s", a->path,
+                 (DescribeErrno)(errno_buf, err));
           break;
         case _POSIX_SPAWN_FCHDIR:
           err = spawnfds_fchdir(&fds, a->fildes, &dirhand);
-          if (err) {
-            STRACE("spawnfds_fchdir(%d) failed", a->fildes);
-            goto ReturnErr;
-          }
+          STRACE("spawnfds_fchdir(%d) → %s", a->fildes,
+                 (DescribeErrno)(errno_buf, err));
           break;
         default:
           __builtin_unreachable();
+      }
+      if (err) {
+        goto ReturnErr;
       }
     }
   }
 
   // figure out flags
   uint32_t dwCreationFlags = 0;
-  if (attrp && *attrp) {
-    if ((*attrp)->flags & POSIX_SPAWN_SETSID) {
-      dwCreationFlags |= kNtDetachedProcess;
-    }
-    if ((*attrp)->flags & POSIX_SPAWN_SETPGROUP) {
-      dwCreationFlags |= kNtCreateNewProcessGroup;
-    }
+  short flags = attrp && *attrp ? (*attrp)->flags : 0;
+  if (flags & POSIX_SPAWN_SETSID) {
+    dwCreationFlags |= kNtDetachedProcess;
+  }
+  if (flags & POSIX_SPAWN_SETPGROUP) {
+    dwCreationFlags |= kNtCreateNewProcessGroup;
   }
 
   // create process startinfo
@@ -353,13 +356,23 @@ static textwindows errno_t posix_spawn_nt_impl(
     }
   }
 
+  // inherit signal mask
+  sigset_t childmask;
+  char maskvar[6 + 21];
+  if (flags & POSIX_SPAWN_SETSIGMASK) {
+    childmask = (*attrp)->sigmask;
+  } else {
+    childmask = sigmask;
+  }
+  FormatUint64(stpcpy(maskvar, "_MASK="), childmask);
+
   // launch process
   int rc = -1;
   struct NtProcessInformation procinfo;
   if (!envp) envp = environ;
   if ((fdspec = __describe_fds(fds.p, fds.n, &startinfo, hCreatorProcess,
                                &lpExplicitHandles, &dwExplicitHandleCount))) {
-    rc = ntspawn(dirhand, path, argv, envp, (char *[]){fdspec, 0},
+    rc = ntspawn(dirhand, path, argv, envp, (char *[]){fdspec, maskvar, 0},
                  dwCreationFlags, lpCurrentDirectory, 0, lpExplicitHandles,
                  dwExplicitHandleCount, &startinfo, &procinfo);
   }
@@ -479,7 +492,7 @@ errno_t posix_spawn(int *pid, const char *path,
   }
   if (!(child = vfork())) {
     can_clobber = true;
-    sigset_t *childmask;
+    sigset_t childmask;
     bool lost_cloexec = 0;
     struct sigaction dfl = {0};
     short flags = attrp && *attrp ? (*attrp)->flags : 0;
@@ -572,9 +585,13 @@ errno_t posix_spawn(int *pid, const char *path,
       }
     }
     if (flags & POSIX_SPAWN_SETRLIMIT) {
-      for (int rez = 0; rez <= ARRAYLEN((*attrp)->rlim); ++rez) {
-        if ((*attrp)->rlimset & (1u << rez)) {
-          if (setrlimit(rez, (*attrp)->rlim + rez)) {
+      int rlimset = (*attrp)->rlimset;
+      while (rlimset) {
+        int resource = _bsf(rlimset);
+        rlimset &= ~(1u << resource);
+        if (setrlimit(resource, (*attrp)->rlim + resource)) {
+          // MacOS ARM64 RLIMIT_STACK always returns EINVAL
+          if (!IsXnuSilicon()) {
             goto ChildFailed;
           }
         }
@@ -584,11 +601,11 @@ errno_t posix_spawn(int *pid, const char *path,
       fcntl(pfds[1], F_SETFD, FD_CLOEXEC);
     }
     if (flags & POSIX_SPAWN_SETSIGMASK) {
-      childmask = &(*attrp)->sigmask;
+      childmask = (*attrp)->sigmask;
     } else {
-      childmask = &oldmask;
+      childmask = oldmask;
     }
-    sigprocmask(SIG_SETMASK, childmask, 0);
+    sigprocmask(SIG_SETMASK, &childmask, 0);
     if (!envp) envp = environ;
     execve(path, argv, envp);
   ChildFailed:

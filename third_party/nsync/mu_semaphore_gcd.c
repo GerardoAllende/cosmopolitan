@@ -31,7 +31,6 @@
 #include "third_party/nsync/futex.internal.h"
 #include "third_party/nsync/mu_semaphore.internal.h"
 #include "third_party/nsync/time.h"
-// clang-format off
 
 /**
  * @fileoverview Semaphores w/ Apple's Grand Central Dispatch API.
@@ -88,11 +87,6 @@ static errno_t nsync_dispatch_semaphore_wait (nsync_semaphore *s,
 /* Initialize *s; the initial value is 0.  */
 void nsync_mu_semaphore_init_gcd (nsync_semaphore *s) {
 	*(dispatch_semaphore_t *)s = dispatch_semaphore_create (0);
-}
-
-/* Releases system resources associated with *s. */
-void nsync_mu_semaphore_destroy_gcd (nsync_semaphore *s) {
-	dispatch_release (*(dispatch_semaphore_t *)s);
 }
 
 /* Wait until the count of *s exceeds 0, and decrement it. If POSIX cancellations

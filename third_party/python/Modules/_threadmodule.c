@@ -35,7 +35,7 @@
 #include "libc/nt/enum/sw.h"
 #include "libc/nt/files.h"
 #include "libc/nt/runtime.h"
-#include "libc/runtime/dlfcn.h"
+#include "libc/dlopen/dlfcn.h"
 #include "libc/runtime/pathconf.h"
 #include "libc/runtime/sysconf.h"
 #include "libc/sock/sendfile.internal.h"
@@ -89,7 +89,6 @@
 #include "third_party/python/Include/weakrefobject.h"
 #include "third_party/python/Include/yoink.h"
 #include "third_party/python/pyconfig.h"
-/* clang-format off */
 
 PYTHON_PROVIDE("_thread");
 PYTHON_PROVIDE("_thread.LockType");

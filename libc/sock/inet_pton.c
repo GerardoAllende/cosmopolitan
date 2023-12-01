@@ -16,7 +16,6 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/fmt/fmt.h"
 #include "libc/macros.internal.h"
 #include "libc/sock/internal.h"
 #include "libc/sock/sock.h"
@@ -57,7 +56,11 @@ static int inet_pton_inet6_impl(const char *src, uint8_t *dst) {
           if (zeroFound) {
             return 0;
           }
-          res = resTemp << (4 * digitsLeft);
+          if (digitsLeft == 32) {
+            res = 0;
+          } else {
+            res = resTemp << (4 * digitsLeft);
+          }
           resTemp = 0;
           digitsLeft -= 4;
           zeroFound = true;

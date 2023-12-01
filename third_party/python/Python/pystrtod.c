@@ -6,7 +6,6 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
 #include "libc/errno.h"
-#include "libc/fmt/fmt.h"
 #include "libc/str/locale.h"
 #include "third_party/python/Include/dtoa.h"
 #include "third_party/python/Include/object.h"
@@ -16,7 +15,6 @@
 #include "third_party/python/Include/pymem.h"
 #include "third_party/python/Include/pyport.h"
 #include "third_party/python/Include/pystrtod.h"
-/* clang-format off */
 
 /* Case-insensitive string match used for nan and inf detection; t should be
    lower-case.  Returns 1 for a successful match, 0 otherwise. */

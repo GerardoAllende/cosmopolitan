@@ -1,6 +1,5 @@
 #ifndef COSMOPOLITAN_LIBC_CALLS_STRUCT_FD_INTERNAL_H_
 #define COSMOPOLITAN_LIBC_CALLS_STRUCT_FD_INTERNAL_H_
-#if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 
 #define kFdEmpty    0
@@ -11,6 +10,7 @@ COSMOPOLITAN_C_START_
 #define kFdZip      6
 #define kFdEpoll    7
 #define kFdReserved 8
+#define kFdDevNull  9
 
 struct Fd {
   char kind;
@@ -34,5 +34,4 @@ struct Fds {
 };
 
 COSMOPOLITAN_C_END_
-#endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */
 #endif /* COSMOPOLITAN_LIBC_CALLS_STRUCT_FD_INTERNAL_H_ */

@@ -6,7 +6,6 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #define PY_SSIZE_T_CLEAN
 #include "libc/assert.h"
-#include "libc/fmt/fmt.h"
 #include "third_party/python/Include/abstract.h"
 #include "third_party/python/Include/boolobject.h"
 #include "third_party/python/Include/bytearrayobject.h"
@@ -28,7 +27,6 @@
 #include "third_party/python/Include/pystrtod.h"
 #include "third_party/python/Include/sliceobject.h"
 #include "third_party/python/Include/warnings.h"
-/* clang-format off */
 
 /*[clinic input]
 class bytes "PyBytesObject *" "&PyBytes_Type"

@@ -37,12 +37,11 @@
 #include "libc/calls/struct/winsize.h"
 #include "libc/calls/termios.h"
 #include "libc/calls/ucontext.h"
+#include "libc/cxxabi.h"
 #include "libc/dns/dns.h"
 #include "libc/errno.h"
 #include "libc/fmt/conv.h"
-#include "libc/fmt/fmt.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/bits.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/intrin/safemacros.internal.h"
 #include "libc/intrin/xchg.internal.h"
@@ -313,6 +312,16 @@ static void StrikeDownCrapware(int sig) {
 
 static struct timespec GetGraceTime(void) {
   return timespec_sub(deadline_, timespec_real());
+}
+
+static char *strntoupper(char *s, size_t n) {
+  size_t i;
+  for (i = 0; s[i] && i < n; ++i) {
+    if ('a' <= s[i] && s[i] <= 'z') {
+      s[i] -= 'a' - 'A';
+    }
+  }
+  return s;
 }
 
 static int GetNamedVector(const struct NamedVector *choices, size_t n,
@@ -1576,7 +1585,7 @@ int main(int argc, char *argv[]) {
     xsigaction(SIGCHLD, OnSigChld, 0, 0, NULL);
     xsigaction(SIGPIPE, OnSigPipe, 0, 0, NULL);
     if (ttyraw(kTtyLfToCrLf) != -1) ttymode_ = true;
-    __cxa_atexit(OnExit, NULL, NULL);
+    __cxa_atexit((void *)OnExit, NULL, NULL);
     __log_file = fopen(logpath_, "a");
     if (ischardev(infd_) && ischardev(outfd_)) {
       /* CHECK_NE(-1, fcntl(infd_, F_SETFL, O_NONBLOCK)); */

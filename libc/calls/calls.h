@@ -65,7 +65,6 @@
 #define tmpfd         __tmpfd
 #endif
 
-#if !(__ASSEMBLER__ + __LINKER__ + 0)
 COSMOPOLITAN_C_START_
 /*───────────────────────────────────────────────────────────────────────────│─╗
 │ cosmopolitan § system calls                                              ─╬─│┼
@@ -158,6 +157,8 @@ int setregid(unsigned, unsigned);
 int setreuid(unsigned, unsigned);
 int setsid(void);
 int setuid(unsigned);
+int shm_open(const char *, int, unsigned);
+int shm_unlink(const char *);
 int sigignore(int);
 int siginterrupt(int, int);
 int symlink(const char *, const char *);
@@ -166,7 +167,7 @@ int truncate(const char *, int64_t);
 int ttyname_r(int, char *, size_t);
 int unlink(const char *);
 int unlinkat(int, const char *, int);
-int usleep(unsigned);
+int usleep(uint64_t);
 int vfork(void) returnstwice;
 int wait(int *);
 int waitpid(int, int *, int);
@@ -199,7 +200,6 @@ int setresuid(unsigned, unsigned, unsigned);
 int getresgid(unsigned *, unsigned *, unsigned *);
 int getresuid(unsigned *, unsigned *, unsigned *);
 char *get_current_dir_name(void) __wur;
-int sync_file_range(int, int64_t, int64_t, unsigned);
 ssize_t splice(int, int64_t *, int, int64_t *, size_t, unsigned);
 int memfd_create(const char *, unsigned int);
 int execvpe(const char *, char *const[], char *const[]);
@@ -211,36 +211,38 @@ int madvise(void *, uint64_t, int);
 #ifdef _COSMO_SOURCE
 bool32 fdexists(int);
 bool32 fileexists(const char *);
+bool32 ischardev(int);
 bool32 isdirectory(const char *);
 bool32 isexecutable(const char *);
 bool32 isregularfile(const char *);
 bool32 issymlink(const char *);
-bool32 ischardev(int);
 char *commandv(const char *, char *, size_t);
+int __getcwd(char *, size_t);
 int clone(void *, void *, size_t, int, void *, void *, void *, void *);
+int fadvise(int, uint64_t, uint64_t, int);
 int makedirs(const char *, unsigned);
 int pivot_root(const char *, const char *);
 int pledge(const char *, const char *);
 int seccomp(unsigned, unsigned, void *);
 int sys_iopl(int);
+int sys_ioprio_get(int, int);
+int sys_ioprio_set(int, int, int);
 int sys_mlock(const void *, size_t);
 int sys_mlock2(const void *, size_t, int);
 int sys_mlockall(int);
-int sys_personality(uint64_t);
 int sys_munlock(const void *, size_t);
 int sys_munlockall(void);
+int sys_personality(uint64_t);
 int sys_ptrace(int, ...);
 int sys_sysctl(const int *, unsigned, void *, size_t *, void *, size_t);
-int sys_ioprio_get(int, int);
-int sys_ioprio_set(int, int, int);
 int tmpfd(void);
 int touch(const char *, unsigned);
 int unveil(const char *, const char *);
 long ptrace(int, ...);
-int fadvise(int, uint64_t, uint64_t, int);
 ssize_t copyfd(int, int, size_t);
 ssize_t readansi(int, char *, size_t);
 ssize_t tinyprint(int, const char *, ...) nullterminated();
+void shm_path_np(const char *, char[hasatleast 78]);
 #endif /* _COSMO_SOURCE */
 
 int __wifstopped(int) pureconst;
@@ -257,5 +259,4 @@ int __wifsignaled(int) pureconst;
 #endif
 
 COSMOPOLITAN_C_END_
-#endif /* !(__ASSEMBLER__ + __LINKER__ + 0) */
 #endif /* COSMOPOLITAN_LIBC_CALLS_SYSCALLS_H_ */

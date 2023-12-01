@@ -26,7 +26,6 @@
 #include "libc/calls/struct/stat.h"
 #include "libc/calls/weirdtypes.h"
 #include "libc/fmt/conv.h"
-#include "libc/fmt/fmt.h"
 #include "libc/log/log.h"
 #include "libc/mem/alg.h"
 #include "libc/mem/mem.h"
@@ -44,7 +43,6 @@ Copyright (c) 2017-2021 Fabrice Bellard\\n\
 Copyright (c) 2017-2021 Charlie Gordon\"");
 asm(".include \"libc/disclaimer.inc\"");
 
-/* clang-format off */
 
 /* enable test262 thread support to test SharedArrayBuffer and Atomics */
 /* #define CONFIG_AGENT */

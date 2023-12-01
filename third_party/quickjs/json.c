@@ -23,7 +23,6 @@
  * THE SOFTWARE.
  */
 #include "libc/assert.h"
-#include "libc/fmt/fmt.h"
 #include "libc/str/str.h"
 #include "third_party/quickjs/internal.h"
 #include "third_party/quickjs/libregexp.h"
@@ -34,7 +33,6 @@ QuickJS (MIT License)\\n\
 Copyright (c) 2017-2021 Fabrice Bellard\\n\
 Copyright (c) 2017-2021 Charlie Gordon\"");
 asm(".include \"libc/disclaimer.inc\"");
-/* clang-format off */
 
 /* 'c' is the first character. Return JS_ATOM_NULL in case of error */
 static JSAtom json_parse_ident(JSParseState *s, const uint8_t **pp, int c)

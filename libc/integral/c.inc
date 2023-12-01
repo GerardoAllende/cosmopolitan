@@ -146,7 +146,6 @@ typedef struct {
 } axdx_t;
 #endif
 
-
 #ifndef __chibicc__
 #define va_list            __builtin_va_list
 #define va_arg(ap, type)   __builtin_va_arg(ap, type)
@@ -175,18 +174,9 @@ typedef struct {
 #endif
 
 #ifndef forcealign
-#ifndef __STRICT_ANSI__
 #define forcealign(bytes) __attribute__((__aligned__(bytes)))
-#else
-#define forcealign(bytes)
 #endif
-#endif
-
-#ifndef __STRICT_ANSI__
 #define thatispacked __attribute__((__packed__))
-#else
-#define thatispacked
-#endif
 
 #ifndef __STRICT_ANSI__
 #define printfesque(n)   __attribute__((__format__(__gnu_printf__, n, n + 1)))
@@ -611,6 +601,13 @@ void abort(void) wontreturn;
         "nop");              \
     __builtin_unreachable(); \
   } while (0)
+#elif defined(__aarch64__)
+#define notpossible          \
+  do {                       \
+    asm("udf\t#0\n\t"        \
+        "nop");              \
+    __builtin_unreachable(); \
+  } while (0)
 #else
 #define notpossible __builtin_trap()
 #endif
@@ -619,12 +616,6 @@ void abort(void) wontreturn;
 #define donothing \
   do {            \
   } while (0)
-
-#if defined(__GNUC__) && !defined(__STRICT_ANSI__)
-#define _Vector_size(k) __attribute__((__vector_size__(k)))
-#else
-#define _Vector_size(k) [k]
-#endif
 
 #ifndef __STRICT_ANSI__
 #define textstartup _Section(".text.startup")
@@ -734,7 +725,8 @@ void abort(void) wontreturn;
 #define __static_yoink_source(PATH)
 #endif
 
-#define __weak_reference(sym, alias)       \
+#define __weak_reference(sym, alias) __weak_reference_impl(sym, alias)
+#define __weak_reference_impl(sym, alias)  \
   __asm__(".weak\t" #alias "\n\t"          \
           ".equ\t" #alias ", " #sym "\n\t" \
           ".type\t" #alias ",@notype")

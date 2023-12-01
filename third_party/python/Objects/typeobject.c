@@ -6,7 +6,6 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
 #include "libc/intrin/likely.h"
-#include "libc/fmt/fmt.h"
 #include "libc/log/countbranch.h"
 #include "third_party/python/Include/abstract.h"
 #include "third_party/python/Include/boolobject.h"
@@ -31,7 +30,6 @@
 #include "third_party/python/Include/unicodeobject.h"
 #include "third_party/python/Include/warnings.h"
 #include "third_party/python/Include/weakrefobject.h"
-/* clang-format off */
 
 static const short slotoffsets[] = {
     -1, /* invalid slot */

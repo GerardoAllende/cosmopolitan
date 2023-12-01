@@ -30,7 +30,6 @@
 #include "libc/calls/weirdtypes.h"
 #include "libc/errno.h"
 #include "libc/fmt/conv.h"
-#include "libc/fmt/fmt.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/str/str.h"
@@ -40,7 +39,6 @@
 #include "third_party/awk/awk.h"
 #include "third_party/awk/awkgram.tab.h"
 #include "third_party/libcxx/math.h"
-// clang-format off
 
 static void stdinit(void);
 static void flush_all(void);

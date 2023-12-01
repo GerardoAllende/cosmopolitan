@@ -28,7 +28,6 @@
 #include "libc/elf/struct/phdr.h"
 #include "libc/fmt/conv.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/bits.h"
 #include "libc/limits.h"
 #include "libc/macho.internal.h"
 #include "libc/macros.internal.h"
@@ -40,6 +39,7 @@
 #include "libc/nt/struct/imagesectionheader.internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/symbols.internal.h"
+#include "libc/serialize.h"
 #include "libc/stdalign.internal.h"
 #include "libc/stdckdint.h"
 #include "libc/stdio/stdio.h"
@@ -674,9 +674,10 @@ static void LoadSymbols(Elf64_Ehdr *e, Elf64_Off size, const char *path) {
   unsigned char *cfile = Malloc(cfile_size);
   bzero(cfile, cfile_size);
   WRITE32LE(cfile, kZipCfileHdrMagic);
-  cfile[4] = kZipCosmopolitanVersion;
-  cfile[5] = kZipOsUnix;
-  cfile[6] = kZipEra1993;
+  WRITE16LE(cfile + kZipCfileOffsetVersionMadeBy,
+            kZipOsUnix << 8 | kZipCosmopolitanVersion);
+  WRITE16LE(cfile + kZipCfileOffsetVersionNeeded, kZipEra2001);
+  WRITE16LE(cfile + kZipCfileOffsetGeneralflag, kZipGflagUtf8);
   WRITE16LE(cfile + kZipCfileOffsetCompressionmethod, kZipCompressionDeflate);
   WRITE16LE(cfile + kZipCfileOffsetLastmodifieddate, DOS_DATE(2023, 7, 29));
   WRITE16LE(cfile + kZipCfileOffsetLastmodifiedtime, DOS_TIME(0, 0, 0));
@@ -690,8 +691,8 @@ static void LoadSymbols(Elf64_Ehdr *e, Elf64_Off size, const char *path) {
   unsigned char *lfile = Malloc(lfile_size);
   bzero(lfile, lfile_size);
   WRITE32LE(lfile, kZipLfileHdrMagic);
-  cfile[4] = kZipEra1993;
-  cfile[5] = kZipOsDos;
+  WRITE16LE(lfile + kZipLfileOffsetVersionNeeded, kZipEra2001);
+  WRITE16LE(lfile + kZipLfileOffsetGeneralflag, kZipGflagUtf8);
   WRITE16LE(lfile + kZipLfileOffsetCompressionmethod, kZipCompressionDeflate);
   WRITE16LE(lfile + kZipLfileOffsetLastmodifieddate, DOS_DATE(2023, 7, 29));
   WRITE16LE(lfile + kZipLfileOffsetLastmodifiedtime, DOS_TIME(0, 0, 0));
@@ -1458,10 +1459,9 @@ static char *SecondPass2(char *p, struct Input *in) {
     // the new file size. that's only possible if all the fat ape hdrs
     // we generate are able to fit inside the prologue.
     p = ALIGN(p, 8);
-    // TODO(jart): Figure out why not skewing corrupts pe import table
     in->we_must_skew_pe_vaspace =
-        1 || ROUNDUP(p - prologue + in->size_of_pe_headers,
-                     (int)in->pe->OptionalHeader.FileAlignment) > in->minload;
+        ROUNDUP(p - prologue + in->size_of_pe_headers,
+                (int)in->pe->OptionalHeader.FileAlignment) > in->minload;
     if (!in->we_must_skew_pe_vaspace) {
       in->pe_e_lfanew = p - prologue;
       in->pe_SizeOfHeaders = in->pe->OptionalHeader.SizeOfHeaders;
@@ -1813,9 +1813,11 @@ int main(int argc, char *argv[]) {
   int i, j;
   Elf64_Off offset;
   Elf64_Xword prologue_bytes;
-#ifndef NDEBUG
+
+#ifdef MODE_DBG
   ShowCrashReports();
 #endif
+
   prog = argv[0];
   if (!prog) prog = "apelink";
 
@@ -1944,7 +1946,9 @@ int main(int argc, char *argv[]) {
     }
 
     // otherwise this is a fresh install so consider the platform
-    p = stpcpy(p, "m=$(uname -m)\n");
+    p = stpcpy(p, "m=$(/bin/uname -m 2>/dev/null) || "
+                  "m=$(/usr/bin/uname -m 2>/dev/null) || "
+                  "m=x86_64\n");
     if (support_vector & _HOSTXNU) {
       p = stpcpy(p, "if [ ! -d /Applications ]; then\n");
     }
@@ -2044,7 +2048,7 @@ int main(int argc, char *argv[]) {
           p = stpcpy(p, "if [ x\"$1\" = x--assimilate ]; then\n");
         }
         p = GenerateScriptIfMachine(p, in);
-        p = stpcpy(p, "dd if=\"$o\" of=\"$o\" bs=1");
+        p = stpcpy(p, "/bin/dd if=\"$o\" of=\"$o\" bs=1");
         p = stpcpy(p, " skip=");
         in->ddarg_macho_skip = p;
         p = GenerateDecimalOffsetRelocation(p);
@@ -2070,25 +2074,26 @@ int main(int argc, char *argv[]) {
         if ((loader = GetLoader(in->elf->e_machine, _HOSTXNU))) {
           loader->used = true;
           p = GenerateScriptIfMachine(p, in);  // <if-machine>
-          p = stpcpy(p, "mkdir -p \"${t%/*}\" ||exit\n"
-                        "dd if=\"$o\"");
+          p = stpcpy(p, "/bin/mkdir -p \"${t%/*}\" ||exit\n"
+                        "/bin/dd if=\"$o\"");
           p = stpcpy(p, " skip=");
           loader->ddarg_skip1 = p;
           p = GenerateDecimalOffsetRelocation(p);
           p = stpcpy(p, " count=");
           loader->ddarg_size1 = p;
           p = GenerateDecimalOffsetRelocation(p);
-          p = stpcpy(p, " bs=1 2>/dev/null | gzip -dc >\"$t.$$\" ||exit\n");
+          p = stpcpy(
+              p, " bs=1 2>/dev/null | /usr/bin/gzip -dc >\"$t.$$\" ||exit\n");
           if (loader->macho_offset) {
-            p = stpcpy(p, "dd if=\"$t.$$\" of=\"$t.$$\"");
+            p = stpcpy(p, "/bin/dd if=\"$t.$$\" of=\"$t.$$\"");
             p = stpcpy(p, " skip=");
             p = FormatInt32(p, loader->macho_offset / 64);
             p = stpcpy(p, " count=");
             p = FormatInt32(p, ROUNDUP(loader->macho_length, 64) / 64);
             p = stpcpy(p, " bs=64 conv=notrunc 2>/dev/null ||exit\n");
           }
-          p = stpcpy(p, "chmod 755 \"$t.$$\" ||exit\n"
-                        "mv -f \"$t.$$\" \"$t\" ||exit\n");
+          p = stpcpy(p, "/bin/chmod 755 \"$t.$$\" ||exit\n"
+                        "/bin/mv -f \"$t.$$\" \"$t\" ||exit\n");
           p = stpcpy(p, "exec \"$t\" \"$o\" \"$@\"\n"
                         "fi\n");  // </if-machine>
           gotsome = true;
@@ -2107,8 +2112,8 @@ int main(int argc, char *argv[]) {
                       "echo \"$0: please run: xcode-select --install\" >&2\n"
                       "exit 1\n"
                       "fi\n"
-                      "mkdir -p \"${t%/*}\" ||exit\n"
-                      "dd if=\"$o\"");
+                      "/bin/mkdir -p \"${t%/*}\" ||exit\n"
+                      "/bin/dd if=\"$o\"");
         p = stpcpy(p, " skip=");
         macos_silicon_loader_source_ddarg_skip = p;
         p = GenerateDecimalOffsetRelocation(p);
@@ -2142,8 +2147,8 @@ int main(int argc, char *argv[]) {
       if ((loader = GetLoader(in->elf->e_machine, ~_HOSTXNU))) {
         loader->used = true;
         p = GenerateScriptIfMachine(p, in);
-        p = stpcpy(p, "mkdir -p \"${t%/*}\" ||exit\n"
-                      "dd if=\"$o\"");
+        p = stpcpy(p, "/bin/mkdir -p \"${t%/*}\" ||exit\n"
+                      "/bin/dd if=\"$o\"");
         p = stpcpy(p, " skip=");
         loader->ddarg_skip2 = p;
         p = GenerateDecimalOffsetRelocation(p);
@@ -2151,8 +2156,8 @@ int main(int argc, char *argv[]) {
         loader->ddarg_size2 = p;
         p = GenerateDecimalOffsetRelocation(p);
         p = stpcpy(p, " bs=1 2>/dev/null | gzip -dc >\"$t.$$\" ||exit\n"
-                      "chmod 755 \"$t.$$\" ||exit\n"
-                      "mv -f \"$t.$$\" \"$t\" ||exit\n");
+                      "/bin/chmod 755 \"$t.$$\" ||exit\n"
+                      "/bin/mv -f \"$t.$$\" \"$t\" ||exit\n");
         p = stpcpy(p, "exec \"$t\" \"$o\" \"$@\"\n"
                       "fi\n");
       }

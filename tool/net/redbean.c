@@ -40,7 +40,7 @@
 #include "libc/fmt/itoa.h"
 #include "libc/fmt/wintime.internal.h"
 #include "libc/intrin/atomic.h"
-#include "libc/intrin/bits.h"
+#include "libc/serialize.h"
 #include "libc/intrin/bsr.h"
 #include "libc/intrin/likely.h"
 #include "libc/intrin/nomultics.internal.h"
@@ -178,14 +178,18 @@ __static_yoink("blink_xnu_aarch64");    // is apple silicon
 #define MONITOR_MICROS   150000
 #define READ(F, P, N)    readv(F, &(struct iovec){P, N}, 1)
 #define WRITE(F, P, N)   writev(F, &(struct iovec){P, N}, 1)
-#define LockInc(P)       (*(_Atomic(typeof(*(P))) *)(P))++
-#define LockDec(P)       (*(_Atomic(typeof(*(P))) *)(P))--
 #define AppendCrlf(P)    mempcpy(P, "\r\n", 2)
 #define HasHeader(H)     (!!cpm.msg.headers[H].a)
 #define HeaderData(H)    (inbuf.p + cpm.msg.headers[H].a)
 #define HeaderLength(H)  (cpm.msg.headers[H].b - cpm.msg.headers[H].a)
 #define HeaderEqualCase(H, S) \
   SlicesEqualCase(S, strlen(S), HeaderData(H), HeaderLength(H))
+#define LockInc(P)                                            \
+  atomic_fetch_add_explicit((_Atomic(typeof(*(P))) *)(P), +1, \
+                            memory_order_relaxed)
+#define LockDec(P)                                            \
+  atomic_fetch_add_explicit((_Atomic(typeof(*(P))) *)(P), -1, \
+                            memory_order_relaxed)
 
 #define TRACE_BEGIN         \
   do {                      \
@@ -259,7 +263,7 @@ struct Strings {
   struct String {
     size_t n;
     const char *s;
-  } * p;
+  } *p;
 };
 
 struct DeflateGenerator {
@@ -287,7 +291,7 @@ static struct Servers {
   struct Server {
     int fd;
     struct sockaddr_in addr;
-  } * p;
+  } *p;
 } servers;
 
 static struct Freelist {
@@ -301,7 +305,7 @@ static struct Unmaplist {
     int f;
     void *p;
     size_t n;
-  } * p;
+  } *p;
 } unmaplist;
 
 static struct Psks {
@@ -312,7 +316,7 @@ static struct Psks {
     char *identity;
     size_t identity_len;
     char *s;
-  } * p;
+  } *p;
 } psks;
 
 static struct Suites {
@@ -331,7 +335,7 @@ static struct Redirects {
     int code;
     struct String path;
     struct String location;
-  } * p;
+  } *p;
 } redirects;
 
 static struct Assets {
@@ -346,8 +350,8 @@ static struct Assets {
     struct File {
       struct String path;
       struct stat st;
-    } * file;
-  } * p;
+    } *file;
+  } *p;
 } assets;
 
 static struct TrustedIps {
@@ -355,7 +359,7 @@ static struct TrustedIps {
   struct TrustedIp {
     uint32_t ip;
     uint32_t mask;
-  } * p;
+  } *p;
 } trustedips;
 
 struct TokenBucket {
@@ -389,7 +393,7 @@ static struct Shared {
 #undef C
   } c;
   pthread_spinlock_t montermlock;
-} * shared;
+} *shared;
 
 static const char kCounterNames[] =
 #define C(x) #x "\0"
@@ -3691,8 +3695,8 @@ static void StoreAsset(const char *path, size_t pathlen, const char *data,
   p = WRITE16LE(p, mtime);
   p = WRITE16LE(p, mdate);
   p = WRITE32LE(p, crc);
-  p = WRITE32LE(p, MIN(uselen, 0xffffffff));
-  p = WRITE32LE(p, MIN(datalen, 0xffffffff));
+  p = WRITE32LE(p, 0xffffffffu);
+  p = WRITE32LE(p, 0xffffffffu);
   p = WRITE16LE(p, pathlen);
   p = WRITE16LE(p, v[2].iov_len);
   v[1].iov_len = pathlen;
@@ -3751,8 +3755,8 @@ static void StoreAsset(const char *path, size_t pathlen, const char *data,
   p = WRITE16LE(p, mtime);
   p = WRITE16LE(p, mdate);
   p = WRITE32LE(p, crc);
-  p = WRITE32LE(p, MIN(uselen, 0xffffffff));
-  p = WRITE32LE(p, MIN(datalen, 0xffffffff));
+  p = WRITE32LE(p, 0xffffffffu);
+  p = WRITE32LE(p, 0xffffffffu);
   p = WRITE16LE(p, pathlen);
   p = WRITE16LE(p, v[8].iov_len + v[9].iov_len);
   p = WRITE16LE(p, 0);
@@ -3760,7 +3764,7 @@ static void StoreAsset(const char *path, size_t pathlen, const char *data,
   p = WRITE16LE(p, iattrs);
   p = WRITE16LE(p, dosmode);
   p = WRITE16LE(p, mode);
-  p = WRITE32LE(p, MIN(zsize, 0xffffffff));
+  p = WRITE32LE(p, 0xffffffffu);
   v[7].iov_len = pathlen;
   v[7].iov_base = (void *)path;
   // zip64 end of central directory
@@ -6594,6 +6598,7 @@ static int ExitWorker(void) {
       monitorth = 0;
     }
   }
+  LuaDestroy();
   _Exit(0);
 }
 
@@ -7386,6 +7391,9 @@ static void GetOpts(int argc, char *argv[]) {
 void RedBean(int argc, char *argv[]) {
   char ibuf[21];
   int fd;
+  // don't complain about --assimilate if it's the only parameter,
+  // as it can only get here if it's already native or assimilated
+  if (argc == 2 && strcmp(argv[1], "--assimilate") == 0) return;
   if (IsLinux()) {
     // disable weird linux capabilities
     for (int e = errno, i = 0;; ++i) {

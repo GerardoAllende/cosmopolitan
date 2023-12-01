@@ -23,7 +23,6 @@
  * THE SOFTWARE.
  */
 #include "libc/assert.h"
-#include "libc/fmt/fmt.h"
 #include "libc/str/str.h"
 #include "third_party/quickjs/internal.h"
 #include "third_party/quickjs/libregexp.h"
@@ -34,7 +33,6 @@ QuickJS (MIT License)\\n\
 Copyright (c) 2017-2021 Fabrice Bellard\\n\
 Copyright (c) 2017-2021 Charlie Gordon\"");
 asm(".include \"libc/disclaimer.inc\"");
-/* clang-format off */
 
 /* Should only be used for debug. */
 const char *JS_AtomGetStrRT(JSRuntime *rt, char *buf, int buf_size, JSAtom atom)

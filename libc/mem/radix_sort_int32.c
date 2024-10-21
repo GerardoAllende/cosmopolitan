@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -25,7 +25,7 @@
 //         Sort for double-precision floating points. (2009).
 
 #define HIST_SIZE               (size_t)2048
-#define get_byte_0(v)           ((v)&0x7FF)
+#define get_byte_0(v)           ((v) & 0x7FF)
 #define get_byte_1(v)           (((v) >> 11) & 0x7FF)
 #define get_byte_2_flip_sign(v) (((unsigned)(v) >> 22) ^ 0x200)
 

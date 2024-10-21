@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -50,7 +50,8 @@ char *RecreateFlags(const struct IdName *names, unsigned long id) {
     }
   }
   if (id) {
-    if (bufi) APPEND(&bufp, &bufi, &bufn, "|");
+    if (bufi)
+      APPEND(&bufp, &bufi, &bufn, "|");
     CONCAT(&bufp, &bufi, &bufn, extrabuf,
            snprintf(extrabuf, sizeof(extrabuf), "%#x", id));
   } else if (!bufi) {

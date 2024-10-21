@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,13 +17,14 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/calls.h"
+#include "libc/ctype.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/fmt/libgen.h"
-#include "libc/serialize.h"
 #include "libc/limits.h"
-#include "libc/macros.internal.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/macros.h"
+#include "libc/mem/gc.h"
+#include "libc/serialize.h"
 #include "libc/str/str.h"
 #include "libc/testlib/testlib.h"
 
@@ -33,6 +34,8 @@ void SetUpOnce(void) {
 }
 
 TEST(__getcwd, zero) {
+  if (IsQemuUser())
+    return;
   ASSERT_SYS(ERANGE, -1, __getcwd(0, 0));
 }
 
@@ -82,7 +85,8 @@ TEST(getcwd, testNullBuf_allocatesResult) {
 }
 
 TEST(getcwd, testWindows_addsFunnyPrefix) {
-  if (!IsWindows()) return;
+  if (!IsWindows())
+    return;
   char path[PATH_MAX];
   ASSERT_NE(0, getcwd(path, sizeof(path)));
   path[1] = tolower(path[1]);

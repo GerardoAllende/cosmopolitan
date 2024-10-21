@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -42,7 +42,7 @@ double __testlib_ezbenchcontrol(void) {
     } while (++Tries < 10 && (__testlib_getcore() != Core &&
                               __testlib_getinterrupts() > Interrupts));
     if (Tries == 10) {
-      tinyprint(2, "warning: failed to accurately benchmark control\n");
+      tinyprint(2, "warning: failed to accurately benchmark control\n", NULL);
     }
     strcpy(host, "unknown");
     gethostname(host, 64);

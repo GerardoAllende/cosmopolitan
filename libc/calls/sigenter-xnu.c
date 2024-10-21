@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -30,6 +30,7 @@
 #include "libc/log/libfatal.internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/stack.h"
+#include "libc/runtime/syslib.internal.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/sa.h"
 
@@ -494,6 +495,8 @@ privileged void __sigenter_xnu(void *fn, int infostyle, int sig,
 privileged void __sigenter_xnu(int sig, struct siginfo_xnu *xnuinfo,
                                struct __darwin_ucontext *xnuctx) {
 #endif
+
+  // allocate signal frame on stack
 #pragma GCC push_options
 #pragma GCC diagnostic ignored "-Wframe-larger-than="
   struct Goodies {
@@ -502,10 +505,24 @@ privileged void __sigenter_xnu(int sig, struct siginfo_xnu *xnuinfo,
   } g;
   CheckLargeStackAllocation(&g, sizeof(g));
 #pragma GCC pop_options
+
+  // handle signal
   int rva, flags;
   rva = __sighandrvas[sig];
   if (rva >= kSigactionMinRva) {
     flags = __sighandflags[sig];
+
+#ifdef __aarch64__
+    // xnu silicon claims to support sa_resethand but it does nothing
+    // this can be tested, since it clears the bit from flags as well
+    if (flags & SA_RESETHAND) {
+      struct sigaction sa = {0};
+      __syslib->__sigaction(sig, &sa, 0);
+      __sighandflags[sig] = 0;
+      __sighandrvas[sig] = 0;
+    }
+#endif
+
     if (~flags & SA_SIGINFO) {
       ((sigaction_f)(__executable_start + rva))(sig, 0, 0);
     } else {

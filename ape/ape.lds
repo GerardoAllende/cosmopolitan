@@ -1,5 +1,5 @@
 /*-*- mode: ld-script; indent-tabs-mode: nil; tab-width: 2; coding: utf-8   -*-│
-│vi: set et sts=2 tw=2 fenc=utf-8                                           :vi│
+│ vi: set et sts=2 sw=2 fenc=utf-8                                         :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -229,7 +229,6 @@ SECTIONS {
 
     /* Real Mode */
     KEEP(*(.head))
-    KEEP(*(.apesh))
     KEEP(*(.text.head))
 
     /* Executable & Linkable Format */
@@ -237,10 +236,6 @@ SECTIONS {
     ape_phdrs = .;
     KEEP(*(.elf.phdrs))
     ape_phdrs_end = .;
-
-    KEEP(*(.emushprologue))
-    KEEP(*(.emush))
-    KEEP(*(.emushepilogue))
 
     /* OpenBSD */
     . = ALIGN(. != 0 ? __SIZEOF_POINTER__ : 0);
@@ -287,12 +282,9 @@ SECTIONS {
     KEEP(*(SORT_BY_NAME(.init.*)))
     KEEP(*(.init))
     KEEP(*(.initepilogue))
-    KEEP(*(.pltprologue))
     *(.plt)
-    KEEP(*(.pltepilogue))
-    KEEP(*(.pltgotprologue))
     *(.plt.got)
-    KEEP(*(.pltgotepilogue))
+    *(.iplt)
     *(.text.startup .text.startup.*)
     *(.text.exit .text.exit.*)
     *(.text.unlikely .text.*_unlikely .text.unlikely.*)
@@ -301,7 +293,6 @@ SECTIONS {
     KEEP(*(.textwindowsprologue))
     *(.text.windows)
     KEEP(*(.textwindowsepilogue))
-    KEEP(*(.blink))
     *(SORT_BY_ALIGNMENT(.text.modernity))
     *(SORT_BY_ALIGNMENT(.text.modernity.*))
     *(SORT_BY_ALIGNMENT(.text.hot))
@@ -319,7 +310,7 @@ SECTIONS {
     . = ALIGN(__privileged_end > __privileged_start ? CONSTANT(COMMONPAGESIZE) : 0);
 /*END: morphable code */
     __privileged_start = .;
-    *(.privileged)
+    *(.privileged .privileged.*)
     __privileged_end = .;
 
     KEEP(*(.ape.pad.text))
@@ -329,7 +320,7 @@ SECTIONS {
 
 /*BEGIN: Read Only Data */
 
-  .rodata . : {
+  .rodata ALIGN(CONSTANT(COMMONPAGESIZE)) : {
     KEEP(*(.rodata.pytab.0));
     KEEP(*(.rodata.pytab.1));
     KEEP(*(.rodata.pytab.2));
@@ -338,12 +329,16 @@ SECTIONS {
     *(.ubsan.types)
     *(.ubsan.data)
 
+    __eh_frame_hdr_start_actual = .;
+    *(.eh_frame_hdr)
+    __eh_frame_hdr_end_actual = .;
+
     /* Legal Notices */
-#if !defined(IM_FEELING_NAUGHTY) || defined(EMBED_NOTICES)
-    KEEP(*(.commentprologue))
-    KEEP(*(.comment))
-    KEEP(*(.commentepilogue))
-#endif
+    __notices = .;
+    KEEP(*(.notice))
+    BYTE(0);
+    BYTE(10);
+    BYTE(10);
 
 /*BEGIN: read-only data that's only needed for initialization */
 
@@ -399,26 +394,28 @@ SECTIONS {
 /*BEGIN: NT FORK COPYING */
     KEEP(*(.dataprologue))
     *(.data .data.*)
+    *(.gnu_extab)
+    *(.gcc_except_table .gcc_except_table.*)
+    *(.exception_ranges*)
     *(.PyRuntime) /* for python */
     *(.subrs) /* for emacs */
     KEEP(*(SORT_BY_NAME(.sort.data.*)))
     . += . > 0 ? CODE_GRANULE : 0;
 
-    KEEP(*(.gotprologue))
+    . = ALIGN(. != 0 ? __SIZEOF_POINTER__ : 0);
+    __got_start = .;
     *(.got)
-    KEEP(*(.gotepilogue))
+    __got_end = .;
 
-    KEEP(*(.gotpltprologue))
     *(.got.plt)
-    KEEP(*(.gotpltepilogue))
 
     . = ALIGN(. != 0 ? __SIZEOF_POINTER__ : 0);
     __init_array_start = .;
+    KEEP(*(.preinit_array))
     KEEP(*(SORT_BY_INIT_PRIORITY(.init_array.*)
            SORT_BY_INIT_PRIORITY(.ctors.*)))
-    KEEP(*(.ctors))
     KEEP(*(.init_array))
-    KEEP(*(.preinit_array))
+    KEEP(*(.ctors))
     __init_array_end = .;
 
     . = ALIGN(. != 0 ? __SIZEOF_POINTER__ : 0);
@@ -429,13 +426,20 @@ SECTIONS {
     KEEP(*(.dtors))
     __fini_array_end = .;
 
+    __eh_frame_start = .;
+    KEEP(*(.eh_frame))
+    *(.eh_frame.*)
+    __eh_frame_end = .;
+
 /*BEGIN: Post-Initialization Read-Only */
     . = ALIGN(. != 0 ? __SIZEOF_POINTER__ : 0);
     KEEP(*(SORT_BY_NAME(.piro.relo.sort.*)))
     . = ALIGN(. != 0 ? __SIZEOF_POINTER__ : 0);
     KEEP(*(SORT_BY_NAME(.piro.data.sort.*)))
     KEEP(*(.piro.pad.data))
+    *(.igot.plt)
     KEEP(*(.dataepilogue))
+
     . = ALIGN(. != 0 ? CONSTANT(COMMONPAGESIZE) : 0);
 /*END: NT FORK COPYING */
     _edata = .;
@@ -533,7 +537,9 @@ SECTIONS {
     *(.piro.data.sort.iat.*)
 #endif
     *(__patchable_function_entries)
+    *(.note.gnu.property)
     *(__mcount_loc)
+    *(.rela.dyn)
     *(.discard)
     *(.yoink)
   }
@@ -556,7 +562,9 @@ _tdata_size = _tdata_end - _tdata_start;
 _tbss_size = _tbss_end - _tbss_start;
 _tbss_offset = _tbss_start - _tdata_start;
 _tls_content = (_tdata_end - _tdata_start) + (_tbss_end - _tbss_start);
-_tls_align = 1;
+_tdata_align = ALIGNOF(.tdata);
+_tbss_align = ALIGNOF(.tbss);
+_tls_align = MAX(TLS_ALIGNMENT, MAX(ALIGNOF(.tdata), ALIGNOF(.tbss)));
 
 ape_cod_offset = 0;
 ape_cod_vaddr = ADDR(.head);
@@ -589,8 +597,6 @@ ape_stack_vaddr = DEFINED(ape_stack_vaddr) ? ape_stack_vaddr : 0x700000000000;
 ape_stack_paddr = ape_ram_paddr + ape_ram_filesz;
 ape_stack_filesz = 0;
 ape_stack_memsz = DEFINED(ape_stack_memsz) ? ape_stack_memsz : 8 * 1024 * 1024;
-ape_stack_align = DEFINED(ape_stack_align) ? ape_stack_align : 16;
-ape_stack_round = -ape_stack_align;
 
 ape_note_offset = ape_cod_offset + (ape_note - ape_cod_vaddr);
 ape_note_filesz = ape_note_end - ape_note;
@@ -604,6 +610,9 @@ ape_text_memsz = ape_text_filesz;
 ape_text_align = CONSTANT(COMMONPAGESIZE);
 ape_text_rva = RVA(ape_text_vaddr);
 
+__eh_frame_hdr_start = __eh_frame_hdr_end_actual > __eh_frame_hdr_start_actual ? __eh_frame_hdr_start_actual : 0;
+__eh_frame_hdr_end = __eh_frame_hdr_end_actual > __eh_frame_hdr_start_actual ? __eh_frame_hdr_end_actual : 0;
+
 /* we roundup here because xnu wants the file load segments page-aligned */
 /* but we don't want to add the nop padding to the ape program, so we'll */
 /* let ape.S dd read past the end of the file into the wrapping binaries */
@@ -612,29 +621,6 @@ SHSTUB2(ape_loader_dd_count,
         DEFINED(ape_loader_end)
             ? ROUNDUP(ape_loader_end - ape_loader, CONSTANT(COMMONPAGESIZE)) / 64
             : 0);
-
-#if defined(APE_IS_SHELL_SCRIPT) && !IsTiny()
-
-#define IDENTITY(X) X
-
-#define APE_DECLARE_FIXED_DECIMAL(F, X)                                                      \
-    X##_quad = DEFINED(X) ? ((F(X) < 1000000000 ? 32 : F(X) / 1000000000 % 10 + 48) << 000 | \
-                             (F(X) < 100000000 ? 32 : F(X) / 100000000 % 10 + 48) << 010 |   \
-                             (F(X) < 10000000 ? 32 : F(X) / 10000000 % 10 + 48) << 020 |     \
-                             (F(X) < 1000000 ? 32 : F(X) / 1000000 % 10 + 48) << 030 |       \
-                             (F(X) < 100000 ? 32 : F(X) / 100000 % 10 + 48) << 040 |         \
-                             (F(X) < 10000 ? 32 : F(X) / 10000 % 10 + 48) << 050 |           \
-                             (F(X) < 1000 ? 32 : F(X) / 1000 % 10 + 48) << 060 |             \
-                             (F(X) < 100 ? 32 : F(X) / 100 % 10 + 48) << 070) : 0;           \
-    X##_short = DEFINED(X) ? ((F(X) < 10 ? 32 : F(X) / 10 % 10 + 48) << 000 |                \
-                              (F(X) % 10 + 48) << 010) : 0
-
-APE_DECLARE_FIXED_DECIMAL(RVA,      blink_linux_aarch64);
-APE_DECLARE_FIXED_DECIMAL(IDENTITY, blink_linux_aarch64_size);
-APE_DECLARE_FIXED_DECIMAL(RVA,      blink_xnu_aarch64);
-APE_DECLARE_FIXED_DECIMAL(IDENTITY, blink_xnu_aarch64_size);
-
-#endif /* APE_IS_SHELL_SCRIPT */
 
 #if SupportsMetal()
 v_ape_realsectors = MIN(0x70000 - IMAGE_BASE_REAL, ROUNDUP(RVA(_ezip), 512)) / 512;
@@ -739,7 +725,6 @@ ape_idataz = LINK_WINDOWS ? RVA(ape_idata_iat) : 0;
 ape_idata_iatsize = LINK_WINDOWS ? ape_idata_iatend - ape_idata_iat : 0;
 ape_idata = LINK_WINDOWS ? RVA(ape_idata_idt) : 0;
 ape_idata_idtsize = LINK_WINDOWS ? ape_idata_idtend - ape_idata_idt : 0;
-v_ntversion = LINK_WINDOWS ? 6 : 1;
 v_ntdllchar = LINK_WINDOWS ? 288 : 0;
 v_ntsubversion = LINK_WINDOWS ? 6 : 5;
 v_ntsubsystem = (LINK_WINDOWS

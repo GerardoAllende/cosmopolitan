@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -40,4 +40,4 @@ int mkstemp(char *template) {
   return openatemp(AT_FDCWD, template, 0, 0, 0);
 }
 
-__strong_reference(mkstemp, mkstemp64);
+__weak_reference(mkstemp, mkstemp64);

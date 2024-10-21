@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:t;c-basic-offset:8;tab-width:8;coding:utf-8   -*-│
-│vi: set et ft=c ts=8 tw=8 fenc=utf-8                                       :vi│
+│ vi: set noet ft=c ts=8 sw=8 fenc=utf-8                                   :vi │
 ╚──────────────────────────────────────────────────────────────────────────────╝
 │                                                                              │
 │  The author of this software is David M. Gay.                                │
@@ -49,6 +49,8 @@ __gdtoa_rv_alloc(int i, ThInfo **PTI)
 	     j <<= 1)
 		k++;
 	r = (int *)__gdtoa_Balloc(k, PTI);
+	if (r == NULL)
+		return NULL;
 	*r = k;
 	return (char *)(r + 1);
 }

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -46,7 +46,8 @@ char *fgetln(FILE *stream, size_t *len) {
   size_t n = 0;
   flockfile(stream);
   if ((rc = getdelim_unlocked(&stream->getln, &n, '\n', stream)) > 0) {
-    if (len) *len = rc;
+    if (len)
+      *len = rc;
     res = stream->getln;
   } else {
     res = 0;

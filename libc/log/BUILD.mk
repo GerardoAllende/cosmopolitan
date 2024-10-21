@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 
 PKGS += LIBC_LOG
 
@@ -39,11 +39,11 @@ LIBC_LOG_A_DIRECTDEPS =					\
 	LIBC_SYSV					\
 	LIBC_SYSV_CALLS					\
 	LIBC_THREAD					\
-	LIBC_TIME					\
 	LIBC_TINYMATH					\
 	THIRD_PARTY_COMPILER_RT				\
 	THIRD_PARTY_DLMALLOC				\
-	THIRD_PARTY_GDTOA
+	THIRD_PARTY_GDTOA				\
+	THIRD_PARTY_TZ
 
 LIBC_LOG_A_DEPS :=					\
 	$(call uniq,$(foreach x,$(LIBC_LOG_A_DIRECTDEPS),$($(x))))

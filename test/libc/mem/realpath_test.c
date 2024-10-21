@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -19,7 +19,9 @@
 #include "libc/calls/calls.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/intrin/strace.h"
+#include "libc/limits.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/str/str.h"
@@ -45,6 +47,8 @@ TEST(realpath, test2) {
 }
 
 TEST(realpath, test3) {
+  strace_enabled(+1);
+  ASSERT_TRUE(fileexists("conftest.a"));
   char *name = gc(realpath("conftest.l/../conftest.a", NULL));
   if (IsWindows()) {
     // WIN32 acts as a flat namespace, rather than linear inode crawl.
@@ -54,6 +58,7 @@ TEST(realpath, test3) {
     // Every other OS FS is a UNIX inode crawl.
     ASSERT_SYS(ENOTDIR, NULL, name);
   }
+  strace_enabled(-1);
 }
 
 TEST(realpath, test4) {
@@ -74,4 +79,13 @@ TEST(realpath, test6) {
   char *name = gc(realpath("//", NULL));
   ASSERT_NE(NULL, name);
   EXPECT_STREQ("/", name);
+}
+
+TEST(realpath, c_drive) {
+  if (!IsWindows())
+    return;
+  char buf[PATH_MAX];
+  ASSERT_STREQ("/c", realpath("c:", buf));
+  ASSERT_STREQ("/c", realpath("c:", buf));
+  ASSERT_STREQ("/c/Windows", realpath("c:\\Windows", buf));
 }

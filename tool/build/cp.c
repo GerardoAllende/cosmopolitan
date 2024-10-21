@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -182,8 +182,10 @@ bool MovePreservingDestinationInode(const char *from, const char *to) {
 void Cp(char *src, char *dst) {
   ssize_t rc;
   const char *s;
-  if (strlen(src) + 1 > PATH_MAX) _Exit(2);
-  if (strlen(dst) + 1 > PATH_MAX) _Exit(2);
+  if (strlen(src) + 1 > PATH_MAX)
+    _Exit(2);
+  if (strlen(dst) + 1 > PATH_MAX)
+    _Exit(2);
   basename(src);
   basename(dst);
   if (IsDirectory(src)) {
@@ -243,7 +245,8 @@ int main(int argc, char *argv[]) {
   int i;
 
   prog = argv[0];
-  if (!prog) prog = "cp";
+  if (!prog)
+    prog = "cp";
 
   GetOpts(argc, argv);
 

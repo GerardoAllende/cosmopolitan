@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,7 +20,7 @@
 #include "libc/cosmo.h"
 #include "libc/dce.h"
 #include "libc/intrin/atomic.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/testlib/testlib.h"
 #include "libc/thread/thread.h"
@@ -50,12 +50,10 @@ TEST(cosmo_once, test) {
   pthread_t th[N];
   x = y = 0;
   ASSERT_EQ(0, pthread_barrier_init(&b, 0, N));
-  for (i = 0; i < N; ++i) {
+  for (i = 0; i < N; ++i)
     ASSERT_EQ(0, pthread_create(th + i, 0, Worker, 0));
-  }
-  for (i = 0; i < N; ++i) {
+  for (i = 0; i < N; ++i)
     ASSERT_EQ(0, pthread_join(th[i], 0));
-  }
   ASSERT_EQ(N, atomic_load(&x));
   ASSERT_EQ(1, atomic_load(&y));
   ASSERT_EQ(0, pthread_barrier_destroy(&b));

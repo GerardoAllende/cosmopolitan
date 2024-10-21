@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -35,8 +35,10 @@ int sys_clock_nanosleep_xnu(int clock, int flags, const struct timespec *req,
                             struct timespec *rem) {
 #ifdef __x86_64__
   if (flags & TIMER_ABSTIME) {
+    int nerr;
     struct timespec now;
-    sys_clock_gettime_xnu(clock, &now);
+    if ((nerr = sys_clock_gettime_xnu(clock, &now)))
+      return _sysret(nerr);
     if (timespec_cmp(*req, now) > 0) {
       struct timeval rel = timespec_totimeval(timespec_sub(*req, now));
       return sys_select(0, 0, 0, 0, &rel);
@@ -46,12 +48,14 @@ int sys_clock_nanosleep_xnu(int clock, int flags, const struct timespec *req,
   } else {
     int rc;
     struct timespec beg;
-    if (rem) sys_clock_gettime_xnu(CLOCK_REALTIME, &beg);
+    if (rem)
+      if ((rc = sys_clock_gettime_xnu(clock, &beg)))
+        return _sysret(rc);
     struct timeval rel = timespec_totimeval(*req);  // rounds up
     rc = sys_select(0, 0, 0, 0, &rel);
     if (rc == -1 && rem && errno == EINTR) {
       struct timespec end;
-      sys_clock_gettime_xnu(CLOCK_REALTIME, &end);
+      sys_clock_gettime_xnu(clock, &end);
       *rem = timespec_subz(*req, timespec_sub(end, beg));
     }
     return rc;
@@ -60,9 +64,8 @@ int sys_clock_nanosleep_xnu(int clock, int flags, const struct timespec *req,
   long res;
   struct timespec abs, now, rel;
   if (_weaken(pthread_testcancel_np) &&  //
-      _weaken(pthread_testcancel_np)()) {
+      _weaken(pthread_testcancel_np)())
     return ecanceled();
-  }
   if (flags & TIMER_ABSTIME) {
     abs = *req;
     if (!(res = __syslib->__clock_gettime(clock, &now))) {
@@ -72,7 +75,10 @@ int sys_clock_nanosleep_xnu(int clock, int flags, const struct timespec *req,
       }
     }
   } else {
-    res = __syslib->__nanosleep(req, rem);
+    struct timespec remainder;
+    res = __syslib->__nanosleep(req, &remainder);
+    if (res == -EINTR && rem)
+      *rem = remainder;
   }
   if (res == -EINTR &&                    //
       (_weaken(pthread_testcancel_np) &&  //

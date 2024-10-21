@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -22,8 +22,8 @@
 #include "libc/nexgen32e/x86info.h"
 #include "libc/stdio/rand.h"
 
-textstartup void rdrand_init(int argc, char **argv, char **envp,
-                             intptr_t *auxv) {
+__attribute__((__constructor__(2))) textstartup void rdrand_init(
+    int argc, char **argv, char **envp, intptr_t *auxv) {
   extern unsigned kMutableCpuids[KCPUIDS_LEN][4] asm("kCpuids");
   /*
    * Clear RDRAND on AMD models before Zen and then some
@@ -39,5 +39,3 @@ textstartup void rdrand_init(int argc, char **argv, char **envp,
     kMutableCpuids[KCPUIDS_7H][KCPUIDS_EBX] &= ~(1u << 18);
   }
 }
-
-const void *const g_rdrand_init[] initarray = {rdrand_init};

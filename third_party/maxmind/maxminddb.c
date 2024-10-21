@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2013-2021 MaxMind Incorporated                                     │
 │                                                                              │
@@ -37,10 +37,9 @@
 #include "libc/sysv/consts/sock.h"
 #include "tool/build/lib/case.h"
 
-asm(".ident\t\"\\n\\n\
-libmaxminddb (Apache 2.0)\\n\
-Copyright 2013-2021 MaxMind Incorporated\"");
-asm(".include \"libc/disclaimer.inc\"");
+__notice(libmaxminddb_notice, "\
+libmaxminddb (Apache 2.0)\n\
+Copyright 2013-2021 MaxMind Incorporated");
 
 #define METADATA_MARKER              "\xab\xcd\xefMaxMind.com"
 #define METADATA_BLOCK_MAX_SIZE      131072 /* This is 128kb */

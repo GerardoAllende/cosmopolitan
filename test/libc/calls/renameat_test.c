@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -90,11 +90,17 @@ TEST(rename, enotempty) {
 TEST(rename, moveIntoNonWritableDirectory_raisesEacces) {
   // old versions of linux allow this
   // new versions of linux report exdev?!
-  if (IsLinux()) return;
+  if (IsLinux())
+    return;
   // netbsd and openbsd allow this
-  if (IsNetbsd() || IsOpenbsd()) return;
+  if (IsNetbsd() || IsOpenbsd())
+    return;
   // windows doesn't really have permissions
-  if (IsWindows()) return;
+  if (IsWindows())
+    return;
+  // looks like a freebsd kernel bug
+  if (IsAarch64() && IsFreebsd())
+    return;
   // posix specifies this behavior
   ASSERT_SYS(0, 0, mkdir("foo", 0111));
   ASSERT_SYS(0, 0, touch("lol", 0644));

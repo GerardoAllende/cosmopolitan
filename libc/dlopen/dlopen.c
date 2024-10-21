@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,6 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/assert.h"
 #include "libc/atomic.h"
+#include "libc/calls/blockcancel.internal.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/sigset.internal.h"
 #include "libc/calls/struct/stat.h"
@@ -36,9 +37,8 @@
 #include "libc/errno.h"
 #include "libc/fmt/itoa.h"
 #include "libc/intrin/atomic.h"
-#include "libc/serialize.h"
 #include "libc/intrin/kprintf.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/limits.h"
 #include "libc/nt/dll.h"
 #include "libc/nt/enum/filemapflags.h"
@@ -46,8 +46,10 @@
 #include "libc/nt/memory.h"
 #include "libc/nt/runtime.h"
 #include "libc/proc/posix_spawn.h"
+#include "libc/runtime/internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/syslib.internal.h"
+#include "libc/serialize.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/auxv.h"
 #include "libc/sysv/consts/map.h"
@@ -116,7 +118,7 @@ struct Loaded {
   Elf64_Phdr ph[25];
 };
 
-static struct {
+struct {
   atomic_uint once;
   bool is_supported;
   struct CosmoTib *tib;
@@ -125,27 +127,25 @@ static struct {
   int (*dlclose)(void *);
   char *(*dlerror)(void);
   jmp_buf jb;
-} foreign;
+} __foreign;
 
 long __sysv2nt14();
+long foreign_tramp();
 
 static _Thread_local char dlerror_buf[128];
 
 static const char *get_tmp_dir(void) {
   const char *tmpdir;
-  if (!(tmpdir = getenv("TMPDIR")) || !*tmpdir) {
-    if (!(tmpdir = getenv("HOME")) || !*tmpdir) {
+  if (!(tmpdir = getenv("TMPDIR")) || !*tmpdir)
+    if (!(tmpdir = getenv("HOME")) || !*tmpdir)
       tmpdir = ".";
-    }
-  }
   return tmpdir;
 }
 
 static int is_file_newer_than(const char *path, const char *other) {
   struct stat st1, st2;
-  if (stat(path, &st1)) {
+  if (stat(path, &st1))
     return -1;
-  }
   if (stat(other, &st2)) {
     if (errno == ENOENT) {
       return 2;
@@ -156,30 +156,14 @@ static int is_file_newer_than(const char *path, const char *other) {
   return timespec_cmp(st1.st_mtim, st2.st_mtim) > 0;
 }
 
-// on system five we sadly need this brutal trampoline
-// todo(jart): add tls trampoline to sigaction() handlers
-// todo(jart): morph binary to get tls from host c library
-static long foreign_tramp(long a, long b, long c, long d, long e,
-                          long func(long, long, long, long, long)) {
-  long res;
-  BLOCK_SIGNALS;
-#ifdef __x86_64__
-  struct CosmoTib *tib = __get_tls();
-  __set_tls(foreign.tib);
-#endif
-  res = func(a, b, c, d, e);
-#ifdef __x86_64__
-  __set_tls(tib);
-#endif
-  ALLOW_SIGNALS;
-  return res;
-}
-
 static unsigned elf2prot(unsigned x) {
   unsigned r = 0;
-  if (x & PF_R) r += PROT_READ;
-  if (x & PF_W) r += PROT_WRITE;
-  if (x & PF_X) r += PROT_EXEC;
+  if (x & PF_R)
+    r += PROT_READ;
+  if (x & PF_W)
+    r += PROT_WRITE;
+  if (x & PF_X)
+    r += PROT_EXEC;
   return r;
 }
 
@@ -204,29 +188,24 @@ static char *elf_map(int fd, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr, long pagesz,
   Elf64_Addr maxva = 0;
   Elf64_Addr minva = -1;
   for (Elf64_Phdr *p = phdr; p < phdr + ehdr->e_phnum; p++) {
-    if (p->p_type != PT_LOAD) {
+    if (p->p_type != PT_LOAD)
       continue;
-    }
-    if (p->p_vaddr < minva) {
+    if (p->p_vaddr < minva)
       minva = p->p_vaddr & -pagesz;
-    }
-    if (p->p_vaddr + p->p_memsz > maxva) {
+    if (p->p_vaddr + p->p_memsz > maxva)
       maxva = p->p_vaddr + p->p_memsz;
-    }
   }
   uint8_t *base =
       __sys_mmap(0, maxva - minva, PROT_NONE,
                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0, 0);
-  if (base == MAP_FAILED) {
+  if (base == MAP_FAILED)
     return MAP_FAILED;
-  }
   for (Elf64_Phdr *p = phdr; p < phdr + ehdr->e_phnum; p++) {
     if (p->p_type != PT_LOAD) {
       if (p->p_type == PT_INTERP && interp_size &&
           (p->p_filesz >= interp_size - 1 ||
-           pread(fd, interp_path, p->p_filesz, p->p_offset) != p->p_filesz)) {
+           pread(fd, interp_path, p->p_filesz, p->p_offset) != p->p_filesz))
         return MAP_FAILED;
-      }
       continue;
     }
     Elf64_Addr skew = p->p_vaddr & (pagesz - 1);
@@ -241,29 +220,24 @@ static char *elf_map(int fd, Elf64_Ehdr *ehdr, Elf64_Phdr *phdr, long pagesz,
       prot1 &= ~PROT_EXEC;
     }
     if (__sys_mmap(base + p->p_vaddr - skew, skew + p->p_filesz, prot1,
-                   MAP_FIXED | MAP_PRIVATE, fd, off, off) == MAP_FAILED) {
+                   MAP_FIXED | MAP_PRIVATE, fd, off, off) == MAP_FAILED)
       return MAP_FAILED;
-    }
-    if (b > a) {
+    if (b > a)
       bzero(base + a, b - a);
-    }
     if (c > b && __sys_mmap(base + b, c - b, prot2,
                             MAP_FIXED | MAP_PRIVATE | MAP_ANONYMOUS, -1, 0,
-                            0) == MAP_FAILED) {
+                            0) == MAP_FAILED)
       return MAP_FAILED;
-    }
     if (prot1 != prot2 &&
-        sys_mprotect(base + p->p_vaddr - skew, skew + p->p_filesz, prot2)) {
+        sys_mprotect(base + p->p_vaddr - skew, skew + p->p_filesz, prot2))
       return MAP_FAILED;
-    }
   }
   return (void *)base;
 }
 
 static bool elf_slurp(struct Loaded *l, int fd, const char *file) {
-  if (pread(fd, &l->eh, 64, 0) != 64) {
+  if (pread(fd, &l->eh, 64, 0) != 64)
     return false;
-  }
   if (!IsElf64Binary(&l->eh, 64) ||                      //
       l->eh.e_phnum > sizeof(l->ph) / sizeof(*l->ph) ||  //
       l->eh.e_machine != get_host_elf_machine()) {
@@ -271,9 +245,8 @@ static bool elf_slurp(struct Loaded *l, int fd, const char *file) {
     return false;
   }
   int bytes = l->eh.e_phnum * sizeof(l->ph[0]);
-  if (pread(fd, l->ph, bytes, l->eh.e_phoff) != bytes) {
+  if (pread(fd, l->ph, bytes, l->eh.e_phoff) != bytes)
     return false;
-  }
   l->entry = (char *)l->eh.e_entry;
   return true;
 }
@@ -281,9 +254,8 @@ static bool elf_slurp(struct Loaded *l, int fd, const char *file) {
 static dontinline bool elf_load(struct Loaded *l, const char *file, long pagesz,
                                 char *interp_path, size_t interp_size) {
   int fd;
-  if ((fd = open(file, O_RDONLY | O_CLOEXEC)) == -1) {
+  if ((fd = open(file, O_RDONLY | O_CLOEXEC)) == -1)
     return false;
-  }
   if (!elf_slurp(l, fd, file)) {
     close(fd);
     return false;
@@ -300,44 +272,45 @@ static dontinline bool elf_load(struct Loaded *l, const char *file, long pagesz,
 
 static long *push_strs(long *sp, char **list, int count) {
   *--sp = 0;
-  while (count) *--sp = (long)list[--count];
+  while (count)
+    *--sp = (long)list[--count];
   return sp;
 }
 
 static wontreturn dontinstrument void foreign_helper(void **p) {
-  foreign.dlopen = p[0];
-  foreign.dlsym = p[1];
-  foreign.dlclose = p[2];
-  foreign.dlerror = p[3];
-  longjmp(foreign.jb, 1);
+  __foreign.dlopen = p[0];
+  __foreign.dlsym = p[1];
+  __foreign.dlclose = p[2];
+  __foreign.dlerror = p[3];
+  _longjmp(__foreign.jb, 1);
 }
 
 static dontinline void elf_exec(const char *file, char **envp) {
 
   // get microprocessor page size
-  long pagesz = getauxval(AT_PAGESZ);
+  long pagesz = __pagesize;
 
   // load helper executable into address space
   struct Loaded prog;
   char interp_path[256] = {0};
-  if (!elf_load(&prog, file, pagesz, interp_path, sizeof(interp_path))) {
+  if (!elf_load(&prog, file, pagesz, interp_path, sizeof(interp_path)))
     return;
-  }
 
   // load platform c library into address space
   struct Loaded interp;
-  if (!elf_load(&interp, interp_path, pagesz, 0, 0)) {
+  if (!elf_load(&interp, interp_path, pagesz, 0, 0))
     return;
-  }
 
   // count environment variables
   int envc = 0;
-  while (envp[envc]) envc++;
+  while (envp[envc])
+    envc++;
 
   // count auxiliary values
   int auxc = 0;
   Elf64_auxv_t *av;
-  for (av = (Elf64_auxv_t *)__auxv; av->a_type; ++av) auxc++;
+  for (av = (Elf64_auxv_t *)__auxv; av->a_type; ++av)
+    auxc++;
 
   // create environment block for embedded process
   // the platform libc will save its location for getenv(), etc.
@@ -348,10 +321,12 @@ static dontinline void elf_exec(const char *file, char **envp) {
   size_t argsize = (1 + 2 + 1 + envc + 1 + auxc * 2 + 1 + 3) * 8;
   size_t mapsize = (stksize + argsize + (pagesz - 1)) & -pagesz;
   size_t skew = (mapsize - argsize) & (stkalign - 1);
-  if (IsFreebsd()) skew += 8;  // FreeBSD calls _start() like a C function
+  if (IsFreebsd())
+    skew += 8;  // FreeBSD calls _start() like a C function
   map = __sys_mmap(0, mapsize, PROT_READ | PROT_WRITE,
                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0, 0);
-  if (map == MAP_FAILED) return;
+  if (map == MAP_FAILED)
+    return;
   long *sp = (long *)(map + mapsize - skew);
 
   // push argument string
@@ -364,14 +339,22 @@ static dontinline void elf_exec(const char *file, char **envp) {
   unsigned long key, val;
   for (av = (Elf64_auxv_t *)__auxv; (key = av->a_type); ++av) {
     val = av->a_un.a_val;
-    if (key == AT_PHDR) val = (long)(prog.base + prog.eh.e_phoff);
-    if (key == AT_PHENT) val = prog.eh.e_phentsize;
-    if (key == AT_PHNUM) val = prog.eh.e_phnum;
-    if (key == AT_PAGESZ) val = pagesz;
-    if (key == AT_BASE) val = (long)interp.base;
-    if (key == AT_FLAGS) val = 0;
-    if (key == AT_ENTRY) val = (long)prog.entry;
-    if (key == AT_EXECFN) val = (long)program_invocation_name;
+    if (key == AT_PHDR)
+      val = (long)(prog.base + prog.eh.e_phoff);
+    if (key == AT_PHENT)
+      val = prog.eh.e_phentsize;
+    if (key == AT_PHNUM)
+      val = prog.eh.e_phnum;
+    if (key == AT_PAGESZ)
+      val = pagesz;
+    if (key == AT_BASE)
+      val = (long)interp.base;
+    if (key == AT_FLAGS)
+      val = 0;
+    if (key == AT_ENTRY)
+      val = (long)prog.entry;
+    if (key == AT_EXECFN)
+      val = (long)program_invocation_name;
     *--sp = val;
     *--sp = key;
   }
@@ -432,9 +415,8 @@ static dontinline char *foreign_alloc_block(void) {
   if (!IsWindows()) {
     p = __sys_mmap(0, sz, PROT_READ | PROT_WRITE | PROT_EXEC,
                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_JIT, -1, 0, 0);
-    if (p == MAP_FAILED) {
+    if (p == MAP_FAILED)
       p = 0;
-    }
   } else {
     uintptr_t h;
     if ((h = CreateFileMapping(-1, 0, kNtPageExecuteReadwrite, 0, sz, 0))) {
@@ -455,11 +437,9 @@ static dontinline void *foreign_alloc(size_t n) {
   static char *block;
   static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
   pthread_mutex_lock(&lock);
-  if (!block || READ32LE(block) + n > 65536) {
-    if (!(block = foreign_alloc_block())) {
+  if (!block || READ32LE(block) + n > 65536)
+    if (!(block = foreign_alloc_block()))
       return 0;
-    }
-  }
   res = block + READ32LE(block);
   WRITE32LE(block, READ32LE(block) + n);
   pthread_mutex_unlock(&lock);
@@ -470,9 +450,8 @@ static uint8_t *movimm(uint8_t p[static 16], int reg, uint64_t val) {
 #ifdef __x86_64__
   int rex;
   rex = AMD_REXW;
-  if (reg & 8) {
+  if (reg & 8)
     rex |= AMD_REXB;
-  }
   *p++ = rex;
   *p++ = AMD_MOV_IMM | (reg & 7);
   p = WRITE64LE(p, val);
@@ -512,11 +491,15 @@ static uint8_t *movimm(uint8_t p[static 16], int reg, uint64_t val) {
 static void *foreign_thunk_sysv(void *func) {
   uint8_t *code, *p;
 #ifdef __x86_64__
-  // movabs $func,%r9
+  // it is no longer needed
+  if (1)
+    return func;
+  // movabs $func,%rax
   // movabs $foreign_tramp,%r10
   // jmp *%r10
-  if (!(p = code = foreign_alloc(23))) return 0;  // 10 + 10 + 3 = 23
-  p = movimm(p, 9, (uintptr_t)func);
+  if (!(p = code = foreign_alloc(23)))
+    return 0;  // 10 + 10 + 3 = 23
+  p = movimm(p, 0, (uintptr_t)func);
   p = movimm(p, 10, (uintptr_t)foreign_tramp);
   *p++ = 0x41;
   *p++ = 0xff;
@@ -524,7 +507,7 @@ static void *foreign_thunk_sysv(void *func) {
 #elif defined(__aarch64__)
   __jit_begin();
   if ((p = code = foreign_alloc(36))) {
-    p = movimm(p, 5, (uintptr_t)func);
+    p = movimm(p, 8, (uintptr_t)func);
     p = movimm(p, 10, (uintptr_t)foreign_tramp);
     *(uint32_t *)p = 0xd61f0140;  // br x10
     __clear_cache(code, p + 4);
@@ -538,7 +521,8 @@ static void *foreign_thunk_sysv(void *func) {
 
 static void *foreign_thunk_nt(void *func) {
   uint8_t *code;
-  if (!(code = foreign_alloc(27))) return 0;
+  if (!(code = foreign_alloc(27)))
+    return 0;
   // push %rbp
   code[0] = 0x55;
   // mov %rsp,%rbp
@@ -552,7 +536,9 @@ static void *foreign_thunk_nt(void *func) {
   // movabs $tramp,%r10
   code[14] = 0x49;
   code[15] = 0xba;
+#ifdef __x86_64__
   WRITE64LE(code + 16, (uintptr_t)__sysv2nt14);
+#endif
   // jmp *%r10
   code[24] = 0x41;
   code[25] = 0xff;
@@ -565,9 +551,8 @@ static dontinline bool foreign_compile(char exe[hasatleast PATH_MAX]) {
   // construct path
   strlcpy(exe, get_tmp_dir(), PATH_MAX);
   strlcat(exe, "/.cosmo/", PATH_MAX);
-  if (mkdir(exe, 0755) && errno != EEXIST) {
+  if (mkdir(exe, 0755) && errno != EEXIST)
     return false;
-  }
   strlcat(exe, "dlopen-helper", PATH_MAX);
 
   // skip build if helper exists and this program is older
@@ -598,9 +583,8 @@ static dontinline bool foreign_compile(char exe[hasatleast PATH_MAX]) {
       ssize_t got = pread(fd, sauce, sizeof(HELPER), 0);
       close(fd);
       if (got == sizeof(HELPER) - 1 &&
-          !memcmp(sauce, HELPER, sizeof(HELPER) - 1)) {
+          !memcmp(sauce, HELPER, sizeof(HELPER) - 1))
         return true;
-      }
     }
   }
 
@@ -608,9 +592,8 @@ static dontinline bool foreign_compile(char exe[hasatleast PATH_MAX]) {
   char tmp[PATH_MAX];
   strlcpy(tmp, src, PATH_MAX);
   strlcat(tmp, ".XXXXXX", PATH_MAX);
-  if ((fd = mkostemp(tmp, O_CLOEXEC)) == -1) {
+  if ((fd = mkostemp(tmp, O_CLOEXEC)) == -1)
     return false;
-  }
   if (write(fd, HELPER, sizeof(HELPER) - 1) != sizeof(HELPER) - 1) {
     close(fd);
     unlink(tmp);
@@ -628,12 +611,19 @@ static dontinline bool foreign_compile(char exe[hasatleast PATH_MAX]) {
   // create executable
   strlcpy(tmp, exe, PATH_MAX);
   strlcat(tmp, ".XXXXXX", PATH_MAX);
-  if ((fd = mkostemp(tmp, O_CLOEXEC)) == -1) {
+  if ((fd = mkostemp(tmp, O_CLOEXEC)) == -1)
     return false;
-  }
   int pid, ws;
   char *args[] = {
-      "cc", "-pie", "-fPIC", src, "-o", tmp, IsNetbsd() ? 0 : "-ldl", 0,
+      "cc",
+      "-pie",
+      "-fPIC",
+      src,
+      "-o",
+      tmp,
+      IsLinux() ? "-Wl,-z,execstack" : "-DIGNORE",
+      IsNetbsd() ? 0 : "-ldl",
+      0,
   };
   errno_t err = posix_spawnp(&pid, args[0], NULL, NULL, args, environ);
   if (err) {
@@ -641,11 +631,11 @@ static dontinline bool foreign_compile(char exe[hasatleast PATH_MAX]) {
     errno = err;
     return false;
   }
-  while (waitpid(pid, &ws, 0) == -1) {
-    if (errno != EINTR) {
-      unlink(tmp);
-      return false;
-    }
+  if (waitpid(pid, &ws, 0) == -1) {
+    // signals and cancelation are blocked
+    // therefore this must be a real error
+    unlink(tmp);
+    return false;
   }
   if (ws) {
     unlink(tmp);
@@ -668,19 +658,19 @@ static bool foreign_setup(void) {
 #ifdef __x86_64__
   struct CosmoTib *cosmo_tib = __get_tls();
 #endif
-  if (!setjmp(foreign.jb)) {
+  if (!setjmp(__foreign.jb)) {
     elf_exec(exe, environ);
     return false;  // if elf_exec() returns, it failed
   }
 #ifdef __x86_64__
-  foreign.tib = __get_tls();
+  __foreign.tib = __get_tls();
   __set_tls(cosmo_tib);
 #endif
-  foreign.dlopen = foreign_thunk_sysv(foreign.dlopen);
-  foreign.dlsym = foreign_thunk_sysv(foreign.dlsym);
-  foreign.dlclose = foreign_thunk_sysv(foreign.dlclose);
-  foreign.dlerror = foreign_thunk_sysv(foreign.dlerror);
-  foreign.is_supported = true;
+  __foreign.dlopen = foreign_thunk_sysv(__foreign.dlopen);
+  __foreign.dlsym = foreign_thunk_sysv(__foreign.dlsym);
+  __foreign.dlclose = foreign_thunk_sysv(__foreign.dlclose);
+  __foreign.dlerror = foreign_thunk_sysv(__foreign.dlerror);
+  __foreign.is_supported = true;
   return true;
 }
 
@@ -690,10 +680,9 @@ static void foreign_once(void) {
 
 static bool foreign_init(void) {
   bool res;
-  cosmo_once(&foreign.once, foreign_once);
-  if (!(res = foreign.is_supported)) {
+  cosmo_once(&__foreign.once, foreign_once);
+  if (!(res = __foreign.is_supported))
     dlerror_set("dlopen() isn't supported on this platform");
-  }
   return res;
 }
 
@@ -729,40 +718,34 @@ static void *dlopen_nt(const char *path, int mode) {
     path16[n + 0] = 'l';
     path16[n + 1] = 0;
   }
-  if (!(handle = LoadLibrary(path16))) {
+  if (!(handle = LoadLibrary(path16)))
     dlerror_set("library not found");
-  }
   return (void *)handle;
 }
 
 static void *dlsym_nt(void *handle, const char *name) {
   void *x64_abi_func;
-  void *sysv_abi_func = 0;
   if ((x64_abi_func = GetProcAddress((uintptr_t)handle, name))) {
-    sysv_abi_func = foreign_thunk_nt(x64_abi_func);
+    return x64_abi_func;
   } else {
     dlerror_set("symbol not found: ");
     strlcat(dlerror_buf, name, sizeof(dlerror_buf));
+    return 0;
   }
-  return sysv_abi_func;
 }
 
 static void *dlopen_silicon(const char *path, int mode) {
   int n;
   int xnu_mode = 0;
   char path2[PATH_MAX + 5];
-  if (mode & ~(RTLD_LOCAL | RTLD_LAZY | RTLD_NOW | RTLD_GLOBAL)) {
+  if (mode & ~(RTLD_LOCAL | RTLD_LAZY | RTLD_NOW | RTLD_GLOBAL))
     xnu_mode = -1;  // punt error to system dlerror() impl
-  }
-  if (!(mode & RTLD_GLOBAL)) {
+  if (!(mode & RTLD_GLOBAL))
     xnu_mode |= XNU_RTLD_LOCAL;  // unlike Linux, XNU defaults to RTLD_GLOBAL
-  }
-  if (mode & RTLD_NOW) {
+  if (mode & RTLD_NOW)
     xnu_mode |= XNU_RTLD_NOW;
-  }
-  if (mode & RTLD_LAZY) {
+  if (mode & RTLD_LAZY)
     xnu_mode |= XNU_RTLD_LAZY;
-  }
   if ((n = strlen(path)) < PATH_MAX && n > 3 &&  //
       path[n - 3] == '.' &&                      //
       path[n - 2] == 's' &&                      //
@@ -786,26 +769,13 @@ static void *dlopen_silicon(const char *path, int mode) {
  * this wrapper will automatically change it to `.dll` or `.dylib` to
  * increase its chance of successfully loading.
  *
- * WARNING: This isn't supported on MacOS x86-64, OpenBSD, and NetBSD.
- *
- * WARNING: This dlopen() implementation is highly limited. Cosmo
- * binaries are always statically linked. You can import functions from
- * dynamic shared objects, but you can't export any. This dlopen() won't
- * work for language plugins, but might help you access GUI and GPU DRM.
- *
- * WARNING: Do not expect this dlopen() is in any way safe to use. It's
- * mostly due to thread local storage. On Windows it should be safe. On
- * Apple Silicon it should be safe so long as foreign functions don't
- * issue callbacks. On libre OSes we currently only make dlopen() APIs
- * safe to use. In order for it to be safe, four system calls need to be
- * issued for every dlopen() related API call, and that's assuming this
- * API is only used from the main of your program. Most importantly
- * there are no safeguards added around imported functions, since it'd
- * make them go 1000x slower. It's the responsibility of the caller to
- * ensure that imported functions never touch TLS, don't install signal
- * handlers, will never spawn threads, and don't issue callbacks. Care
- * should also be taken on all platforms, to ensure dynamic memory is
- * being passed to the correct malloc() and free() implementations.
+ * WARNING: Our API uses a different naming because cosmo_dlopen() lacks
+ * many of the features one would reasonably expect from a UNIX dlopen()
+ * implementation; and we don't want to lead ./configure scripts astray.
+ * Foreign libraries also can't link symbols defined by your executable,
+ * which means using this for high-level language plugins is completely
+ * out of the question. What cosmo_dlopen() can do is help you talk to
+ * GPU and GUI libraries like CUDA and SDL.
  *
  * @param mode is a bitmask that can contain:
  *     - `RTLD_LOCAL` (default)
@@ -813,10 +783,13 @@ static void *dlopen_silicon(const char *path, int mode) {
  *     - `RTLD_LAZY`
  *     - `RTLD_NOW`
  * @return dso handle, or NULL w/ dlerror()
+ * @note this non-standard API is feature gated; you need to pass the
+ *     `-mcosmo` flag to `cosmocc` so that `<dlfcn.h>` will define it
  */
 void *cosmo_dlopen(const char *path, int mode) {
   void *res;
   BLOCK_SIGNALS;
+  BLOCK_CANCELATION;
   if (IsWindows()) {
     res = dlopen_nt(path, mode);
   } else if (IsXnuSilicon()) {
@@ -824,12 +797,16 @@ void *cosmo_dlopen(const char *path, int mode) {
   } else if (IsXnu()) {
     dlerror_set("dlopen() isn't supported on x86-64 MacOS");
     res = 0;
+  } else if (IsOpenbsd()) {
+    // TODO(jart): implement workaround for msyscall() dilemma
+    dlerror_set("dlopen() isn't supported on OpenBSD yet");
+    res = 0;
   } else if (foreign_init()) {
-    STRACE("calling platform dlopen %p tib %p...", foreign.dlopen, foreign.tib);
-    res = foreign.dlopen(path, mode);
+    res = __foreign.dlopen(path, mode);
   } else {
     res = 0;
   }
+  ALLOW_CANCELATION;
   ALLOW_SIGNALS;
   STRACE("dlopen(%#s, %d) → %p% m", path, mode, res);
   return res;
@@ -838,8 +815,26 @@ void *cosmo_dlopen(const char *path, int mode) {
 /**
  * Obtains address of symbol from dynamic shared object.
  *
- * On Windows you can only use this to lookup function addresses.
- * Returned functions are trampolined to conform to System V ABI.
+ * WARNING: You almost always want to say this:
+ *
+ *     pFunction = cosmo_dltramp(cosmo_dlsym(dso, "function"));
+ *
+ * That will generate code at runtime for automatically translating to
+ * Microsoft's x64 calling convention when appropriate. However the
+ * automated solution doesn't always work. For example, the prototype:
+ *
+ *     void func(int, float);
+ *
+ * Won't be translated correctly, due to the differences in ABI. We're
+ * able to smooth over most of them, but that's just one of several
+ * examples where we can't. A good rule of thumb is:
+ *
+ *   - More than four float/double args is problematic
+ *   - Having both integral and floating point parameters is bad
+ *
+ * For those kinds of functions, you need to translate the ABI by hand.
+ * This can be accomplished using the GCC `__ms_abi__` attribute, where
+ * you'd have two function pointer types branched upon `IsWindows()`.
  *
  * @param handle was opened by dlopen()
  * @return address of symbol, or NULL w/ dlerror()
@@ -849,21 +844,28 @@ void *cosmo_dlsym(void *handle, const char *name) {
   if (IsWindows()) {
     func = dlsym_nt(handle, name);
   } else if (IsXnuSilicon()) {
-    if ((func = __syslib->__dlsym(handle, name))) {
-      func = foreign_thunk_sysv(func);
-    }
+    func = __syslib->__dlsym(handle, name);
   } else if (IsXnu()) {
     dlerror_set("dlopen() isn't supported on x86-64 MacOS");
     func = 0;
   } else if (foreign_init()) {
-    if ((func = foreign.dlsym(handle, name))) {
-      func = foreign_thunk_sysv(func);
-    }
+    func = __foreign.dlsym(handle, name);
   } else {
     func = 0;
   }
   STRACE("dlsym(%p, %#s) → %p", handle, name, func);
   return func;
+}
+
+/**
+ * Trampolines foreign function pointer so it can be called safely.
+ */
+void *cosmo_dltramp(void *foreign_func) {
+  if (!IsWindows()) {
+    return foreign_thunk_sysv(foreign_func);
+  } else {
+    return foreign_thunk_nt(foreign_func);
+  }
 }
 
 /**
@@ -882,7 +884,7 @@ int cosmo_dlclose(void *handle) {
     dlerror_set("dlopen() isn't supported on x86-64 MacOS");
     res = -1;
   } else if (foreign_init()) {
-    res = foreign.dlclose(handle);
+    res = __foreign.dlclose(handle);
   } else {
     res = -1;
   }
@@ -900,7 +902,7 @@ char *cosmo_dlerror(void) {
   } else if (IsWindows() || IsXnu()) {
     res = dlerror_buf;
   } else if (foreign_init()) {
-    res = foreign.dlerror();
+    res = __foreign.dlerror();
     res = dlerror_set(res);
   } else {
     res = dlerror_buf;

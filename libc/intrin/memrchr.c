@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -36,8 +36,8 @@ static inline const unsigned char *memrchr_pure(const unsigned char *s,
 }
 
 #if defined(__x86_64__) && !defined(__chibicc__)
-static inline const unsigned char *memrchr_sse(const unsigned char *s,
-                                               unsigned char c, size_t n) {
+static __vex const unsigned char *memrchr_sse(const unsigned char *s,
+                                              unsigned char c, size_t n) {
   size_t i;
   unsigned m;
   xmm_t v, t = {c, c, c, c, c, c, c, c, c, c, c, c, c, c, c, c};
@@ -69,9 +69,7 @@ static inline const unsigned char *memrchr_sse(const unsigned char *s,
  */
 void *memrchr(const void *s, int c, size_t n) {
 #if defined(__x86_64__) && !defined(__chibicc__)
-  const void *r;
-  r = memrchr_sse(s, c, n);
-  return (void *)r;
+  return (void *)memrchr_sse(s, c, n);
 #else
   return (void *)memrchr_pure(s, c, n);
 #endif

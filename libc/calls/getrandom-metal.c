@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -64,7 +64,8 @@ static ssize_t GetRandomCpu(char *p, size_t n, int f, bool impl(uint64_t *)) {
   for (i = 0; i < n; i += j) {
   TryAgain:
     if (!impl(&x)) {
-      if (f || i >= 256) break;
+      if (f || i >= 256)
+        break;
       goto TryAgain;
     }
     for (j = 0; j < 8 && i + j < n; ++j) {

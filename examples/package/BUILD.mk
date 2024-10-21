@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 #
 # SYNOPSIS
 #
@@ -42,6 +42,7 @@ EXAMPLES_PACKAGE_OBJS =					\
 EXAMPLES_PACKAGE_DIRECTDEPS =				\
 	EXAMPLES_PACKAGE_LIB				\
 	LIBC_INTRIN					\
+	LIBC_MEM					\
 	LIBC_STDIO					\
 	LIBC_TINYMATH
 

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -24,7 +24,7 @@
 #include "libc/fmt/conv.h"
 #include "libc/runtime/zipos.internal.h"
 #include "libc/sysv/consts/at.h"
-#include "libc/time/time.h"
+#include "libc/time.h"
 
 int sys_utimensat(int dirfd, const char *path, const struct timespec ts[2],
                   int flags) {

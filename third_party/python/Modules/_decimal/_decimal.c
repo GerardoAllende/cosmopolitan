@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:4;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=4 sts=4 sw=4 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=4 sts=4 sw=4 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright (c) 2008-2016 Stefan Krah. All rights reserved.                    │
 │                                                                              │
@@ -46,6 +46,7 @@
 #include "third_party/python/Include/tupleobject.h"
 #include "third_party/python/Include/yoink.h"
 #include "third_party/python/Modules/_decimal/docstrings.h"
+#include "libc/ctype.h"
 #include "third_party/python/Modules/_decimal/libmpdec/mpdecimal.h"
 
 PYTHON_PROVIDE("_decimal");
@@ -95,11 +96,6 @@ PYTHON_PROVIDE("_decimal.setcontext");
 
 PYTHON_YOINK("numbers");
 PYTHON_YOINK("collections");
-
-asm(".ident\t\"\\n\
-libmpdec (BSD-2)\\n\
-Copyright 2008-2016 Stefan Krah\"");
-asm(".include \"libc/disclaimer.inc\"");
 
 #if !defined(MPD_VERSION_HEX) || MPD_VERSION_HEX < 0x02040100
   #error "libmpdec version >= 2.4.1 required"

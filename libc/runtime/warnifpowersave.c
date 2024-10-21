@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -36,6 +36,8 @@
   "/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor\n"
 
 void __warn_if_powersave(void) {
+  if (1)
+    return;
   int e, fd;
   char buf[16] = {0};
   if (IsLinux()) {
@@ -44,7 +46,8 @@ void __warn_if_powersave(void) {
     if ((fd = __sys_openat(AT_FDCWD, FILE, O_RDONLY, 0)) != -1) {
       sys_read(fd, buf, 15);
       sys_close(fd);
-      if (!startswith(buf, "powersave")) return;
+      if (!startswith(buf, "powersave"))
+        return;
       sys_write(2, WARN, sizeof(WARN) - 1);
     }
     ALLOW_CANCELATION;

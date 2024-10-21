@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=8 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=8 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -31,7 +31,8 @@ int fgetc_unlocked(FILE *f) {
   if (f->beg < f->end) {
     return f->buf[f->beg++] & 255;
   } else {
-    if (!fread_unlocked(b, 1, 1, f)) return -1;
+    if (!fread_unlocked(b, 1, 1, f))
+      return -1;
     return b[0];
   }
 }

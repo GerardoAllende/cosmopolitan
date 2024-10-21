@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,7 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/struct/rlimit.h"
 #include "libc/errno.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/proc/posix_spawn.h"
 #include "libc/proc/posix_spawn.internal.h"
 #include "libc/sysv/consts/rlim.h"
@@ -26,14 +26,14 @@
 /**
  * Sets resource limit on spawned process.
  *
- * You also need to pass `POSIX_SPAWN_SETRLIMIT` to
+ * You also need to pass `POSIX_SPAWN_SETRLIMIT_NP` to
  * posix_spawnattr_setflags() for it to take effect.
  *
  * @return 0 on success, or errno on error
  * @raise EINVAL if resource is invalid
  */
-int posix_spawnattr_setrlimit(posix_spawnattr_t *attr, int resource,
-                              const struct rlimit *rlim) {
+int posix_spawnattr_setrlimit_np(posix_spawnattr_t *attr, int resource,
+                                 const struct rlimit *rlim) {
   if (0 <= resource && resource < MIN(RLIM_NLIMITS, ARRAYLEN((*attr)->rlim))) {
     (*attr)->rlimset |= 1u << resource;
     (*attr)->rlim[resource] = *rlim;

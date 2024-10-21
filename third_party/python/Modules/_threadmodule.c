@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:4;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=4 sts=4 sw=4 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=4 sts=4 sw=4 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Python 3                                                                     │
 │ https://docs.python.org/3/license.html                                       │
@@ -27,7 +27,7 @@
 #include "libc/errno.h"
 #include "libc/log/log.h"
 #include "libc/mem/alg.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/nt/createfile.h"
 #include "libc/nt/dll.h"
 #include "libc/nt/enum/creationdisposition.h"
@@ -58,8 +58,7 @@
 #include "libc/sysv/consts/w.h"
 #include "libc/sysv/consts/waitid.h"
 #include "libc/sysv/errfuns.h"
-#include "libc/time/struct/utimbuf.h"
-#include "libc/time/time.h"
+#include "libc/time.h"
 #include "libc/x/x.h"
 #include "third_party/musl/lockf.h"
 #include "third_party/musl/passwd.h"

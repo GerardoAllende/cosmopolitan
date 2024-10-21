@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -16,10 +16,12 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#include "libc/atomic.h"
 #include "libc/calls/calls.h"
 #include "libc/dce.h"
+#include "libc/intrin/atomic.h"
+#include "libc/intrin/kprintf.h"
 #include "libc/mem/gc.h"
-#include "libc/mem/gc.internal.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/internal.h"
 #include "libc/runtime/runtime.h"
@@ -46,7 +48,6 @@ void *ForceThreadingMode(void *arg) {
 }
 
 TEST(pthread_atfork, test) {
-  __enable_threads();
   SPAWN(fork);
   ASSERT_EQ(0, pthread_atfork(prepare1, parent1, child1));
   ASSERT_EQ(0, pthread_atfork(prepare2, parent2, child2));
@@ -67,7 +68,7 @@ TEST(pthread_atfork, test) {
   EXITS(0);
 }
 
-pthread_mutex_t mu;
+pthread_mutex_t mu = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;
 
 void mu_lock(void) {
   pthread_mutex_lock(&mu);
@@ -100,14 +101,14 @@ void *Worker(void *arg) {
 }
 
 TEST(pthread_atfork, fork_exit_torture) {
+  if (!IsFreebsd())
+    return;
   mu_wipe();
   pthread_atfork(mu_lock, mu_unlock, mu_wipe);
   int i, n = 4;
   pthread_t *t = gc(malloc(sizeof(pthread_t) * n));
-  for (i = 0; i < n; ++i) {
+  for (i = 0; i < n; ++i)
     ASSERT_EQ(0, pthread_create(t + i, 0, Worker, 0));
-  }
-  for (i = 0; i < n; ++i) {
+  for (i = 0; i < n; ++i)
     ASSERT_EQ(0, pthread_join(t[i], 0));
-  }
 }

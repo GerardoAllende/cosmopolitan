@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -31,7 +31,8 @@ void reentrant_signal_handler(int signum) {
   burn_stack[0] = 3;
 
   // Increment the count to indicate the signal was handled
-  if (++signal_handled_count == 10000) return;
+  if (++signal_handled_count == 10000)
+    return;
 
   // Re-raise the signal to test reentrancy
   raise(signum | burn_stack[3000]);

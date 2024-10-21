@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 
 PKGS += THIRD_PARTY_UNZIP
 
@@ -23,8 +23,9 @@ THIRD_PARTY_UNZIP_A_DIRECTDEPS =						\
 	LIBC_STDIO								\
 	LIBC_STR								\
 	LIBC_SYSV								\
-	LIBC_TIME								\
-	THIRD_PARTY_BZIP2
+	THIRD_PARTY_BZIP2							\
+	THIRD_PARTY_MUSL							\
+	THIRD_PARTY_TZ								\
 
 THIRD_PARTY_UNZIP_A_DEPS :=							\
 	$(call uniq,$(foreach x,$(THIRD_PARTY_UNZIP_A_DIRECTDEPS),$($(x))))
@@ -41,7 +42,7 @@ $(THIRD_PARTY_UNZIP_A).pkg:							\
 		$(THIRD_PARTY_UNZIP_A_OBJS)					\
 		$(foreach x,$(THIRD_PARTY_UNZIP_A_DIRECTDEPS),$($(x)_A).pkg)
 
-o/$(MODE)/third_party/unzip/unzip.com.dbg:					\
+o/$(MODE)/third_party/unzip/unzip.dbg:						\
 		$(THIRD_PARTY_UNZIP)						\
 		o/$(MODE)/third_party/unzip/unzip.o				\
 		$(CRT)								\
@@ -62,7 +63,7 @@ $(THIRD_PARTY_UNZIP_A_OBJS): private						\
 		CFLAGS +=							\
 			$(OLD_CODE)
 
-THIRD_PARTY_UNZIP_COMS = o/$(MODE)/third_party/unzip/unzip.com
+THIRD_PARTY_UNZIP_COMS = o/$(MODE)/third_party/unzip/unzip
 THIRD_PARTY_UNZIP_BINS = $(THIRD_PARTY_UNZIP_COMS) $(THIRD_PARTY_UNZIP_COMS:%=%.dbg)
 THIRD_PARTY_UNZIP_LIBS = $(foreach x,$(THIRD_PARTY_UNZIP_ARTIFACTS),$($(x)))
 THIRD_PARTY_UNZIP_SRCS = $(foreach x,$(THIRD_PARTY_UNZIP_ARTIFACTS),$($(x)_SRCS))

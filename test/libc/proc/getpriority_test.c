@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -29,7 +29,7 @@
 
 void SetUp(void) {
   if (getpriority(PRIO_PROCESS, getpid()) != 0) {
-    kprintf("getpriority_test.com must be launched at priority zero\n");
+    kprintf("getpriority_test must be launched at priority zero\n");
     exit(0);
   }
 }
@@ -60,7 +60,8 @@ TEST(getpriority, higherPriorityOfSelf) {
 }
 
 TEST(getpriority, lowerAndRaiseItAgain_notAllowed) {
-  if (1) return;  // this behavior seems limited to modern linux
+  if (1)
+    return;  // this behavior seems limited to modern linux
   SPAWN(fork);
   ASSERT_SYS(0, 0, setpriority(PRIO_PROCESS, 0, 5));
   ASSERT_SYS(EACCES, -1, setpriority(PRIO_PROCESS, 0, 4));

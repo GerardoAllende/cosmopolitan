@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ This is free and unencumbered software released into the public domain.      │
 │                                                                              │
@@ -91,7 +91,8 @@ void uvprintf(const char *fmt, va_list v) {
     char *buf = alloca(size);
     CheckLargeStackAllocation(buf, size);
     size_t count = kvsnprintf(buf, size, fmt, v);
-    if (count >= size) count = size - 1;
+    if (count >= size)
+      count = size - 1;
     _TtyWrite(&_vga_tty, buf, count);
     _klog_serial(buf, count);
   }

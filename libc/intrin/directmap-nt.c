@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,7 +20,7 @@
 #include "libc/calls/internal.h"
 #include "libc/calls/state.internal.h"
 #include "libc/errno.h"
-#include "libc/intrin/directmap.internal.h"
+#include "libc/intrin/directmap.h"
 #include "libc/nt/enum/filemapflags.h"
 #include "libc/nt/enum/pageflags.h"
 #include "libc/nt/errors.h"
@@ -86,9 +86,8 @@ TryAgain:
     if ((dm.addr = MapViewOfFileEx(dm.maphandle, fl.flags2, off >> 32, off,
                                    size, addr))) {
       uint32_t oldprot;
-      if (VirtualProtect(addr, size, __prot2nt(prot, iscow), &oldprot)) {
+      if (VirtualProtect(dm.addr, size, __prot2nt(prot, iscow), &oldprot))
         return dm;
-      }
       UnmapViewOfFile(dm.addr);
     }
     CloseHandle(dm.maphandle);

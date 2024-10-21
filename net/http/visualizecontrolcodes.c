@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -43,7 +43,8 @@ char *VisualizeControlCodes(const char *data, size_t size, size_t *out_size) {
   unsigned i, n;
   wint_t x, a, b;
   const char *p, *e;
-  if (size == -1) size = data ? strlen(data) : 0;
+  if (size == -1)
+    size = data ? strlen(data) : 0;
   if ((r = malloc(size * 6 + 1))) {
     q = r;
     p = data;
@@ -56,7 +57,8 @@ char *VisualizeControlCodes(const char *data, size_t size, size_t *out_size) {
         if (p + n <= e) {
           for (i = 0;;) {
             b = p[i] & 0xff;
-            if (!ThomPikeCont(b)) break;
+            if (!ThomPikeCont(b))
+              break;
             a = ThomPikeMerge(a, b);
             if (++i == n) {
               x = a;
@@ -116,7 +118,8 @@ char *VisualizeControlCodes(const char *data, size_t size, size_t *out_size) {
     }
     n = q - r;
     *q++ = '\0';
-    if ((q = realloc(r, q - r))) r = q;
+    if ((q = realloc(r, q - r)))
+      r = q;
   } else {
     n = 0;
   }

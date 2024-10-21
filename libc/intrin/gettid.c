@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -40,12 +40,11 @@ int gettid(void) {
   int tid;
   if (VERY_LIKELY(__tls_enabled && !__vforked)) {
     tid = atomic_load_explicit(&__get_tls()->tib_tid, memory_order_acquire);
-    if (VERY_LIKELY(tid > 0)) {
+    if (VERY_LIKELY(tid > 0))
       return tid;
-    }
   }
   if (IsXnuSilicon()) {
-    return enosys();
+    return enosys();  // can only happen if we can't access thread local storage
   } else {
     return sys_gettid();
   }

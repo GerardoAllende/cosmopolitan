@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -21,15 +21,15 @@
 #include "libc/fmt/conv.h"
 #include "libc/log/check.h"
 #include "libc/log/log.h"
-#include "libc/macros.internal.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/macros.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/nexgen32e/kompressor.h"
 #include "libc/nexgen32e/lz4.h"
 #include "libc/runtime/runtime.h"
 #include "libc/stdio/stdio.h"
 #include "libc/str/str.h"
-#include "libc/str/tab.internal.h"
+#include "libc/str/tab.h"
 #include "libc/x/x.h"
 #include "third_party/getopt/getopt.internal.h"
 
@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
 
   fprintf(fout,
           "/\t%s -o %s -s %s %s\n"
-          "#include \"libc/macros.internal.h\"\n"
+          "#include \"libc/macros.h\"\n"
           "\n",
           argv[0], outpath, symbol, lz4path);
 
@@ -164,7 +164,8 @@ int main(int argc, char *argv[]) {
     }
     /* TODO(jart): Fix Emacs */
     glyphs[col] = kCp437[ch == '"' || ch == '#' ? '.' : ch];
-    if (col) fputc(',', fout);
+    if (col)
+      fputc(',', fout);
     fprintf(fout, "0x%02x", ch);
     if (++col == COLS) {
       col = 0;

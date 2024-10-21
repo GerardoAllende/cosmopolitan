@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -78,7 +78,8 @@ TEST(read_pipe, canBeInterruptedByAlarm) {
 
 TEST(read_directory, eisdir) {
   // TODO(jart): what
-  if (IsWindows() || IsFreebsd()) return;
+  if (IsWindows() || IsFreebsd())
+    return;
   ASSERT_SYS(0, 0, mkdir("boop", 0755));
   ASSERT_SYS(0, 3, open("boop", O_RDONLY | O_DIRECTORY));
   ASSERT_SYS(EISDIR, -1, read(3, 0, 0));
@@ -102,7 +103,8 @@ void *GenerateData(void *arg) {
   for (;;) {
     usleep(223);
     int rc = write(fds[1], "hi", 2);
-    if (rc == -1 && errno == EPIPE) break;
+    if (rc == -1 && errno == EPIPE)
+      break;
     ASSERT_EQ(2, rc);
   }
   return 0;

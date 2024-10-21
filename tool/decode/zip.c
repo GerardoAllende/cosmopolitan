@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -16,19 +16,20 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#include "libc/assert.h"
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/stat.h"
 #include "libc/fmt/libgen.h"
 #include "libc/fmt/wintime.internal.h"
-#include "libc/serialize.h"
 #include "libc/intrin/kprintf.h"
-#include "libc/intrin/safemacros.internal.h"
+#include "libc/intrin/safemacros.h"
 #include "libc/log/check.h"
 #include "libc/log/log.h"
 #include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/nexgen32e/crc32.h"
 #include "libc/nt/struct/filetime.h"
+#include "libc/serialize.h"
 #include "libc/stdckdint.h"
 #include "libc/stdio/stdio.h"
 #include "libc/stdio/sysparam.h"
@@ -36,9 +37,9 @@
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/prot.h"
+#include "libc/time.h"
 #include "libc/x/xasprintf.h"
-#include "libc/x/xiso8601.h"
-#include "libc/zip.internal.h"
+#include "libc/zip.h"
 #include "tool/decode/lib/asmcodegen.h"
 #include "tool/decode/lib/disassemblehex.h"
 #include "tool/decode/lib/flagger.h"
@@ -61,6 +62,24 @@ static __wur char *FormatDosDate(uint16_t dosdate) {
 static __wur char *FormatDosTime(uint16_t dostime) {
   return xasprintf("%02u:%02u:%02u", (dostime >> 11) & 0b11111,
                    (dostime >> 5) & 0b111111, (dostime << 1) & 0b111110);
+}
+
+char *xiso8601(struct timespec ts) {
+  struct tm tm;
+  if (!localtime_r(&ts.tv_sec, &tm))
+    return 0;
+  int len = 128;
+  char *res = malloc(len);
+  char *ptr = res;
+  char *end = res + len;
+  if (!res)
+    return 0;
+  ptr += strftime(ptr, end - ptr, "%Y-%m-%dT%H:%M:%S", &tm);
+  ptr += snprintf(ptr, end - ptr, "%09ld", ts.tv_nsec);
+  ptr += strftime(ptr, end - ptr, "%z", &tm);
+  unassert(ptr + 1 <= end);
+  unassert(realloc_in_place(res, ptr + 1 - res) == res);
+  return res;
 }
 
 void AdvancePosition(uint8_t *map, size_t *pos, size_t off) {
@@ -86,9 +105,9 @@ void ShowGeneralFlag(uint16_t generalflag) {
 
 void ShowTimestamp(uint16_t time, uint16_t date) {
   show(".short", format(b1, "%#04hx", time),
-       _gc(xasprintf("%s (%s)", "lastmodifiedtime", _gc(FormatDosTime(time)))));
+       gc(xasprintf("%s (%s)", "lastmodifiedtime", gc(FormatDosTime(time)))));
   show(".short", format(b1, "%#04hx", date),
-       _gc(xasprintf("%s (%s)", "lastmodifieddate", _gc(FormatDosDate(date)))));
+       gc(xasprintf("%s (%s)", "lastmodifieddate", gc(FormatDosDate(date)))));
 }
 
 void ShowCompressionMethod(uint16_t compressmethod) {
@@ -103,19 +122,18 @@ void ShowNtfs(uint8_t *ntfs, size_t n) {
   mtime = WindowsTimeToTimeSpec(READ64LE(ntfs + 8));
   atime = WindowsTimeToTimeSpec(READ64LE(ntfs + 16));
   ctime = WindowsTimeToTimeSpec(READ64LE(ntfs + 24));
-  show(".long", _gc(xasprintf("%d", READ32LE(ntfs))), "ntfs reserved");
-  show(".short", _gc(xasprintf("0x%04x", READ16LE(ntfs + 4))),
+  show(".long", gc(xasprintf("%d", READ32LE(ntfs))), "ntfs reserved");
+  show(".short", gc(xasprintf("0x%04x", READ16LE(ntfs + 4))),
        "ntfs attribute tag value #1");
-  show(".short", _gc(xasprintf("%hu", READ16LE(ntfs + 6))),
+  show(".short", gc(xasprintf("%hu", READ16LE(ntfs + 6))),
        "ntfs attribute tag size");
-  show(".quad", _gc(xasprintf("%lu", READ64LE(ntfs + 8))),
-       _gc(xasprintf("%s (%s)", "ntfs last modified time",
-                     _gc(xiso8601(&mtime)))));
-  show(".quad", _gc(xasprintf("%lu", READ64LE(ntfs + 16))),
-       _gc(xasprintf("%s (%s)", "ntfs last access time",
-                     _gc(xiso8601(&atime)))));
-  show(".quad", _gc(xasprintf("%lu", READ64LE(ntfs + 24))),
-       _gc(xasprintf("%s (%s)", "ntfs creation time", _gc(xiso8601(&ctime)))));
+  show(
+      ".quad", gc(xasprintf("%lu", READ64LE(ntfs + 8))),
+      gc(xasprintf("%s (%s)", "ntfs last modified time", gc(xiso8601(mtime)))));
+  show(".quad", gc(xasprintf("%lu", READ64LE(ntfs + 16))),
+       gc(xasprintf("%s (%s)", "ntfs last access time", gc(xiso8601(atime)))));
+  show(".quad", gc(xasprintf("%lu", READ64LE(ntfs + 24))),
+       gc(xasprintf("%s (%s)", "ntfs creation time", gc(xiso8601(ctime)))));
 }
 
 void ShowExtendedTimestamp(uint8_t *p, size_t n, bool islocal) {
@@ -123,28 +141,28 @@ void ShowExtendedTimestamp(uint8_t *p, size_t n, bool islocal) {
   if (n) {
     --n;
     flag = *p++;
-    show(".byte", _gc(xasprintf("0b%03hhb", flag)), "fields present in local");
+    show(".byte", gc(xasprintf("0b%03hhb", flag)), "fields present in local");
     if ((flag & 1) && n >= 4) {
-      show(".long", _gc(xasprintf("%u", READ32LE(p))),
-           _gc(xasprintf("%s (%s)", "last modified",
-                         _gc(xiso8601(&(struct timespec){READ32LE(p)})))));
+      show(".long", gc(xasprintf("%u", READ32LE(p))),
+           gc(xasprintf("%s (%s)", "last modified",
+                        gc(xiso8601((struct timespec){READ32LE(p)})))));
       p += 4;
       n -= 4;
     }
     flag >>= 1;
     if (islocal) {
       if ((flag & 1) && n >= 4) {
-        show(".long", _gc(xasprintf("%u", READ32LE(p))),
-             _gc(xasprintf("%s (%s)", "access time",
-                           _gc(xiso8601(&(struct timespec){READ32LE(p)})))));
+        show(".long", gc(xasprintf("%u", READ32LE(p))),
+             gc(xasprintf("%s (%s)", "access time",
+                          gc(xiso8601((struct timespec){READ32LE(p)})))));
         p += 4;
         n -= 4;
       }
       flag >>= 1;
       if ((flag & 1) && n >= 4) {
-        show(".long", _gc(xasprintf("%u", READ32LE(p))),
-             _gc(xasprintf("%s (%s)", "creation time",
-                           _gc(xiso8601(&(struct timespec){READ32LE(p)})))));
+        show(".long", gc(xasprintf("%u", READ32LE(p))),
+             gc(xasprintf("%s (%s)", "creation time",
+                          gc(xiso8601((struct timespec){READ32LE(p)})))));
         p += 4;
         n -= 4;
       }
@@ -163,8 +181,8 @@ void ShowZip64(uint8_t *lf, uint8_t *p, size_t n, bool islocal) {
   }
   if (uncompsize == 0xffffffffu) {
     if (i + 8 <= n) {
-      show(".quad", _gc(xasprintf("0x%lx", READ64LE(p + i))),
-           _gc(xasprintf("uncompressed size (%,ld)", READ64LE(p + i))));
+      show(".quad", gc(xasprintf("0x%lx", READ64LE(p + i))),
+           gc(xasprintf("uncompressed size (%,ld)", READ64LE(p + i))));
     } else {
       kprintf("/\tWARNING: ZIP64 EXTRA MISSING UNCOMPRESSED SIZE\n");
     }
@@ -179,8 +197,8 @@ void ShowZip64(uint8_t *lf, uint8_t *p, size_t n, bool islocal) {
   }
   if (compsize == 0xffffffffu) {
     if (i + 8 <= n) {
-      show(".quad", _gc(xasprintf("0x%lx", READ64LE(p + i))),
-           _gc(xasprintf("compressed size (%,ld)", READ64LE(p + i))));
+      show(".quad", gc(xasprintf("0x%lx", READ64LE(p + i))),
+           gc(xasprintf("compressed size (%,ld)", READ64LE(p + i))));
     } else {
       kprintf("/\tWARNING: ZIP64 EXTRA MISSING COMPRESSED SIZE\n");
     }
@@ -192,8 +210,8 @@ void ShowZip64(uint8_t *lf, uint8_t *p, size_t n, bool islocal) {
     offset = ZIP_CFILE_OFFSET(lf);
     if (offset == 0xffffffffu) {
       if (i + 8 <= n) {
-        show(".quad", _gc(xasprintf("0x%lx", READ64LE(p + i))),
-             _gc(xasprintf("lfile offset (%,ld)", READ64LE(p + i))));
+        show(".quad", gc(xasprintf("0x%lx", READ64LE(p + i))),
+             gc(xasprintf("lfile offset (%,ld)", READ64LE(p + i))));
       } else {
         kprintf("/\tWARNING: ZIP64 EXTRA MISSING OFFSET\n");
       }
@@ -206,8 +224,8 @@ void ShowZip64(uint8_t *lf, uint8_t *p, size_t n, bool islocal) {
     disk = ZIP_CFILE_DISK(lf);
     if (disk == 0xffff) {
       if (i + 4 <= n) {
-        show(".long", _gc(xasprintf("0x%x", READ32LE(p + i))),
-             _gc(xasprintf("lfile disk (%,ld)", READ32LE(p + i))));
+        show(".long", gc(xasprintf("0x%x", READ32LE(p + i))),
+             gc(xasprintf("lfile disk (%,ld)", READ32LE(p + i))));
       } else {
         kprintf("/\tWARNING: ZIP64 EXTRA MISSING DISK\n");
       }
@@ -224,9 +242,9 @@ void ShowInfoZipNewUnixExtra(uint8_t *p, size_t n, bool islocal) {
   if (p[0] == 1 && p[1] == 4 && p[6] == 4) {
     show(".byte", "1", "version");
     show(".byte", "4", "uid length");
-    show(".long", _gc(xasprintf("%u", READ32LE(p + 2))), "uid");
+    show(".long", gc(xasprintf("%u", READ32LE(p + 2))), "uid");
     show(".byte", "4", "gid length");
-    show(".long", _gc(xasprintf("%u", READ32LE(p + 7))), "gid");
+    show(".long", gc(xasprintf("%u", READ32LE(p + 7))), "gid");
   } else {
     disassemblehex(p, n, stdout);
   }
@@ -279,11 +297,11 @@ void ShowExtras(uint8_t *lf, uint8_t *extras, uint16_t extrassize,
          p += ZIP_EXTRA_SIZE(p), ++i) {
       show(".short",
            firstnonnull(findnamebyid(kZipExtraNames, ZIP_EXTRA_HEADERID(p)),
-                        _gc(xasprintf("0x%04hx", ZIP_EXTRA_HEADERID(p)))),
-           _gc(xasprintf("%s[%d].%s", "extras", i, "headerid")));
-      show(".short", _gc(xasprintf("%df-%df", (i + 2) * 10, (i + 1) * 10)),
-           _gc(xasprintf("%s[%d].%s (%hd %s)", "extras", i, "contentsize",
-                         ZIP_EXTRA_CONTENTSIZE(p), "bytes")));
+                        gc(xasprintf("0x%04hx", ZIP_EXTRA_HEADERID(p)))),
+           gc(xasprintf("%s[%d].%s", "extras", i, "headerid")));
+      show(".short", gc(xasprintf("%df-%df", (i + 2) * 10, (i + 1) * 10)),
+           gc(xasprintf("%s[%d].%s (%hd %s)", "extras", i, "contentsize",
+                        ZIP_EXTRA_CONTENTSIZE(p), "bytes")));
       if (first) {
         first = false;
         printf("%d:", (i + 1) * 10);
@@ -301,18 +319,18 @@ void ShowLocalFileHeader(uint8_t *lf, uint16_t idx) {
   show(".ascii", format(b1, "%`'.*s", 4, lf), "magic");
   show(".byte",
        firstnonnull(findnamebyid(kZipEraNames, ZIP_LFILE_VERSIONNEED(lf)),
-                    _gc(xasprintf("%d", ZIP_LFILE_VERSIONNEED(lf)))),
+                    gc(xasprintf("%d", ZIP_LFILE_VERSIONNEED(lf)))),
        "pkzip version need");
   show(".byte",
        firstnonnull(findnamebyid(kZipOsNames, ZIP_LFILE_OSNEED(lf)),
-                    _gc(xasprintf("%d", ZIP_LFILE_OSNEED(lf)))),
+                    gc(xasprintf("%d", ZIP_LFILE_OSNEED(lf)))),
        "os need");
   ShowGeneralFlag(ZIP_LFILE_GENERALFLAG(lf));
   ShowCompressionMethod(ZIP_LFILE_COMPRESSIONMETHOD(lf));
   ShowTimestamp(ZIP_LFILE_LASTMODIFIEDTIME(lf), ZIP_LFILE_LASTMODIFIEDDATE(lf));
   show(
       ".long",
-      format(b1, "%#x", ZIP_LFILE_CRC32(lf)), _gc(xasprintf("%s (%#x)", "crc32z", GetZipLfileCompressedSize(lf) /* crc32_z(0, ZIP_LFILE_CONTENT(lf), GetZipLfileCompressedSize(lf)) */)));
+      format(b1, "%#x", ZIP_LFILE_CRC32(lf)), gc(xasprintf("%s (%#x)", "crc32z", GetZipLfileCompressedSize(lf) /* crc32_z(0, ZIP_LFILE_CONTENT(lf), GetZipLfileCompressedSize(lf)) */)));
   if (ZIP_LFILE_COMPRESSEDSIZE(lf) == 0xFFFFFFFF) {
     show(".long", "0xFFFFFFFF", "compressedsize (zip64)");
   } else {
@@ -333,7 +351,7 @@ void ShowLocalFileHeader(uint8_t *lf, uint16_t idx) {
   printf("0:");
   show(".ascii",
        format(b1, "%`'s",
-              _gc(strndup(ZIP_LFILE_NAME(lf), ZIP_LFILE_NAMESIZE(lf)))),
+              gc(strndup(ZIP_LFILE_NAME(lf), ZIP_LFILE_NAMESIZE(lf)))),
        "name");
   printf("1:");
   ShowExtras(lf, ZIP_LFILE_EXTRA(lf), ZIP_LFILE_EXTRASIZE(lf), true);
@@ -347,19 +365,19 @@ void ShowCentralFileHeader(uint8_t *cf) {
   printf("\n/\t%s (%zu %s @ %#lx)\n", "central directory file header",
          ZIP_CFILE_HDRSIZE(cf), "bytes", cf - map);
   show(".ascii", format(b1, "%`'.*s", 4, cf), "magic");
-  show(".byte", _gc(xasprintf("%d", ZIP_CFILE_VERSIONMADE(cf))),
+  show(".byte", gc(xasprintf("%d", ZIP_CFILE_VERSIONMADE(cf))),
        "zip version made");
   show(".byte",
        firstnonnull(findnamebyid(kZipOsNames, ZIP_CFILE_FILEATTRCOMPAT(cf)),
-                    _gc(xasprintf("%d", ZIP_CFILE_FILEATTRCOMPAT(cf)))),
+                    gc(xasprintf("%d", ZIP_CFILE_FILEATTRCOMPAT(cf)))),
        "file attr compat");
   show(".byte",
        firstnonnull(findnamebyid(kZipEraNames, ZIP_CFILE_VERSIONNEED(cf)),
-                    _gc(xasprintf("%d", ZIP_CFILE_VERSIONNEED(cf)))),
+                    gc(xasprintf("%d", ZIP_CFILE_VERSIONNEED(cf)))),
        "pkzip version need");
   show(".byte",
        firstnonnull(findnamebyid(kZipOsNames, ZIP_CFILE_OSNEED(cf)),
-                    _gc(xasprintf("%d", ZIP_CFILE_OSNEED(cf)))),
+                    gc(xasprintf("%d", ZIP_CFILE_OSNEED(cf)))),
        "os need");
   ShowGeneralFlag(ZIP_CFILE_GENERALFLAG(cf));
   ShowCompressionMethod(ZIP_CFILE_COMPRESSIONMETHOD(cf));
@@ -398,7 +416,7 @@ void ShowCentralFileHeader(uint8_t *cf) {
   printf("0:");
   show(".ascii",
        format(b1, "%`'s",
-              _gc(strndup(ZIP_CFILE_NAME(cf), ZIP_CFILE_NAMESIZE(cf)))),
+              gc(strndup(ZIP_CFILE_NAME(cf), ZIP_CFILE_NAMESIZE(cf)))),
        "name");
   printf("1:");
   ShowExtras(cf, ZIP_CFILE_EXTRA(cf), ZIP_CFILE_EXTRASIZE(cf), false);

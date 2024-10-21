@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -23,9 +23,8 @@
 #include "libc/calls/struct/sigset.internal.h"
 #include "libc/dce.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/describeflags.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/describeflags.h"
+#include "libc/intrin/strace.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/sig.h"
 #include "libc/sysv/errfuns.h"
@@ -51,12 +50,7 @@
 int sigprocmask(int how, const sigset_t *opt_set, sigset_t *opt_out_oldset) {
   int rc;
   sigset_t old = {0};
-  if (IsAsan() &&
-      ((opt_set && !__asan_is_valid(opt_set, sizeof(*opt_set))) ||
-       (opt_out_oldset &&
-        !__asan_is_valid(opt_out_oldset, sizeof(*opt_out_oldset))))) {
-    rc = efault();
-  } else if (IsMetal() || IsWindows()) {
+  if (IsMetal() || IsWindows()) {
     rc = __sig_mask(how, opt_set, &old);
   } else {
     rc = sys_sigprocmask(how, opt_set, opt_out_oldset ? &old : 0);

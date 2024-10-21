@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:4;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=4 sts=4 sw=4 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=4 sts=4 sw=4 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -24,8 +24,8 @@
 #include "libc/fmt/conv.h"
 #include "libc/log/check.h"
 #include "libc/log/log.h"
-#include "libc/macros.internal.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/macros.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/stack.h"
@@ -33,9 +33,9 @@
 #include "libc/stdio/stdio.h"
 #include "libc/sysv/consts/clock.h"
 #include "libc/sysv/consts/o.h"
-#include "libc/time/time.h"
+#include "libc/time.h"
 #include "libc/x/x.h"
-#include "libc/zip.internal.h"
+#include "libc/zip.h"
 #include "third_party/getopt/getopt.internal.h"
 #include "third_party/python/Include/abstract.h"
 #include "third_party/python/Include/bytesobject.h"
@@ -64,14 +64,12 @@
 #include "libc/serialize.h"
 #include "tool/build/lib/stripcomponents.h"
 
-STATIC_STACK_ALIGN(GetStackSize());
-
 __static_yoink("_PyUnicode_GetCode");
 
 #define MANUAL "\
 SYNOPSIS\n\
 \n\
-  pyobj.com [FLAGS] SOURCE\n\
+  pyobj [FLAGS] SOURCE\n\
 \n\
 OVERVIEW\n\
 \n\

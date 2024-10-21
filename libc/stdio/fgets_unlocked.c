@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,7 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/stdio/internal.h"
 #include "libc/stdio/stdio.h"
 #include "libc/str/str.h"
@@ -48,21 +48,20 @@ char *fgets_unlocked(char *s, int size, FILE *f) {
         if ((t = memchr(b, '\n', n))) {
           n = t + 1 - b;
         }
-        if (n) memcpy(p, b, n);
+        if (n)
+          memcpy(p, b, n);
         f->beg += n;
         size -= n - 1;
         p += n;
-        if (t) break;
+        if (t)
+          break;
       } else {
         if ((c = fgetc_unlocked(f)) == -1) {
-          if (ferror_unlocked(f) == EINTR) {
-            continue;
-          } else {
-            break;
-          }
+          break;
         }
         *p++ = c & 255;
-        if (c == '\n') break;
+        if (c == '\n')
+          break;
       }
     }
     if (p > s || f->state != -1) {

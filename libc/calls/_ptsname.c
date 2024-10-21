@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -59,7 +59,8 @@ int _ptsname(int fd, char *buf, size_t size) {
   t.sn[5] = 0;
 
   if (IsLinux()) {
-    if (sys_ioctl(fd, TIOCGPTN, &pty)) return -1;
+    if (sys_ioctl(fd, TIOCGPTN, &pty))
+      return -1;
     t.sn[5] = 'p';
     t.sn[6] = 't';
     t.sn[7] = 's';

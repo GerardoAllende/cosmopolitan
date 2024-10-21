@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -21,10 +21,10 @@
 #include "libc/calls/struct/rlimit.internal.h"
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/dce.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/describeflags.internal.h"
-#include "libc/intrin/strace.internal.h"
-#include "libc/macros.internal.h"
+#include "libc/errno.h"
+#include "libc/intrin/describeflags.h"
+#include "libc/intrin/strace.h"
+#include "libc/macros.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/syslib.internal.h"
 #include "libc/sysv/consts/rlimit.h"
@@ -78,25 +78,24 @@
  */
 int setrlimit(int resource, const struct rlimit *rlim) {
   int rc;
+  int olde = errno;
   if (resource == 127) {
     rc = einval();
-  } else if (!rlim || (IsAsan() && !__asan_is_valid(rlim, sizeof(*rlim)))) {
+  } else if (!rlim) {
     rc = efault();
   } else if (IsXnuSilicon()) {
     rc = _sysret(__syslib->__setrlimit(resource, rlim));
-  } else if (!IsWindows()) {
+  } else if (!IsWindows() && !(IsNetbsd() && resource == RLIMIT_AS)) {
     rc = sys_setrlimit(resource, rlim);
-    if (IsXnu() && !rc && resource == RLIMIT_AS) {
-      // TODO(jart): What's up with XNU and NetBSD?
-      __virtualmax = rlim->rlim_cur;
-    }
   } else if (resource == RLIMIT_STACK) {
     rc = enotsup();
-  } else if (resource == RLIMIT_AS) {
-    __virtualmax = rlim->rlim_cur;
-    rc = 0;
   } else {
     rc = einval();
+  }
+  if (resource == RLIMIT_AS) {
+    __virtualmax = rlim->rlim_cur;
+    errno = olde;
+    rc = 0;
   }
   STRACE("setrlimit(%s, %s) → %d% m", DescribeRlimitName(resource),
          DescribeRlimit(0, rlim), rc);

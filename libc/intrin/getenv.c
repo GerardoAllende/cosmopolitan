@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -16,8 +16,8 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/intrin/getenv.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/getenv.h"
+#include "libc/intrin/strace.h"
 #include "libc/runtime/runtime.h"
 
 /**
@@ -31,7 +31,8 @@
 char *getenv(const char *s) {
   char **p;
   struct Env e;
-  if (!(p = environ)) return 0;
+  if (!(p = environ))
+    return 0;
   e = __getenv(p, s);
 #if SYSDEBUG
   // if (!(s[0] == 'T' && s[1] == 'Z' && !s[2])) {

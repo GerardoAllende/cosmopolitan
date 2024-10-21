@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,6 +20,7 @@
 
 uint32_t BZ2_crc32Table[256];
 
+__attribute__((__constructor__(10)))
 static textstartup void BZ2_crc32Table_init() {
   unsigned i, j, u;
   for (i = 0; i < 256; ++i) {
@@ -37,10 +38,6 @@ static textstartup void BZ2_crc32Table_init() {
     __builtin_trap();
   }
 }
-
-const void *const BZ2_crc32Table_ctor[] initarray = {
-    BZ2_crc32Table_init,
-};
 
 #else
 

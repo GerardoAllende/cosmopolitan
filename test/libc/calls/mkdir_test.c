@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,7 +20,7 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/log/check.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/stdio/stdio.h"
@@ -55,6 +55,11 @@ TEST(mkdir, testPathIsFile_EEXIST) {
   EXPECT_SYS(EEXIST, -1, mkdir("yo/yo/yo", 0755));
 }
 
+TEST(mkdir, remove) {
+  EXPECT_SYS(0, 0, mkdir("yo", 0777));
+  EXPECT_SYS(0, 0, remove("yo"));
+}
+
 TEST(mkdir, testPathIsDirectory_EEXIST) {
   EXPECT_SYS(0, 0, mkdir("yo", 0755));
   EXPECT_SYS(0, 0, mkdir("yo/yo", 0755));
@@ -71,7 +76,8 @@ TEST(mkdir, enametoolong) {
   int i;
   size_t n = 2048;
   char *s = gc(calloc(1, n));
-  for (i = 0; i < n - 1; ++i) s[i] = 'x';
+  for (i = 0; i < n - 1; ++i)
+    s[i] = 'x';
   s[i] = 0;
   EXPECT_SYS(ENAMETOOLONG, -1, mkdir(s, 0644));
 }
@@ -96,7 +102,8 @@ TEST(mkdirat, testRelativePath_opensRelativeToDirFd) {
 TEST(mkdir, longname) {
   int i;
   char *d, s[270] = {0};
-  for (i = 0; i < sizeof(s) - 1; ++i) s[i] = 'x';
+  for (i = 0; i < sizeof(s) - 1; ++i)
+    s[i] = 'x';
   s[i] = 0;
   ASSERT_NE(NULL, (d = gc(getcwd(0, 0))));
   memcpy(s, d, strlen(d));

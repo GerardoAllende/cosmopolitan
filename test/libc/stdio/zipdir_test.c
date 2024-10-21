@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,8 +20,8 @@
 #include "libc/calls/struct/dirent.h"
 #include "libc/calls/struct/stat.h"
 #include "libc/errno.h"
-#include "libc/macros.internal.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/macros.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/zipos.internal.h"
@@ -38,7 +38,7 @@ __static_yoink("libc/testlib/hyperion.txt");
 __static_yoink("libc/testlib/moby.txt");
 __static_yoink("libc/testlib-test.txt");
 __static_yoink("usr/share/zoneinfo/");
-__static_yoink("usr/share/zoneinfo/New_York");
+__static_yoink("usr/share/zoneinfo/America/New_York");
 
 DIR *dir;
 struct dirent *ent;
@@ -101,7 +101,7 @@ TEST(zipdir, testListZip) {
   ASSERT_STREQ("..", ent->d_name);
   ASSERT_EQ(DT_DIR, ent->d_type);
   ASSERT_NE(NULL, (ent = readdir(dir)));
-  ASSERT_STREQ("echo.com", ent->d_name);
+  ASSERT_STREQ("echo", ent->d_name);
   ASSERT_EQ(DT_REG, ent->d_type);
   ASSERT_NE(NULL, (ent = readdir(dir)));
   ASSERT_STREQ("libc", ent->d_name);

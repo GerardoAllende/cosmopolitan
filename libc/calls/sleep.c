@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -24,7 +24,7 @@
 #include "libc/sysv/consts/clock.h"
 #include "libc/thread/posixthread.internal.h"
 #include "libc/thread/thread.h"
-#include "libc/time/time.h"
+#include "libc/time.h"
 
 /**
  * Sleeps for particular number of seconds.
@@ -54,7 +54,8 @@ unsigned sleep(unsigned seconds) {
   if (cs != -1) {
     _pthread_allow_cancelation(cs);
   }
-  if (!err) return 0;
+  if (!err)
+    return 0;
   unassert(err == EINTR);
   unslept = tv.tv_sec;
   if (tv.tv_nsec && unslept < UINT_MAX) {

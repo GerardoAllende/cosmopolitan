@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:4;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=4 sts=4 sw=4 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=4 sts=4 sw=4 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -24,7 +24,7 @@
 #include "libc/calls/struct/timespec.h"
 #include "libc/errno.h"
 #include "libc/limits.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/runtime/runtime.h"
 #include "libc/sock/sock.h"
 #include "libc/sock/struct/sockaddr.h"
@@ -223,7 +223,7 @@ PyDoc_STRVAR(blackhole_doc,
 --\n\n\
 Blackholes token for IP address.\n\
 \n\
-Bans IP address by sending it to blackholed.com. Returns 0 on success\n\
+Bans IP address by sending it to blackholed. Returns 0 on success\n\
 or errno on error. To test if blackholed is running, ban 0.0.0.0.");
 
 static PyObject *

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -24,7 +24,7 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/intrin/atomic.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/limits.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
@@ -48,7 +48,7 @@ static struct Semaphores {
     char *path;
     bool dead;
     int refs;
-  } * list;
+  } *list;
 } g_semaphores;
 
 static void sem_open_lock(void) {
@@ -183,7 +183,8 @@ sem_t *sem_open(const char *name, int oflag, ...) {
 #if 0
   if (IsXnuSilicon()) {
     long kernel;
-    if (!(sem = calloc(1, sizeof(sem_t)))) return SEM_FAILED;
+    if (!(sem = calloc(1, sizeof(sem_t))))
+      return SEM_FAILED;
     sem->sem_magic = SEM_MAGIC_KERNEL;
     kernel = _sysret(__syslib->__sem_open(name, oflag, mode, value));
     if (kernel == -1) {

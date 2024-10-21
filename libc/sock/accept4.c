@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -19,8 +19,7 @@
 #include "libc/calls/cp.internal.h"
 #include "libc/calls/internal.h"
 #include "libc/dce.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/sock/internal.h"
 #include "libc/sock/sock.h"
 #include "libc/sock/struct/sockaddr.h"
@@ -31,12 +30,23 @@
 /**
  * Creates client socket file descriptor for incoming connection.
  *
+ * When `fd` is in `O_NONBLOCK` mode, this function will raise `EAGAIN`
+ * when no client is available to accept. To wait until a client exists
+ * the poll() function may be called using `POLLIN`.
+ *
+ * On Linux, your `SO_RCVTIMEO` will timeout accept4(). Other OSes (i.e.
+ * Windows, MacOS, and BSDs) do not support this and will block forever.
+ *
+ * On Windows, when this function blocks, there may be a 10 millisecond
+ * delay on the handling of signals or thread cancelation.
+ *
  * @param fd is the server socket file descriptor
  * @param opt_out_addr will receive the remote address
  * @param opt_inout_addrsize provides and receives out_addr's byte length
  * @param flags can have SOCK_{CLOEXEC,NONBLOCK}, which may apply to
  *     both the newly created socket and the server one
  * @return client fd which needs close(), or -1 w/ errno
+ * @raise EAGAIN if `O_NONBLOCK` and no clients pending
  * @cancelationpoint
  * @asyncsignalsafe
  * @restartable (unless SO_RCVTIMEO)

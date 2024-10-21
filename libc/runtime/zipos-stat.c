@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -29,9 +29,12 @@
 int __zipos_stat(struct ZiposUri *name, struct stat *st) {
   ssize_t cf;
   struct Zipos *zipos;
-  if (!(zipos = __zipos_get())) return enoexec();
-  if ((cf = __zipos_find(zipos, name)) == -1) return -1;
-  if (__zipos_stat_impl(zipos, cf, st)) return -1;
+  if (!(zipos = __zipos_get()))
+    return enoexec();
+  if ((cf = __zipos_find(zipos, name)) == -1)
+    return -1;
+  if (__zipos_stat_impl(zipos, cf, st))
+    return -1;
   st->st_ino = __zipos_inode(zipos, cf, name->path, name->len);
   return 0;
 }

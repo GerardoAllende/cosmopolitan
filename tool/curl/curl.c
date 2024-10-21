@@ -11,12 +11,11 @@
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/iovec.h"
 #include "libc/calls/struct/timeval.h"
-#include "libc/dns/dns.h"
 #include "libc/errno.h"
 #include "libc/fmt/itoa.h"
 #include "libc/fmt/magnumstrs.internal.h"
-#include "libc/macros.internal.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/macros.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/sock/goodsocket.internal.h"
@@ -41,6 +40,7 @@
 #include "third_party/mbedtls/net_sockets.h"
 #include "third_party/mbedtls/ssl.h"
 #include "third_party/mbedtls/x509.h"
+#include "third_party/musl/netdb.h"
 
 /**
  * @fileoverview Downloads HTTP URL to stdout.
@@ -64,7 +64,8 @@ static wontreturn void PrintUsage(int fd, int rc) {
 
 static const char *DescribeErrno(void) {
   const char *reason;
-  if (!(reason = _strerdoc(errno))) reason = "Unknown error";
+  if (!(reason = _strerdoc(errno)))
+    reason = "Unknown error";
   return reason;
 }
 
@@ -162,7 +163,7 @@ int _curl(int argc, char *argv[]) {
     size_t n;
     char **p;
   } headers = {0};
-  int method = 0;
+  uint64_t method = 0;
   int authmode = MBEDTLS_SSL_VERIFY_REQUIRED;
   int ciphersuite = MBEDTLS_SSL_PRESET_SUITEC;
   bool includeheaders = false;
@@ -193,7 +194,7 @@ int _curl(int argc, char *argv[]) {
         postdata = optarg;
         break;
       case 'X':
-        if (!(method = GetHttpMethod(optarg, strlen(optarg)))) {
+        if (!(method = ParseHttpMethod(optarg, -1))) {
           tinyprint(2, prog, ": bad http method: ", optarg, "\n", NULL);
           exit(1);
         }
@@ -280,11 +281,13 @@ int _curl(int argc, char *argv[]) {
   }
 
   char *request = 0;
+  char methodstr[9] = {0};
+  WRITE64LE(methodstr, method);
   appendf(&request,
           "%s %s HTTP/1.1\r\n"
           "Connection: close\r\n"
           "User-Agent: %s\r\n",
-          kHttpMethod[method], gc(EncodeUrl(&url, 0)), agent);
+          methodstr, gc(EncodeUrl(&url, 0)), agent);
 
   bool senthost = false;
   bool sentcontenttype = false;
@@ -332,7 +335,7 @@ int _curl(int argc, char *argv[]) {
                            .ai_socktype = SOCK_STREAM,
                            .ai_protocol = IPPROTO_TCP,
                            .ai_flags = AI_NUMERICSERV};
-  if (getaddrinfo(host, port, &hints, &addr) != EAI_SUCCESS) {
+  if (getaddrinfo(host, port, &hints, &addr) != 0) {
     tinyprint(2, prog, ": could not resolve host: ", host, "\n", NULL);
     exit(1);
   }
@@ -444,7 +447,7 @@ int _curl(int argc, char *argv[]) {
     switch (t) {
       case kHttpClientStateHeaders:
         unassert(g);
-        if ((rc = ParseHttpMessage(&msg, p, i)) == -1) {
+        if ((rc = ParseHttpMessage(&msg, p, i, n)) == -1) {
           tinyprint(2, prog, ": ", host, " sent bad http message\n", NULL);
           exit(1);
         }
@@ -497,7 +500,8 @@ int _curl(int argc, char *argv[]) {
         break;
       case kHttpClientStateBody:
         WriteOutput(p + i - g, g);
-        if (!g) goto Finished;
+        if (!g)
+          goto Finished;
         break;
       case kHttpClientStateBodyLengthed:
         unassert(g);

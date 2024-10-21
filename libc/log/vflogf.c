@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -25,8 +25,8 @@
 #include "libc/errno.h"
 #include "libc/fmt/conv.h"
 #include "libc/fmt/libgen.h"
-#include "libc/intrin/safemacros.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/safemacros.h"
+#include "libc/intrin/strace.h"
 #include "libc/log/internal.h"
 #include "libc/log/log.h"
 #include "libc/math.h"
@@ -37,8 +37,7 @@
 #include "libc/stdio/stdio.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/fileno.h"
-#include "libc/time/struct/tm.h"
-#include "libc/time/time.h"
+#include "libc/time.h"
 
 #define kNontrivialSize (8 * 1000 * 1000)
 
@@ -50,7 +49,8 @@ static struct timespec vflogf_ts;
 static void vflogf_onfail(FILE *f) {
   errno_t err;
   struct stat st;
-  if (IsTiny()) return;
+  if (IsTiny())
+    return;
   err = ferror_unlocked(f);
   if (fileno_unlocked(f) != -1 &&
       (err == ENOSPC || err == EDQUOT || err == EFBIG) &&
@@ -90,11 +90,14 @@ void(vflogf)(unsigned level, const char *file, int line, FILE *f,
   const char *prog;
   const char *sign;
   struct timespec t2;
-  if (!f) f = __log_file;
-  if (!f) return;
+  if (!f)
+    f = __log_file;
+  if (!f)
+    return;
   flockfile(f);
   strace_enabled(-1);
   BLOCK_SIGNALS;
+  BLOCK_CANCELATION;
 
   // We display TIMESTAMP.MICROS normally. However, when we log multiple
   // times in the same second, we display TIMESTAMP+DELTAMICROS instead.
@@ -112,7 +115,8 @@ void(vflogf)(unsigned level, const char *file, int line, FILE *f,
   strcpy(iso8601(buf32, &tm), sign);
   prog = basename(firstnonnull(program_invocation_name, "unknown"));
   bufmode = f->bufmode;
-  if (bufmode == _IOLBF) f->bufmode = _IOFBF;
+  if (bufmode == _IOLBF)
+    f->bufmode = _IOFBF;
 
   if ((fprintf_unlocked)(f, "%r%c%s%06ld:%s:%d:%.*s:%d] ",
                          "FEWIVDNT"[level & 7], buf32, dots / 1000, file, line,
@@ -136,6 +140,7 @@ void(vflogf)(unsigned level, const char *file, int line, FILE *f,
     _Exit(22);
   }
 
+  ALLOW_CANCELATION;
   ALLOW_SIGNALS;
   strace_enabled(+1);
   funlockfile(f);

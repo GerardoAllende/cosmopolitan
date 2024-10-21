@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,14 +17,14 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/internal.h"
-#include "libc/sysv/errfuns.h"
 #include "libc/runtime/zipos.internal.h"
+#include "libc/sysv/errfuns.h"
 
 int __zipos_notat(int dirfd, const char *path) {
   struct ZiposUri zipname;
-  if (!path) return efault();
-  if (__isfdkind(dirfd, kFdZip) || __zipos_parseuri(path, &zipname) != -1) {
-    return einval();
-  }
+  if (!path)
+    return 0;
+  if (__isfdkind(dirfd, kFdZip) || __zipos_parseuri(path, &zipname) != -1)
+    return -1;
   return 0;
 }

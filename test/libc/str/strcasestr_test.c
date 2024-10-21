@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -19,10 +19,10 @@
 #include "libc/str/str.h"
 #include "libc/dce.h"
 #include "libc/mem/alg.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/nexgen32e/x86feature.h"
-#include "libc/str/tab.internal.h"
+#include "libc/str/tab.h"
 #include "libc/testlib/ezbench.h"
 #include "libc/testlib/hyperion.h"
 #include "libc/testlib/testlib.h"
@@ -32,14 +32,19 @@
 
 char *strcasestr_naive(const char *haystack, const char *needle) {
   size_t i;
-  if (haystack == needle || !*needle) return (void *)haystack;
+  if (haystack == needle || !*needle)
+    return (void *)haystack;
   for (;;) {
     for (i = 0;; ++i) {
-      if (!needle[i]) return (/*unconst*/ char *)haystack;
-      if (!haystack[i]) break;
-      if (kToLower[needle[i] & 255] != kToLower[haystack[i] & 255]) break;
+      if (!needle[i])
+        return (/*unconst*/ char *)haystack;
+      if (!haystack[i])
+        break;
+      if (kToLower[needle[i] & 255] != kToLower[haystack[i] & 255])
+        break;
     }
-    if (!*haystack++) break;
+    if (!*haystack++)
+      break;
   }
   return 0;
 }

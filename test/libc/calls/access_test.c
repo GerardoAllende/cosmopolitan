@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,7 +20,7 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/mem/alloca.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/sysv/consts/auxv.h"
@@ -31,11 +31,6 @@
 void SetUpOnce(void) {
   testlib_enable_tmp_setup_teardown();
   ASSERT_SYS(0, 0, pledge("stdio rpath wpath cpath fattr", 0));
-}
-
-TEST(access, efault) {
-  if (IsWindows() || !IsAsan()) return;  // not possible
-  ASSERT_SYS(EFAULT, -1, access((void *)77, F_OK));
 }
 
 TEST(access, enoent) {
@@ -61,7 +56,8 @@ TEST(access, test) {
 }
 
 TEST(access, testRequestWriteOnReadOnly_returnsEaccess) {
-  if (1) return;  // TODO(jart): maybe we need root to help?
+  if (1)
+    return;  // TODO(jart): maybe we need root to help?
   ASSERT_SYS(ENOENT, -1, access("file", F_OK));
   ASSERT_SYS(0, 0, close(creat("file", 0444)));
   ASSERT_SYS(0, 0, access("file", F_OK));

@@ -1,5 +1,5 @@
 /*-*- mode:unix-assembly; indent-tabs-mode:t; tab-width:8; coding:utf-8     -*-│
-│vi: set et ft=asm ts=8 tw=8 fenc=utf-8                                     :vi│
+│ vi: set noet ft=asm ts=8 sw=8 fenc=utf-8 nofixeol                        :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -33,12 +33,11 @@
 │ αcτµαlly pδrταblε εxεcµταblε § program header                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "ape/macros.internal.h"
-#include "ape/notice.inc"
 #include "ape/relocations.h"
 #include "libc/calls/metalfile.internal.h"
 #include "libc/dce.h"
 #include "libc/elf/def.h"
-#include "libc/macho.internal.h"
+#include "libc/macho.h"
 #include "libc/nexgen32e/uart.internal.h"
 #include "libc/nt/pedef.internal.h"
 #include "libc/runtime/pc.internal.h"
@@ -197,7 +196,7 @@ ape_mz:
 	.quad	ape_elf_entry			//  18: e_entry
 	.quad	ape_elf_phoff			//  20: e_phoff
 	.quad	ape_elf_shoff			//  28: e_shoff
-	.long	0				//  30: e_flags
+	.long	0x101ca75			//  30: ape e_flags
 	.short	64				//  34: e_ehsize
 	.short	56				//  36: e_phentsize
 	.short	ape_elf_phnum			//  38: e_phnum
@@ -592,9 +591,7 @@ ape_disk:
 
 #ifdef APE_IS_SHELL_SCRIPT
 apesh:	.ascii	"\n@\n#'\"\n"			// sixth edition shebang
-	.ascii	"m=$(/bin/uname -m 2>/dev/null) || "
-	.ascii	"m=$(/usr/bin/uname -m 2>/dev/null) || "
-	.ascii	"m=x86_64\n"
+	.ascii	"m=$(uname -m 2>/dev/null) || m=x86_64\n"
 
 	.ascii	"if [ \"$m\" = x86_64 ] || [ \"$m\" = amd64 ]; then\n"
 //	Until all operating systems can be updated to support APE,
@@ -617,15 +614,15 @@ apesh:	.ascii	"\n@\n#'\"\n"			// sixth edition shebang
 	.ascii	     APE_VERSION_STR
 	.ascii	     "\"\n"
 	.ascii	    "[ -x \"$t\" ] || {\n"
-	.ascii	      "/bin/mkdir -p \"${t%/*}\" &&\n"
-	.ascii	      "/bin/dd if=\"$o\" of=\"$t.$$\" skip="
+	.ascii	      "mkdir -p \"${t%/*}\" &&\n"
+	.ascii	      "dd if=\"$o\" of=\"$t.$$\" skip="
 	.shstub	        ape_loader_dd_skip,2
 	.ascii	        " count="
 	.shstub	        ape_loader_dd_count,2
 	.ascii	        " bs=64 2>/dev/null\n"
 #if SupportsXnu()
 	.ascii	      "[ -d /Applications ] && "
-	.ascii	        "/bin/dd if=\"$t.$$\""
+	.ascii	        "dd if=\"$t.$$\""
 	.ascii	          " of=\"$t.$$\""
 	.ascii	          " skip=5"
 	.ascii	          " count=8"
@@ -633,8 +630,8 @@ apesh:	.ascii	"\n@\n#'\"\n"			// sixth edition shebang
 	.ascii	          " conv=notrunc"
 	.ascii	          " 2>/dev/null\n"
 #endif /* SupportsXnu() */
-	.ascii	      "/bin/chmod 755 \"$t.$$\"\n"
-	.ascii	      "/bin/mv -f \"$t.$$\" \"$t\"\n"
+	.ascii	      "chmod 755 \"$t.$$\"\n"
+	.ascii	      "mv -f \"$t.$$\" \"$t\"\n"
 	.ascii	    "}\n"
 	.ascii	    "exec \"$t\" \"$o\" \"$@\"\n"
 	.ascii	  "}\n"
@@ -650,9 +647,9 @@ apesh:	.ascii	"\n@\n#'\"\n"			// sixth edition shebang
 	.ascii	  "t=\"${TMPDIR:-${HOME:-.}}/$0\"\n"
 	.ascii	  "[ x\"$1\" != x--assimilate ] || [ ! -e \"$t\" ] && {\n"
 	.ascii	    "[ x\"$1\" != x--assimilate ] && {\n"
-	.ascii	      "/bin/mkdir -p \"${t%/*}\" 2>/dev/null\n"
-	.ascii	      "/bin/cp -f \"$o\" \"$t.$$\" &&\n"
-	.ascii	      "/bin/mv -f \"$t.$$\" \"$t\" || exit 120\n"
+	.ascii	      "mkdir -p \"${t%/*}\" 2>/dev/null\n"
+	.ascii	      "cp -f \"$o\" \"$t.$$\" &&\n"
+	.ascii	      "mv -f \"$t.$$\" \"$t\" || exit 120\n"
 	.ascii	      "o=\"$t\"\n"
 	.ascii	    "}\n"
 #endif /* APE_NO_MODIFY_SELF */
@@ -672,7 +669,7 @@ apesh:	.ascii	"\n@\n#'\"\n"			// sixth edition shebang
 	.shstub	    ape_elf_entry,8		//  18: e_entry
 	.shstub	    ape_elf_phoff,8		//  20: e_phoff
 	.shstub	    ape_elf_shoff,8		//  28: e_shoff
-	.ascii	    "\\0\\0\\0\\0"		//  30: e_flags
+	.ascii	    "\\165\\312\\1\\1"		//  30: ape e_flags
 	.ascii	    "\\100\\0"			//  34: e_ehsize
 	.ascii	    "\\070\\0"			//  36: e_phentsize
 	.shstub	    ape_elf_phnum,2		//  38: e_phnum
@@ -683,7 +680,7 @@ apesh:	.ascii	"\n@\n#'\"\n"			// sixth edition shebang
 	.ascii	  "exec 7<&-\n"
 #if SupportsXnu()
 	.ascii	  "[ -d /Applications ] && "
-	.ascii	    "/bin/dd if=\"$o\""
+	.ascii	    "dd if=\"$o\""
 	.ascii	      " of=\"$o\""
 	.ascii	      " bs=8"
 	.ascii	      " skip="
@@ -702,38 +699,9 @@ apesh:	.ascii	"\n@\n#'\"\n"			// sixth edition shebang
 #endif /* APE_NO_MODIFY_SELF */
 	.ascii	  "exit $?\n"
 	.ascii	"fi\n"				// x86_64
-//	...
-//	decentralized section (.apesh)
-//	...
-	.ascii	"PHDRS='' <<'@'\n"
-	.endobj	apesh
-
-//	elf program headers get inserted here
-//	because they need to be in the first 4096 bytes
-        .section .emushprologue,"a",@progbits
-emush:	.ascii	"\n@\n#'\"\n"
-	.ascii	"s=$(/bin/uname -s 2>/dev/null) || "
-	.ascii	"s=$(/usr/bin/uname -s 2>/dev/null) || "
-	.ascii	"s=Darwin\n"
-//	our script is running on a non-x86_64 architecture
-//	1. `dd` out the appropriate blink vm blob
-//	2. gunzip the blink virtual machine executable
-//	3. relaunch this program inside the blink vm
-	.ascii	"o=\"$(command -v \"$0\")\"\n"
-	.ascii	"e=\"${TMPDIR:-${HOME:-.}}/.ape-blink-1.0.0\"\n"
-	.previous
-//	...
-//	decentralized section (.emush)
-//	- __static_yoink("blink_linux_aarch64");  // for raspberry pi
-//	- __static_yoink("blink_xnu_aarch64");    // is apple silicon
-//	...
-        .section .emushepilogue,"a",@progbits
-	.ascii	"echo \"$0: this ape binary lacks $m support\" >&2\n"
-	.rept	16
-	.ascii	"exit 127\n"
-	.endr
+	.ascii	"echo error: this ape binary only supports x86_64 >&2\n"
 	.ascii	"exit 1\n"
-	.previous
+	.endobj	apesh
 
 #ifdef APE_LOADER
         .section .ape.loader,"a",@progbits
@@ -752,6 +720,8 @@ ape_loader_end:
 #if SupportsSystemv() || SupportsMetal()
 	.section .elf.phdrs,"a",@progbits
 
+	.globl	ape_phdrs
+ape_phdrs:
 	.long	PT_LOAD
 	.long	PF_R|PF_X
 	.stub	ape_cod_offset,quad
@@ -791,7 +761,7 @@ ape_loader_end:
 	.quad	0
 	.quad	0
 	.quad	0
-	.stub	ape_stack_align,quad
+	.quad	16
 
 #if SupportsOpenbsd() || SupportsNetbsd()
 	.long	PT_NOTE
@@ -1066,7 +1036,7 @@ ape_pe:	.ascin	"PE",4
 	.quad	ape_pe_base		// ImageBase
 	.long	ape_pe_sectionalignment	// SectionAlignment
 	.long	ape_pe_filealignment	// FileAlignment
-	.short	v_ntversion		// MajorOperatingSystemVersion
+	.short	10			// MajorOperatingSystemVersion
 	.short	0			// MinorOperatingSystemVersion
 	.short	0			// MajorImageVersion
 	.short	0			// MinorImageVersion
@@ -1801,49 +1771,31 @@ kernel:	movabs	$ape_stack_vaddr,%rsp
 	.type	ape_text_nops,@object
 	.type	__test_end,@object
 
-	.section .commentprologue,"a",@progbits
-	.globl	__comment_start
-	.type	__comment_start,@object
-	.hidden	__comment_start
-__comment_start:/*
-	...
-	decentralized content
-	...
-	*/.previous
-	.section .commentepilogue,"a",@progbits
-	.byte	0
-	.previous
-
 	.section .ape.pad.head,"a",@progbits
 	.type	ape_pad_head,@object
 	.hidden	ape_pad_head
 ape_pad_head:
-	.previous
 
 	.section .ape.pad.text,"a",@progbits
 	.type	ape_pad_text,@object
 	.hidden	ape_pad_text
 ape_pad_text:
-	.previous
 
 	.section .ape.pad.privileged,"a",@progbits
 	.type	ape_pad_privileged,@object
 	.hidden	ape_pad_privileged
 ape_pad_privileged:
-	.previous
 
 	.section .ape.pad.data,"a",@progbits
 	.type	ape_pad_data,@object
 	.hidden	ape_pad_data
 ape_pad_data:
-	.previous
 
 #if SupportsWindows()
 	.section .idata.ro,"a",@progbits
 	.type	ape_idata_ro,@object
 	.hidden	ape_idata_ro
 ape_idata_ro:
-	.previous
 #endif /* SupportsWindows() */
 
 	.section .dataprologue,"aw",@progbits
@@ -1851,32 +1803,45 @@ ape_idata_ro:
 	.globl	__data_start
 	.hidden	__data_start
 __data_start:
-	.previous
 
 	.section .dataepilogue,"aw",@progbits
 	.type	__data_end,@object
 	.globl	__data_end
 	.hidden	__data_end
 __data_end:
-	.previous
 
 	.section .bssprologue,"aw",@nobits
 	.type	__bss_start,@object
 	.globl	__bss_start
 	.hidden	__bss_start
 __bss_start:
-	.previous
 
 	.section .bssepilogue,"aw",@nobits
 	.type	__bss_end,@object
 	.globl	__bss_end
 	.hidden	__bss_end
 __bss_end:
-	.previous
 
 	.section .fstls,"awT",@nobits
 	.align	TLS_ALIGNMENT
-	.previous
+
+	.section .notice,"aR",@progbits
+	.asciz	"\n\n\
+Cosmopolitan\n\
+Copyright 2024 Justine Alexandra Roberts Tunney\n\
+\n\
+Permission to use, copy, modify, and/or distribute this software for\n\
+any purpose with or without fee is hereby granted, provided that the\n\
+above copyright notice and this permission notice appear in all copies.\n\
+\n\
+THE SOFTWARE IS PROVIDED \"AS IS\" AND THE AUTHOR DISCLAIMS ALL\n\
+WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED\n\
+WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE\n\
+AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL\n\
+DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR\n\
+PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER\n\
+TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR\n\
+PERFORMANCE OF THIS SOFTWARE."
 
 .end
 

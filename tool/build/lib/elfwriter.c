@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -25,7 +25,8 @@
 #include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/memtrack.internal.h"
-#include "libc/stdalign.internal.h"
+#include "libc/runtime/runtime.h"
+#include "libc/stdalign.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/map.h"
 #include "libc/sysv/consts/msync.h"
@@ -87,8 +88,8 @@ static void MakeRelaSection(struct ElfWriter *elf, size_t section) {
   elfwriter_align(elf, alignof(Elf64_Rela), sizeof(Elf64_Rela));
   shdr = elfwriter_startsection(
       elf,
-      _gc(xasprintf("%s%s", ".rela",
-                    &elf->shstrtab->p[elf->shdrs->p[section].sh_name])),
+      gc(xasprintf("%s%s", ".rela",
+                   &elf->shstrtab->p[elf->shdrs->p[section].sh_name])),
       SHT_RELA, SHF_INFO_LINK);
   elf->shdrs->p[shdr].sh_info = section;
   elfwriter_reserve(elf, size);
@@ -162,7 +163,7 @@ struct ElfWriter *elfwriter_open(const char *path, int mode, int arch) {
   CHECK_NOTNULL((elf = calloc(1, sizeof(struct ElfWriter))));
   CHECK_NOTNULL((elf->path = strdup(path)));
   CHECK_NE(-1, (elf->fd = open(elf->path, O_CREAT | O_TRUNC | O_RDWR, mode)));
-  CHECK_NE(-1, ftruncate(elf->fd, (elf->mapsize = FRAMESIZE)));
+  CHECK_NE(-1, ftruncate(elf->fd, (elf->mapsize = getgransize())));
   CHECK_NE(MAP_FAILED, (elf->map = mmap((void *)(intptr_t)kFixedmapStart,
                                         elf->mapsize, PROT_READ | PROT_WRITE,
                                         MAP_SHARED | MAP_FIXED, elf->fd, 0)));
@@ -233,7 +234,7 @@ void *elfwriter_reserve(struct ElfWriter *elf, size_t size) {
     do {
       greed = greed + (greed >> 1);
     } while (need > greed);
-    greed = ROUNDUP(greed, FRAMESIZE);
+    greed = ROUNDUP(greed, getgransize());
     CHECK_NE(-1, ftruncate(elf->fd, greed));
     CHECK_NE(MAP_FAILED, mmap((char *)elf->map + elf->mapsize,
                               greed - elf->mapsize, PROT_READ | PROT_WRITE,
@@ -249,7 +250,8 @@ void elfwriter_commit(struct ElfWriter *elf, size_t size) {
 
 void elfwriter_finishsection(struct ElfWriter *elf) {
   size_t section = FinishSection(elf);
-  if (elf->relas->j < elf->relas->i) MakeRelaSection(elf, section);
+  if (elf->relas->j < elf->relas->i)
+    MakeRelaSection(elf, section);
 }
 
 /**

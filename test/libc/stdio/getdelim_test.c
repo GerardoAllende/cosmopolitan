@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -99,7 +99,8 @@ void ReadHyperionLines(void) {
   ASSERT_NE(NULL, (f = fopen("hyperion.txt", "r")));
   for (;;) {
     rc = getline(&line, &linesize, f);
-    if (rc == -1) break;
+    if (rc == -1)
+      break;
     data = xrealloc(data, size + rc);
     memcpy(data + size, line, rc);
     size += rc;

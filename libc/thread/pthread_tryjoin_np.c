@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -32,6 +32,7 @@
  *     if the thread called pthread_exit(), or `PTHREAD_CANCELED` if
  *     pthread_cancel() destroyed the thread instead
  * @return 0 on success, or errno on error
+ * @raise EBUSY if thread has not yet terminated
  * @raise ECANCELED if calling thread was cancelled in masked mode
  * @cancelationpoint
  * @returnserrno

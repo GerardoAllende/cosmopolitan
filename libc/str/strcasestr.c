@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,8 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/str/str.h"
 #include "libc/dce.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/str/tab.internal.h"
+#include "libc/str/tab.h"
 
 typedef char xmm_t __attribute__((__vector_size__(16), __aligned__(16)));
 
@@ -35,16 +34,15 @@ typedef char xmm_t __attribute__((__vector_size__(16), __aligned__(16)));
  * @asyncsignalsafe
  * @see strstr()
  */
-char *strcasestr(const char *haystack, const char *needle) {
+__vex char *strcasestr(const char *haystack, const char *needle) {
 #if defined(__x86_64__) && !defined(__chibicc__)
   char c;
   size_t i;
   unsigned k, m;
   const xmm_t *p;
   xmm_t v, n1, n2, z = {0};
-  if (IsAsan()) __asan_verify(needle, 1);
-  if (IsAsan()) __asan_verify(haystack, 1);
-  if (haystack == needle || !*needle) return (char *)haystack;
+  if (haystack == needle || !*needle)
+    return (char *)haystack;
   c = *needle;
   n1 = (xmm_t){c, c, c, c, c, c, c, c, c, c, c, c, c, c, c, c};
   c = kToLower[c & 255];
@@ -62,23 +60,32 @@ char *strcasestr(const char *haystack, const char *needle) {
     }
     haystack = (const char *)p + __builtin_ctzl(m);
     for (i = 0;; ++i) {
-      if (!needle[i]) return (/*unconst*/ char *)haystack;
-      if (!haystack[i]) break;
-      if (kToLower[needle[i] & 255] != kToLower[haystack[i] & 255]) break;
+      if (!needle[i])
+        return (/*unconst*/ char *)haystack;
+      if (!haystack[i])
+        break;
+      if (kToLower[needle[i] & 255] != kToLower[haystack[i] & 255])
+        break;
     }
-    if (!*haystack++) break;
+    if (!*haystack++)
+      break;
   }
   return 0;
 #else
   size_t i;
-  if (haystack == needle || !*needle) return (void *)haystack;
+  if (haystack == needle || !*needle)
+    return (void *)haystack;
   for (;;) {
     for (i = 0;; ++i) {
-      if (!needle[i]) return (/*unconst*/ char *)haystack;
-      if (!haystack[i]) break;
-      if (kToLower[needle[i] & 255] != kToLower[haystack[i] & 255]) break;
+      if (!needle[i])
+        return (/*unconst*/ char *)haystack;
+      if (!haystack[i])
+        break;
+      if (kToLower[needle[i] & 255] != kToLower[haystack[i] & 255])
+        break;
     }
-    if (!*haystack++) break;
+    if (!*haystack++)
+      break;
   }
   return 0;
 #endif

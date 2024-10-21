@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -22,8 +22,7 @@
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/calls/termios.h"
 #include "libc/dce.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/sysv/consts/termios.h"
 #include "libc/sysv/errfuns.h"
 
@@ -32,9 +31,7 @@
  */
 int tcgetwinsize(int fd, struct winsize *ws) {
   int rc;
-  if (IsAsan() && !__asan_is_valid(ws, sizeof(*ws))) {
-    rc = efault();
-  } else if (fd >= 0) {
+  if (fd >= 0) {
     if (fd < g_fds.n && g_fds.p[fd].kind == kFdZip) {
       rc = enotty();
     } else if (IsWindows()) {

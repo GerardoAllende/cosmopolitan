@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -65,7 +65,8 @@ TEST(sched_setscheduler, test) {
 }
 
 TEST(sched_setscheduler, testMidpoint) {
-  if (!CanTuneRealtimeSchedulers()) return;
+  if (!CanTuneRealtimeSchedulers())
+    return;
   struct sched_param p = {(sched_get_priority_min(SCHED_FIFO) +
                            sched_get_priority_max(SCHED_FIFO)) /
                           2};

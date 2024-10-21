@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -86,7 +86,7 @@ void *Worker(void *arg) {
 TEST(sem_open, test) {
   sem_t *a, *b;
   int i, r, n = 8;
-  pthread_t *t = _gc(malloc(sizeof(pthread_t) * n));
+  pthread_t *t = gc(malloc(sizeof(pthread_t) * n));
   errno = 0;
   ASSERT_EQ(0, pthread_barrier_init(&barrier, 0, n));
   ASSERT_NE(SEM_FAILED, (a = sem_open(name1, O_CREAT, 0644, 0)));

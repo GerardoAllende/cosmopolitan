@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,7 +20,7 @@
 #include "libc/fmt/conv.h"
 #include "libc/log/check.h"
 #include "libc/math.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/x/x.h"
 #include "third_party/gdtoa/gdtoa.h"
@@ -61,7 +61,7 @@ char *StringifyMatrixDouble(long yn, long xn, const double M[yn][xn],
                             const char *param2, const char *param3, double digs,
                             double rounder(double)) {
   struct StringBuilder *sb = NewStringBuilder();
-  FormatMatrixDouble(yn, xn, M, StringBuilderAppend, sb, formatter, param1,
-                     param2, param3, digs, rounder);
+  FormatMatrixDouble(yn, xn, M, (void *)StringBuilderAppend, sb, formatter,
+                     param1, param2, param3, digs, rounder);
   return FreeStringBuilder(sb);
 }

@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 
 PKGS += LIBC_STDIO
 
@@ -52,6 +52,12 @@ $(LIBC_STDIO_A).pkg:					\
 
 # offer assurances about the stack safety of cosmo libc
 $(LIBC_STDIO_A_OBJS): private COPTS += -Wframe-larger-than=4096 -Walloca-larger-than=4096
+
+$(LIBC_STDIO_A_OBJS): private				\
+		CFLAGS +=				\
+			-fno-sanitize=all		\
+			-Wframe-larger-than=4096	\
+			-Walloca-larger-than=4096
 
 o/$(MODE)/libc/stdio/fputc.o: private			\
 		CFLAGS +=				\

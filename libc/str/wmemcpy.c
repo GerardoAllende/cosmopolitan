@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -21,6 +21,7 @@
 
 wchar_t *wmemcpy(wchar_t *dest, const wchar_t *src, size_t count) {
   size_t bytes;
-  if (ckd_mul(&bytes, count, sizeof(wchar_t))) bytes = -1;
+  if (ckd_mul(&bytes, count, sizeof(wchar_t)))
+    bytes = -1;
   return memcpy(dest, src, bytes);
 }

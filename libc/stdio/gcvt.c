@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:t;c-basic-offset:8;tab-width:8;coding:utf-8   -*-│
-│vi: set et ft=c ts=8 tw=8 fenc=utf-8                                       :vi│
+│ vi: set noet ft=c ts=8 sw=8 fenc=utf-8                                   :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ $OpenBSD: ecvt.c,v 1.11 2019/01/25 00:19:25 millert Exp $                    │
 │                                                                              │
@@ -28,10 +28,9 @@
 #include "libc/str/unicode.h"
 #include "third_party/gdtoa/gdtoa.h"
 
-asm(".ident\t\"\\n\\n\
-OpenBSD ecvt/gcvt (MIT)\\n\
-Copyright (c) 2002, 2006, 2010 Todd C. Miller <millert@openbsd.org>\"");
-asm(".include \"libc/disclaimer.inc\"");
+__notice(gcvt_notice, "\
+OpenBSD gcvt (MIT)\n\
+Copyright (c) 2002, 2006, 2010 Todd C. Miller <millert@openbsd.org>");
 // clang-format off
 
 #define DEFPREC	6

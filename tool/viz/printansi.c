@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -29,13 +29,13 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/fmt/conv.h"
-#include "libc/intrin/safemacros.internal.h"
+#include "libc/intrin/safemacros.h"
 #include "libc/limits.h"
 #include "libc/log/check.h"
 #include "libc/log/log.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/math.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/stdio/rand.h"
 #include "libc/stdio/stdio.h"
@@ -71,8 +71,8 @@ static struct Flags {
   enum TtyQuantizationAlgorithm quant;
 } g_flags;
 
-static wontreturn void PrintUsage(int rc, FILE *f) {
-  fprintf(f, "Usage: %s%s", program_invocation_name, "\
+static wontreturn void PrintUsage(int rc, int fd) {
+  tinyprint(fd, "Usage: ", program_invocation_name, "\
  [FLAGS] [PATH]\n\
 \n\
 FLAGS\n\
@@ -84,9 +84,10 @@ FLAGS\n\
 \n\
 EXAMPLES\n\
 \n\
-  printansi.com -w80 -h40 logo.png\n\
+  printansi -w80 -h40 logo.png\n\
 \n\
-\n");
+\n",
+            NULL);
   exit(rc);
 }
 
@@ -107,7 +108,7 @@ static void GetOpts(int *argc, char *argv[]) {
   g_flags.blocks = IsWindows() ? kTtyBlocksCp437 : kTtyBlocksUnicode;
   if (*argc == 2 &&
       (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-help") == 0)) {
-    PrintUsage(EXIT_SUCCESS, stdout);
+    PrintUsage(EXIT_SUCCESS, STDOUT_FILENO);
   }
   while ((opt = getopt(*argc, argv, "?ivpfrtxads234o:w:h:")) != -1) {
     switch (opt) {
@@ -162,13 +163,17 @@ static void GetOpts(int *argc, char *argv[]) {
         ++__log_level;
         break;
       case '?':
-        PrintUsage(EXIT_SUCCESS, stdout);
       default:
-        PrintUsage(EX_USAGE, stderr);
+        if (opt == optopt) {
+          PrintUsage(EXIT_SUCCESS, STDOUT_FILENO);
+        } else {
+          PrintUsage(EX_USAGE, STDERR_FILENO);
+        }
     }
   }
   if (optind == *argc) {
-    if (!g_flags.out) g_flags.out = "-";
+    if (!g_flags.out)
+      g_flags.out = "-";
     argv[(*argc)++] = "-";
   }
   if (!g_flags.full && (!g_flags.width || !g_flags.width)) {
@@ -265,7 +270,8 @@ struct Block {
 static void *Raster(long yn, long xn, unsigned char Y[yn][xn]) {
   long y, x, i, j, k, s, bi, bs;
   for (y = 0; y + 4 <= yn; y += 4) {
-    if (y) fputc('\n', stdout);
+    if (y)
+      fputc('\n', stdout);
     for (x = 0; x + 2 <= xn; x += 2) {
       bi = 0;
       bs = LONG_MAX;

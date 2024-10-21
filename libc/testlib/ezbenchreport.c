@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,6 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/intrin/kprintf.h"
+#include "libc/intrin/safemacros.h"
 #include "libc/math.h"
 #include "libc/runtime/runtime.h"
 
@@ -32,7 +33,7 @@ void __testlib_ezbenchreport_n(const char *form, char z, size_t n, double c) {
   char msg[128];
   __warn_if_powersave();
   ksnprintf(msg, sizeof(msg), "%s %c=%d", form, z, n);
-  cn = lrint(c / 3);
+  cn = max(lrint(c / 3), 1);
   if (!n) {
     kprintf("\n");
     kprintf(" *     %-28s", msg);

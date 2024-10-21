@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:4;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=4 sts=4 sw=4 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=4 sts=4 sw=4 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Python 3                                                                     │
 │ https://docs.python.org/3/license.html                                       │
@@ -39,10 +39,9 @@ PYTHON_PROVIDE("_sre.compile");
 PYTHON_PROVIDE("_sre.getcodesize");
 PYTHON_PROVIDE("_sre.getlower");
 
-asm(".ident\t\"\\n\\n\
-SRE 2.2.2 (Python license)\\n\
-Copyright 1997-2002 Secret Labs AB\"");
-asm(".include \"libc/disclaimer.inc\"");
+__notice(python_sre_notice, "\
+SRE 2.2.2 (Python license)\n\
+Copyright 1997-2002 Secret Labs AB");
 
 /*
  * Secret Labs' Regular Expression Engine

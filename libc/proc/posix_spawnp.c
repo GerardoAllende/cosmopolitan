@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -33,6 +33,7 @@ int posix_spawnp(int *pid, const char *path,
                  const posix_spawnattr_t *attrp, char *const argv[],
                  char *const envp[]) {
   char pathbuf[PATH_MAX];
-  if (!(path = commandv(path, pathbuf, sizeof(pathbuf)))) return errno;
+  if (!(path = commandv(path, pathbuf, sizeof(pathbuf))))
+    return errno;
   return posix_spawn(pid, path, file_actions, attrp, argv, envp);
 }

@@ -46,15 +46,17 @@ void PrintImg(const char *path) {
   size_t n;
   int yn, xn, cn, w, h;
   void *img, *pix, *src;
-  if (!(img = _gc(xslurp(path, &n)))) exit(2);
-  if (!(pix = _gc(stbi_load_from_memory(img, n, &xn, &yn, &cn, 0)))) exit(3);
+  if (!(img = gc(xslurp(path, &n))))
+    exit(2);
+  if (!(pix = gc(stbi_load_from_memory(img, n, &xn, &yn, &cn, 0))))
+    exit(3);
   if (linktag) {
     printf("<a href=\"%s\"\n  >", path);
   }
   src = (void *)path;
   if (datauri) {
     src = xasprintf("data:%s;base64,%s", FindContentType(path, -1),
-                    _gc(EncodeBase64(img, n, &n)));
+                    gc(EncodeBase64(img, n, &n)));
   }
   w = (xn + (1 << scale) / 2) >> scale;
   h = (yn + (1 << scale) / 2) >> scale;
@@ -71,7 +73,8 @@ void PrintImg(const char *path) {
 }
 
 int main(int argc, char *argv[]) {
-  if (!NoDebug()) ShowCrashReports();
+  if (!NoDebug())
+    ShowCrashReports();
   int i;
   while ((i = getopt(argc, argv, "?huas01234")) != -1) {
     switch (i) {

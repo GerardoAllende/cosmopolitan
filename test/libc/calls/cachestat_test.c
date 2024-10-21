@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Nhat Pham <nphamcs@gmail.com>                                 │
 │ Copyright 2023 Stephen Gregoratto <dev@sgregoratto.me>                       │
@@ -24,8 +24,8 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/intrin/kprintf.h"
-#include "libc/macros.internal.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/macros.h"
+#include "libc/mem/gc.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/sysconf.h"
 #include "libc/stdio/rand.h"
@@ -46,7 +46,7 @@ void SetUpOnce(void) {
     exit(0);
   }
   testlib_enable_tmp_setup_teardown();
-  pagesize = (size_t)getauxval(AT_PAGESZ);
+  pagesize = (size_t)getpagesize();
   // ASSERT_SYS(0, 0, pledge("stdio rpath wpath cpath", 0));
 }
 
@@ -93,7 +93,8 @@ TEST(cachestat, testCachestatSyncNoDirty) {
             "total number of evicted pages is off.");
   struct statfs statfs;
   ASSERT_SYS(0, 0, fstatfs(3, &statfs));
-  if (statfs.f_type == TMPFS_MAGIC) goto done;
+  if (statfs.f_type == TMPFS_MAGIC)
+    goto done;
   ASSERT_SYS(0, 0, fsync(3));
   ASSERT_SYS(0, 0, cachestat(3, &range, &cs, 0));
   EXPECT_EQ(0, cs.nr_dirty,

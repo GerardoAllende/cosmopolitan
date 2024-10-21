@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -16,11 +16,10 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "tool/args/args.h"
 #include "libc/assert.h"
 #include "libc/calls/calls.h"
 #include "libc/errno.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/str/str.h"
@@ -91,6 +90,14 @@ int LoadZipArgsImpl(int *argc, char ***argv, char *data) {
       }
       start = 0;
     }
+
+    if (!founddots) {
+      founddots = true;
+      for (i = 1; i < *argc; ++i) {
+        AddZipArg(&n, &args, (*argv)[i]);
+      }
+    }
+
     if (founddots || *argc <= 1) {
       if (!g_zipargs.initialized) {
         atexit(FreeZipArgs);
@@ -118,8 +125,9 @@ int LoadZipArgsImpl(int *argc, char ***argv, char *data) {
  *
  * Your `.args` file should have one argument per line.
  *
- * If the special argument `...` is *not* encountered, then the
- * replacement will only happen if *no* CLI args are specified.
+ * If the special argument `...` is *not* encountered, then it would be assumed
+ * that the developer intent is for whatever CLI args were specified by the user
+ * to be appended to the end
  *
  * If the special argument `...` *is* encountered, then it'll be
  * replaced with whatever CLI args were specified by the user.

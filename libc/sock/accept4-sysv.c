@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -37,9 +37,10 @@ int sys_accept4(int server, struct sockaddr_storage *addr, int flags) {
   if (client == -1 && errno == ENOSYS) {
     // XNU/RHEL5/etc. don't support accept4(), but it's easilly polyfilled
     errno = olderr;
-    if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK)) return einval();
+    if (flags & ~(SOCK_CLOEXEC | SOCK_NONBLOCK))
+      return einval();
     if ((client = __sys_accept(server, addr, &size, 0)) != -1) {
-      // __sys_accept() has inconsistent flag inheritence across platforms
+      // __sys_accept() has inconsistent flag inheritance across platforms
       // this is one of the issues that accept4() was invented for solving
       unassert((file_mode = __sys_fcntl(client, F_GETFD)) != -1);
       unassert(!__sys_fcntl(client, F_SETFD,

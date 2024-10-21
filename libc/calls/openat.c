@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -26,9 +26,8 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/describeflags.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/describeflags.h"
+#include "libc/intrin/strace.h"
 #include "libc/intrin/weaken.h"
 #include "libc/log/log.h"
 #include "libc/runtime/zipos.internal.h"
@@ -180,7 +179,7 @@ int openat(int dirfd, const char *path, int flags, ...) {
   va_end(va);
   BEGIN_CANCELATION_POINT;
 
-  if (!path || (IsAsan() && !__asan_is_valid_str(path))) {
+  if (!path) {
     rc = efault();
   } else if ((flags & O_UNLINK) &&
              (flags & (O_CREAT | O_EXCL)) != (O_CREAT | O_EXCL)) {
@@ -241,4 +240,4 @@ int openat(int dirfd, const char *path, int flags, ...) {
   return rc;
 }
 
-__strong_reference(openat, openat64);
+__weak_reference(openat, openat64);

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,18 +20,18 @@
 #include "libc/calls/struct/timeval.h"
 #include "libc/calls/struct/timeval.internal.h"
 #include "libc/dce.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/describeflags.internal.h"
+#include "libc/intrin/describeflags.h"
 #include "libc/intrin/kprintf.h"
 
 #define N 90
 
-const char *(DescribeItimerval)(char buf[N], int rc,
-                                const struct itimerval *it) {
-  if (!it) return "NULL";
-  if (rc == -1) return "n/a";
-  if ((!IsAsan() && kisdangerous(it)) ||
-      (IsAsan() && !__asan_is_valid(it, sizeof(*it)))) {
+const char *_DescribeItimerval(char buf[N], int rc,
+                               const struct itimerval *it) {
+  if (!it)
+    return "NULL";
+  if (rc == -1)
+    return "n/a";
+  if (kisdangerous(it)) {
     ksnprintf(buf, N, "%p", it);
   } else {
     ksnprintf(buf, N, "{%s, %s}", DescribeTimeval(0, &it->it_interval),

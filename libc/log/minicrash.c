@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -21,7 +21,7 @@
 #include "libc/calls/struct/ucontext.internal.h"
 #include "libc/calls/ucontext.h"
 #include "libc/errno.h"
-#include "libc/intrin/describebacktrace.internal.h"
+#include "libc/intrin/describebacktrace.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/log/internal.h"
 #include "libc/log/log.h"
@@ -73,4 +73,5 @@ relegated dontinstrument void __minicrash(int sig, siginfo_t *si, void *arg) {
       ctx ? ctx->uc_mcontext.PC : 0,
       DescribeBacktrace(ctx ? (struct StackFrame *)ctx->uc_mcontext.BP
                             : (struct StackFrame *)__builtin_frame_address(0)));
+  _Exit(1);
 }

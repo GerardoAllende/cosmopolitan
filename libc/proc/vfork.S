@@ -1,5 +1,5 @@
 /*-*- mode:unix-assembly; indent-tabs-mode:t; tab-width:8; coding:utf-8     -*-│
-│vi: set et ft=asm ts=8 tw=8 fenc=utf-8                                     :vi│
+│ vi: set noet ft=asm ts=8 sw=8 fenc=utf-8                                 :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,9 +17,9 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/thread/tls.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 
 //	Forks process without copying page tables.
 //
@@ -61,7 +61,7 @@ vfork:
 #endif
 	pop	%rbp
 #endif
-	mov	%fs:0,%r9		// get thread information block
+	mov	%gs:0x30,%r9		// get thread information block
 	mov	0x3c(%r9),%r8d		// avoid question of @vforksafe errno
 	pop	%rsi			// saves return address in a register
 	mov	__NR_vfork(%rip),%eax
@@ -87,9 +87,9 @@ vfork:
 
 #elif defined(__aarch64__)
 
-	adrp	x0,__hostos
-	ldr	w0,[x0,#:lo12:__hostos]
-	tbz	x0,3,1f			// bit 3 is xnu
+	adrp	x8,__hostos
+	ldr	w8,[x8,#:lo12:__hostos]
+	tbz	x8,3,1f			// bit 3 is xnu
 	b	fork			// which doesn't support vfork()
 1:
 
@@ -102,17 +102,26 @@ vfork:
 	ldp	x29,x30,[sp],16
 #endif
 
-	mov	x8,#220			// __NR_clone
+	tbnz	w8,5,1f			// bit 5 is freebsd
+
+	mov	x8,#220			// clone (linux)
 	mov	x0,#0x4111		// SIGCHLD | CLONE_VM | CLONE_VFORK
 	mov	x1,#0
 	svc	0
+	b	2f
+
+1:	mov	x8,#66			// vfork (freebsd)
+	svc	0			// call kernel
+	bcc	2f			// jump if not carry
+	neg	x0,x0			// linux style errno
+2:
 
 //	if (!rc) {
 //	  __get_tls()->tib_flags |= TIB_FLAG_VFORKED;
 //	} else {
 //	  __get_tls()->tib_flags &= ~TIB_FLAG_VFORKED;
 //	}
-	sub	x1,x28,#192		// sizeof(CosmoTib)
+	sub	x1,x28,#512		// sizeof(CosmoTib)
 	ldr	x2,[x1,64]
 	cbnz	x0,2f
 	orr	x2,x2,#TIB_FLAG_VFORKED

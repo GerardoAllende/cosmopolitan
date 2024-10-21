@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,7 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
-#include "libc/intrin/getenv.internal.h"
+#include "libc/intrin/getenv.h"
 #include "libc/intrin/kprintf.h"
 
 privileged struct Env __getenv(char **p, const char *k) {
@@ -26,8 +26,10 @@ privileged struct Env __getenv(char **p, const char *k) {
   for (i = 0; (t = p[i]); ++i) {
     for (j = 0;; ++j) {
       if (!k[j] || k[j] == '=') {
-        if (!t[j]) return (struct Env){t + j, i};
-        if (t[j] == '=') return (struct Env){t + j + 1, i};
+        if (!t[j])
+          return (struct Env){t + j, i};
+        if (t[j] == '=')
+          return (struct Env){t + j + 1, i};
         break;
       }
       if (k[j] != t[j]) {

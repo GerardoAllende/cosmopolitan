@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -41,13 +41,16 @@ char *dirname(char *path) {
   if (path && *path) {
     i = strlen(path) - 1;
     for (; path[i] == '/'; i--) {
-      if (!i) return "/";
+      if (!i)
+        return "/";
     }
     for (; path[i] != '/'; i--) {
-      if (!i) return ".";
+      if (!i)
+        return ".";
     }
     for (; path[i] == '/'; i--) {
-      if (!i) return "/";
+      if (!i)
+        return "/";
     }
     path[i + 1] = 0;
     return path;

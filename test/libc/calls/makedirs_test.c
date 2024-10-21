@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -19,7 +19,7 @@
 #include "libc/calls/calls.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/testlib/testlib.h"
 #include "libc/thread/thread.h"
@@ -71,7 +71,9 @@ TEST(makedirs, test) {
   int i, n = 8;
   pthread_t *t = gc(malloc(sizeof(pthread_t) * n));
   ASSERT_EQ(0, pthread_barrier_init(&barrier, 0, n));
-  for (i = 0; i < n; ++i) ASSERT_EQ(0, pthread_create(t + i, 0, Worker, 0));
-  for (i = 0; i < n; ++i) EXPECT_EQ(0, pthread_join(t[i], 0));
+  for (i = 0; i < n; ++i)
+    ASSERT_EQ(0, pthread_create(t + i, 0, Worker, 0));
+  for (i = 0; i < n; ++i)
+    EXPECT_EQ(0, pthread_join(t[i], 0));
   ASSERT_EQ(0, pthread_barrier_destroy(&barrier));
 }

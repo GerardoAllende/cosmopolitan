@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:4;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=4 sts=4 sw=4 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=4 sts=4 sw=4 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Python 3                                                                     │
 │ https://docs.python.org/3/license.html                                       │
@@ -7,7 +7,6 @@
 #include "libc/assert.h"
 #include "libc/log/log.h"
 #include "libc/mem/mem.h"
-#include "libc/runtime/stack.h"
 #include "third_party/python/Include/bytesobject.h"
 #include "third_party/python/Include/compile.h"
 #include "third_party/python/Include/fileutils.h"
@@ -18,11 +17,9 @@
 #include "third_party/python/Include/pymacro.h"
 #include "third_party/python/Include/pythonrun.h"
 
-STATIC_STACK_ALIGN(GetStackSize());
-
 #define HEADER "\
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:4;tab-width:8;coding:utf-8 -*-│\n\
-│vi: set net ft=c ts=4 sts=4 sw=4 fenc=utf-8                                :vi│\n\
+│ vi: set et ft=c ts=4 sts=4 sw=4 fenc=utf-8                               :vi │\n\
 ╞══════════════════════════════════════════════════════════════════════════════╡\n\
 │ Python 3                                                                     │\n\
 │ https://docs.python.org/3/license.html                                       │\n\

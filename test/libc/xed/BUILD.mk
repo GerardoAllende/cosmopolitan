@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 
 TEST_LIBC_XED_FILES := $(wildcard test/libc/xed/*)
 TEST_LIBC_XED_HDRS = $(filter %.h,$(TEST_LIBC_XED_FILES))
@@ -56,17 +56,17 @@ TEST_LIBC_XED_OBJS =						\
 	$(TEST_LIBC_XED_SRCS:%.c=o/$(MODE)/%.o)
 
 TEST_LIBC_XED_COMS =						\
-	$(TEST_LIBC_XED_SRCS:%.c=o/$(MODE)/%.com)
+	$(TEST_LIBC_XED_SRCS:%.c=o/$(MODE)/%)
 
 TEST_LIBC_XED_BINS =						\
 	$(TEST_LIBC_XED_COMS)					\
 	$(TEST_LIBC_XED_COMS:%=%.dbg)
 
 TEST_LIBC_XED_TESTS =						\
-	$(TEST_LIBC_XED_SRCS:%.c=o/$(MODE)/%.com.ok)
+	$(TEST_LIBC_XED_SRCS:%.c=o/$(MODE)/%.ok)
 
 TEST_LIBC_XED_CHECKS =						\
-	$(TEST_LIBC_XED_SRCS:%.c=o/$(MODE)/%.com.runs)
+	$(TEST_LIBC_XED_SRCS:%.c=o/$(MODE)/%.runs)
 
 TEST_LIBC_XED_DIRECTDEPS =					\
 	LIBC_INTRIN						\
@@ -85,7 +85,7 @@ o/$(MODE)/test/libc/xed/xed.pkg:				\
 		$(TEST_LIBC_XED_OBJS)				\
 		$(foreach x,$(TEST_LIBC_XED_DIRECTDEPS),$($(x)_A).pkg)
 
-o/$(MODE)/test/libc/xed/%.com.dbg:				\
+o/$(MODE)/test/libc/xed/%.dbg:					\
 		$(TEST_LIBC_XED_DEPS)				\
 		o/$(MODE)/test/libc/xed/%.o			\
 		o/$(MODE)/test/libc/xed/xed.pkg			\

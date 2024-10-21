@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -21,7 +21,7 @@
 #include "libc/sysv/consts/clock.h"
 #include "libc/sysv/consts/utime.h"
 #include "libc/sysv/errfuns.h"
-#include "libc/time/time.h"
+#include "libc/time.h"
 
 /**
  * Sleeps for particular number of microseconds.
@@ -34,9 +34,14 @@
  * @norestart
  */
 int usleep(uint64_t micros) {
-  errno_t err;
-  struct timespec ts = timespec_frommicros(micros);
-  err = clock_nanosleep(CLOCK_REALTIME, 0, &ts, 0);
-  if (err) return errno = err, -1;
+  // All OSes except OpenBSD return instantly on usleep(0). So we might
+  // as well avoid system call overhead and helping OpenBSD work better
+  if (micros) {
+    errno_t err;
+    struct timespec ts = timespec_frommicros(micros);
+    err = clock_nanosleep(CLOCK_MONOTONIC, 0, &ts, 0);
+    if (err)
+      return errno = err, -1;
+  }
   return 0;
 }

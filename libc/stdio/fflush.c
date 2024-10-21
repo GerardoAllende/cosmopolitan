@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -26,8 +26,10 @@
  */
 int fflush(FILE *f) {
   int rc;
-  if (f) flockfile(f);
+  if (f)
+    flockfile(f);
   rc = fflush_unlocked(f);
-  if (f) funlockfile(f);
+  if (f)
+    funlockfile(f);
   return rc;
 }

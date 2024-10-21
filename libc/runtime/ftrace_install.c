@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -16,8 +16,8 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
+#include "libc/calls/calls.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/kprintf.h"
 #include "libc/runtime/internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/stack.h"
@@ -28,7 +28,7 @@ textstartup int ftrace_install(void) {
     ftrace_stackdigs = LengthInt64Thousands(GetStackSize());
     return __hook(ftrace_hook, GetSymbolTable());
   } else {
-    kprintf("error: --ftrace failed to open symbol table\n");
+    tinyprint(2, "error: --ftrace failed to open symbol table\n", NULL);
     return -1;
   }
 }

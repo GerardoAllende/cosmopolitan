@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,8 +20,7 @@
 #include "libc/calls/struct/rusage.h"
 #include "libc/calls/struct/rusage.internal.h"
 #include "libc/dce.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/sysv/errfuns.h"
 
 /**
@@ -34,8 +33,6 @@ int getrusage(int who, struct rusage *usage) {
   int rc;
   if (who == 99) {
     rc = einval();
-  } else if (IsAsan() && usage && !__asan_is_valid(usage, sizeof(*usage))) {
-    rc = efault();
   } else if (!IsWindows()) {
     rc = sys_getrusage(who, usage);
   } else {

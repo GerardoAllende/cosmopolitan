@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -29,7 +29,8 @@ int main(int argc, char *argv[]) {
   const char *prog;
 
   prog = argv[0];
-  if (!prog) prog = "touch";
+  if (!prog)
+    prog = "touch";
 
   if (argc < 2) {
     tinyprint(2, prog, ": missing operand\n", NULL);

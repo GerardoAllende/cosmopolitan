@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,6 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/errno.h"
+#include "libc/limits.h"
 #include "libc/thread/thread.h"
 
 /**
@@ -27,7 +28,10 @@
  * @raise EINVAL if `stacksize` is less than `PTHREAD_STACK_MIN`
  */
 errno_t pthread_attr_setstacksize(pthread_attr_t *a, size_t stacksize) {
-  if (stacksize < PTHREAD_STACK_MIN) return EINVAL;
+  if (stacksize > INT_MAX)
+    return EINVAL;
+  if (stacksize < PTHREAD_STACK_MIN)
+    return EINVAL;
   a->__stacksize = stacksize;
   return 0;
 }

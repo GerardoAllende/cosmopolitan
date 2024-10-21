@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:t;c-basic-offset:8;tab-width:8;coding:utf-8   -*-│
-│vi: set et ft=c ts=8 tw=8 fenc=utf-8                                       :vi│
+│ vi: set et ft=c ts=8 sw=8 fenc=utf-8                                     :vi │
 ╚──────────────────────────────────────────────────────────────────────────────╝
 │                                                                              │
 │  Musl Libc                                                                   │
@@ -34,11 +34,7 @@
 #include "libc/sysv/consts/limits.h"
 #include "libc/thread/thread.h"
 #include "third_party/musl/passwd.h"
-
-asm(".ident\t\"\\n\\n\
-Musl libc (MIT License)\\n\
-Copyright 2005-2014 Rich Felker, et. al.\"");
-asm(".include \"libc/disclaimer.inc\"");
+__static_yoink("musl_libc_notice");
 
 static unsigned atou(char **s) {
   unsigned x;
@@ -46,8 +42,8 @@ static unsigned atou(char **s) {
   return x;
 }
 
-static int __getgrent_a(FILE *f, struct group *gr, char **line, size_t *size,
-                        char ***mem, size_t *nmem, struct group **res) {
+int __getgrent_a(FILE *f, struct group *gr, char **line, size_t *size,
+		 char ***mem, size_t *nmem, struct group **res) {
   ssize_t l;
   char *s, *mems;
   size_t i;
@@ -103,9 +99,9 @@ end:
   return rv;
 }
 
-static int __getgr_a(const char *name, gid_t gid, struct group *gr, char **buf,
-                     size_t *size, char ***mem, size_t *nmem,
-                     struct group **res) {
+int __getgr_a(const char *name, gid_t gid, struct group *gr, char **buf,
+	      size_t *size, char ***mem, size_t *nmem,
+	      struct group **res) {
   FILE *f;
   int rv = 0;
   int cs;

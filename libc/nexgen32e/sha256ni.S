@@ -1,5 +1,5 @@
 /*-*- mode:unix-assembly; indent-tabs-mode:t; tab-width:8; coding:utf-8     -*-│
-│vi: set et ft=asm ts=8 tw=8 fenc=utf-8                                     :vi│
+│ vi: set noet ft=asm ts=8 sw=8 fenc=utf-8                                 :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │                                                                              │
 │  Copyright 2015 Intel Corporation                                            │
@@ -31,16 +31,17 @@
 │  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.        │
 │                                                                              │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 
-.text
-.balign 32
-.ident "\n\
+.section .notice,"aR",@progbits
+.asciz "\n\n\
 Intel SHA-NI (BSD-3 License)\n\
 Copyright 2015 Intel Corporation\n\
 Sean Gulley <sean.m.gulley@intel.com>\n\
-Tim Chen <tim.c.chen@linux.intel.com>\n"
-.include "libc/disclaimer.inc"
+Tim Chen <tim.c.chen@linux.intel.com>"
+
+.text
+.balign 32
 
 #define DIGEST_PTR	%rdi	/* 1st arg */
 #define DATA_PTR	%rsi	/* 2nd arg */

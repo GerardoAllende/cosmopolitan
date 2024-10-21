@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -51,7 +51,7 @@ static int __get_cpu_count_bsd(void) {
   } else {
     cmd[1] = HW_NCPU;
   }
-  if (!sys_sysctl(cmd, 2, &c, &n, 0, 0)) {
+  if (!sysctl(cmd, 2, &c, &n, 0, 0)) {
     return c;
   } else {
     return -1;

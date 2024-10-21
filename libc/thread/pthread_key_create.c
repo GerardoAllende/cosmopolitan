@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -45,11 +45,12 @@
 int pthread_key_create(pthread_key_t *key, pthread_key_dtor dtor) {
   int i;
   pthread_key_dtor expect;
-  if (!dtor) dtor = (pthread_key_dtor)-1;
+  if (!dtor)
+    dtor = (pthread_key_dtor)-1;
   for (i = 0; i < PTHREAD_KEYS_MAX; ++i) {
-    if (!(expect = atomic_load_explicit(_pthread_key_dtor + i,
-                                        memory_order_acquire)) &&
-        atomic_compare_exchange_strong_explicit(_pthread_key_dtor + i, &expect,
+    if (!(expect = atomic_load_explicit(&_pthread_key_dtor[i],
+                                        memory_order_relaxed)) &&
+        atomic_compare_exchange_strong_explicit(&_pthread_key_dtor[i], &expect,
                                                 dtor, memory_order_release,
                                                 memory_order_relaxed)) {
       *key = i;

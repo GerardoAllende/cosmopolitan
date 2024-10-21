@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -22,10 +22,9 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/asan.internal.h"
 #include "libc/intrin/atomic.h"
-#include "libc/intrin/describeflags.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/describeflags.h"
+#include "libc/intrin/strace.h"
 #include "libc/runtime/syslib.internal.h"
 #include "libc/str/str.h"
 #include "libc/sysv/consts/at.h"
@@ -83,6 +82,7 @@ static errno_t pthread_setname_impl(struct PosixThread *pt, const char *name) {
     }
     return 0;
 
+#ifdef __x86_64__
   } else if (IsFreebsd() || IsNetbsd() || IsOpenbsd()) {
     int ax;
     if (IsFreebsd()) {
@@ -97,6 +97,16 @@ static errno_t pthread_setname_impl(struct PosixThread *pt, const char *name) {
                  : /* no inputs */
                  : "rcx", "rdx", "r8", "r9", "r10", "r11", "memory");
     return ax;
+#endif
+
+#ifdef __aarch64__
+  } else if (IsFreebsd()) {
+    register int x0 asm("x0") = tid;
+    register long x1 asm("x1") = (long)name;
+    register int x8 asm("x8") = 464;  // thr_set_name
+    asm volatile("svc\t0" : "+r"(x0) : "r"(x1), "r"(x8) : "memory");
+    return x0;
+#endif
 
   } else {
     return ENOSYS;

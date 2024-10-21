@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 #
 # SYNOPSIS
 #
@@ -53,7 +53,6 @@ o/$(MODE)/third_party/xed/x86ild.greg.o: private	\
 $(THIRD_PARTY_XED_A_OBJS): private			\
 		COPTS +=				\
 			-ffreestanding			\
-			-fno-sanitize=address		\
 			-Wframe-larger-than=4096	\
 			-Walloca-larger-than=4096
 

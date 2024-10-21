@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -25,9 +25,9 @@
 #include "libc/str/str.h"
 
 #ifdef __x86_64__
-#define ADDR2LINE "o/third_party/gcc/bin/x86_64-linux-musl-addr2line"
+#define ADDR2LINE "cosmocc/3.2/bin/x86_64-linux-musl-addr2line"
 #elif defined(__aarch64__)
-#define ADDR2LINE "o/third_party/gcc/bin/aarch64-linux-musl-addr2line"
+#define ADDR2LINE "cosmocc/3.2/bin/aarch64-linux-musl-addr2line"
 #endif
 
 static struct {
@@ -36,10 +36,15 @@ static struct {
   char buf[PATH_MAX];
 } g_addr2line;
 
-const void GetAddr2linePathInit(void) {
+void GetAddr2linePathInit(void) {
+  char *res;
   int e = errno;
-  const char *path;
-  if (!(path = getenv("ADDR2LINE"))) {
+  const char *env, *cmd, *path;
+  if ((env = secure_getenv("ADDR2LINE"))) {
+    cmd = env;
+    path = env;
+  } else {
+    cmd = "addr2line";
     path = ADDR2LINE;
   }
   char *buf = g_addr2line.buf;
@@ -48,12 +53,11 @@ const void GetAddr2linePathInit(void) {
       strlcat(buf, "/", PATH_MAX);
     }
     strlcat(buf, path, PATH_MAX);
-  }
-  if (*buf) {
-    g_addr2line.res = buf;
+    res = buf;
   } else {
-    g_addr2line.res = commandv("addr2line", buf, PATH_MAX);
+    res = commandv(cmd, buf, PATH_MAX);
   }
+  g_addr2line.res = res;
   errno = e;
 }
 

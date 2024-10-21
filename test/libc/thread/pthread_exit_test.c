@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,7 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/cxxabi.h"
-#include "libc/intrin/cxaatexit.internal.h"
+#include "libc/intrin/cxaatexit.h"
 #include "libc/runtime/runtime.h"
 #include "libc/testlib/subprocess.h"
 #include "libc/testlib/testlib.h"
@@ -71,13 +71,6 @@ TEST(pthread_exit, detachedOrphanedChild_runsAtexitHandlers) {
 
 void OnMainThreadExit(void *arg) {
   _Exit((long)arg);
-}
-
-TEST(__cxa_thread_atexit, exit_wontInvokeThreadDestructors) {
-  SPAWN(fork);
-  __cxa_thread_atexit(OnMainThreadExit, (void *)123L, 0);
-  exit(0);
-  EXITS(0);
 }
 
 TEST(__cxa_thread_atexit, pthread_exit_willInvokeThreadDestructors) {

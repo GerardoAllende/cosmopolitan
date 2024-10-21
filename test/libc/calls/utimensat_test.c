@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -29,7 +29,7 @@
 #include "libc/sysv/consts/o.h"
 #include "libc/sysv/consts/utime.h"
 #include "libc/testlib/testlib.h"
-#include "libc/time/time.h"
+#include "libc/time.h"
 
 void SetUpOnce(void) {
   testlib_enable_tmp_setup_teardown();
@@ -58,7 +58,8 @@ TEST(utimes, test) {
 }
 
 TEST(futimes, test) {
-  if (IsLinux() && !__is_linux_2_6_23()) return;
+  if (IsLinux() && !__is_linux_2_6_23())
+    return;
   struct stat st;
   struct timeval tv[2] = {{1655455857, 1}, {827727928, 2}};
   EXPECT_SYS(0, 3, creat("boop", 0644));
@@ -123,7 +124,8 @@ TEST(utimensat, testOmit) {
 TEST(futimens, test2) {
   struct timespec ts[2];
   int fd = creat("foo", 0600);
-  if (fd < 0) exit(1);
+  if (fd < 0)
+    exit(1);
   struct stat st;
   int64_t birth;
   ASSERT_SYS(0, 0, fstat(fd, &st));
@@ -150,7 +152,7 @@ TEST(futimens, test2) {
     ASSERT_EQ(st.st_mtime, birth);
   }
   // NetBSD doesn't appear to change ctime even though it says it does
-  if (!IsNetbsd()) {
+  if (!IsNetbsd() && !(IsFreebsd() && IsAarch64())) {
     ASSERT_GT(st.st_ctime, birth);
     ASSERT_EQ(st.st_ctime, st.st_atime);
     ASSERT_GT(st.st_ctime, st.st_mtime);

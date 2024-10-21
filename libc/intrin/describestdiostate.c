@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,13 +18,16 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/fmt/itoa.h"
 #include "libc/fmt/magnumstrs.internal.h"
-#include "libc/intrin/describeflags.internal.h"
+#include "libc/intrin/describeflags.h"
 #include "libc/str/str.h"
 
-const char *(DescribeStdioState)(char buf[12], int x) {
-  if (!x) return "";
-  if (x == -1) return "EOF";
-  if (x > 0) return _strerrno(x);
+const char *_DescribeStdioState(char buf[12], int x) {
+  if (!x)
+    return "";
+  if (x == -1)
+    return "EOF";
+  if (x > 0)
+    return _strerrno(x);
   FormatInt32(buf, x);
   return buf;
 }

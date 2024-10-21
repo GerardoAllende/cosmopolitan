@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -22,7 +22,7 @@
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/limits.h"
 #include "libc/nt/files.h"
 #include "libc/stdio/sysparam.h"
@@ -82,14 +82,17 @@ static dontinline textwindows int sys_getcwd_nt(char *buf, size_t size) {
   // get current directory from the system
   char16_t p16[PATH_MAX];
   uint32_t n = GetCurrentDirectory(PATH_MAX, p16);
-  if (!n) return eacces();             // system call failed
-  if (n >= PATH_MAX) return erange();  // not enough room?!?
+  if (!n)
+    return eacces();  // system call failed
+  if (n >= PATH_MAX)
+    return erange();  // not enough room?!?
 
   // convert utf-16 to utf-8
   // we can't modify `buf` until we're certain of success
   char p8[PATH_MAX], *p = p8;
   n = tprecode16to8(p, PATH_MAX, p16).ax;
-  if (n >= PATH_MAX) return erange();  // utf-8 explosion
+  if (n >= PATH_MAX)
+    return erange();  // utf-8 explosion
 
   // turn \\?\c:\... into c:\...
   if (p[0] == '\\' &&   //

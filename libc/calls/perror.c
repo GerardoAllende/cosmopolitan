@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -26,6 +26,7 @@
  */
 void perror(const char *thing) {
   const char *reason;
-  if (!(reason = _strerdoc(errno))) reason = "Unknown error";
+  if (!(reason = _strerdoc(errno)))
+    reason = "Unknown error";
   tinyprint(2, thing ? thing : "", thing ? ": " : "", reason, "\n", NULL);
 }

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -70,14 +70,20 @@ FILE *popen(const char *cmdline, const char *mode) {
     errno = rc;
     return 0;
   }
-  if (pipe2(pipefds, O_CLOEXEC) == -1) return NULL;
+  if (pipe2(pipefds, O_CLOEXEC) == -1)
+    return NULL;
   if ((f = fdopen(pipefds[dir], mode))) {
     switch ((pid = fork())) {
       case 0:
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wanalyzer-fd-leak"
         unassert(dup2(pipefds[!dir], !dir) == !dir);
+#pragma GCC diagnostic pop
         // we can't rely on cloexec because cocmd builtins don't execve
-        if (pipefds[0] != !dir) unassert(!close(pipefds[0]));
-        if (pipefds[1] != !dir) unassert(!close(pipefds[1]));
+        if (pipefds[0] != !dir)
+          unassert(!close(pipefds[0]));
+        if (pipefds[1] != !dir)
+          unassert(!close(pipefds[1]));
         // "The popen() function shall ensure that any streams from
         //  previous popen() calls that remain open in the parent
         //  process are closed in the new child process." -POSIX

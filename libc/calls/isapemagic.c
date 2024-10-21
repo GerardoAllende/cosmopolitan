@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -16,8 +16,8 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/serialize.h"
 #include "libc/proc/execve.internal.h"
+#include "libc/serialize.h"
 
 /**
  * Returns true if executable image is supported by APE Loader.
@@ -25,6 +25,5 @@
 bool IsApeLoadable(char buf[8]) {
   return READ32LE(buf) == READ32LE("\177ELF") ||
          READ64LE(buf) == READ64LE("MZqFpD='") ||
-         READ64LE(buf) == READ64LE("jartsr='") ||
-         READ64LE(buf) == READ64LE("APEDBG='");
+         READ64LE(buf) == READ64LE("jartsr='");
 }

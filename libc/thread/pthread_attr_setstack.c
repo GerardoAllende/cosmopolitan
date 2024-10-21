@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,7 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/intrin/asan.internal.h"
+#include "libc/limits.h"
 #include "libc/thread/thread.h"
 
 /**
@@ -72,10 +72,10 @@ errno_t pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr,
     attr->__stacksize = 0;
     return 0;
   }
-  if (stacksize < PTHREAD_STACK_MIN ||
-      (IsAsan() && !__asan_is_valid(stackaddr, stacksize))) {
+  if (stacksize > INT_MAX)
     return EINVAL;
-  }
+  if (stacksize < PTHREAD_STACK_MIN)
+    return EINVAL;
   attr->__stackaddr = stackaddr;
   attr->__stacksize = stacksize;
   return 0;

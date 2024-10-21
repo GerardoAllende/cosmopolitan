@@ -1,5 +1,5 @@
 /*-*- mode:unix-assembly; indent-tabs-mode:t; tab-width:8; coding:utf-8     -*-│
-│vi: set et ft=asm ts=8 tw=8 fenc=utf-8                                     :vi│
+│ vi: set noet ft=asm ts=8 sw=8 fenc=utf-8                                 :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,8 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
-#include "libc/macros.internal.h"
-#include "libc/notice.inc"
+#include "libc/macros.h"
 .section .start,"ax",@progbits
 
 #if SupportsXnu() && defined(__x86_64__)
@@ -62,6 +61,8 @@ _start:
 //	set operating system when already detected
 1:	mov	%cl,__hostos(%rip)
 
+	mov	%rdx,__program_executable_name(%rip)
+
 //	get startup timestamp as early as possible
 //	its used by --strace flag and kprintf() %T
 	rdtsc
@@ -78,7 +79,7 @@ _start:
 
 //	setup stack
 	xor	%ebp,%ebp
-	and	$ape_stack_round,%rsp
+	and	$-16,%rsp
 
 #if SupportsWindows() && !IsTiny()
 //	make win32 imps crash
@@ -115,13 +116,17 @@ _start:
 9:	.unreachable
 
 //	strongly link main() function (discarded by linker)
-//	libc_runtime had to weakly link, due to package.com
 	.section .yoink
 	call	main
 	.previous
 
 ////////////////////////////////////////////////////////////////////////////////
 #elif defined(__aarch64__)
+
+#if SupportsFreebsd()
+//	save first arg
+	mov	x4,x0
+#endif
 
 //	save original stack pointer
 //	this is the first argument to cosmo() below
@@ -131,21 +136,21 @@ _start:
 	mov	x28,#0
 	mov	x29,#0
 	mov	x30,#0
-	ldr	x1,=ape_stack_round
-	and	x1,x0,x1
-	mov	sp,x1
+	and	sp,x0,#-16
 
 //	second arg shall be struct Syslib passed by ape-m1.c
 //	used to talk to apple's authoritarian libraries
 //	should be set to zero on other platforms
 	mov	x1,x15
 
+//	third arg is program path passed by loader
+//	fourth arg is detected os passed by loader
+
 //	switch to c code
 	bl	cosmo
 	.unreachable
 
 //	strongly link main() function (discarded by linker)
-//	libc_runtime had to weakly link, due to package.com
 	.section .yoink
 	bl	main
 	.previous

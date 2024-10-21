@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -23,7 +23,7 @@
 #include "libc/calls/struct/rlimit.h"
 #include "libc/calls/struct/sigaction.h"
 #include "libc/errno.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/runtime/internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/stack.h"
@@ -40,8 +40,7 @@
 #include "libc/testlib/hyperion.h"
 #include "libc/testlib/testlib.h"
 #include "libc/thread/tls.h"
-#include "libc/time/struct/tm.h"
-#include "libc/time/time.h"
+#include "libc/time.h"
 
 __static_yoink("zipos");
 __static_yoink("libc/testlib/hyperion.txt");
@@ -70,7 +69,7 @@ TEST(reservefd, testGrowthOfFdsDataStructure) {
     errno = 0;
   }
   for (i = 0; i < n; ++i) {
-    ASSERT_SYS(0, i + 3, open("/zip/usr/share/zoneinfo/UTC", O_RDONLY));
+    ASSERT_SYS(0, i + 3, open("/zip/usr/share/zoneinfo/GMT", O_RDONLY));
   }
   ASSERT_GT(g_fds.n, 16);
   for (i = 0; i < n; ++i) {

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -44,11 +44,16 @@ char *GetElfString(const Elf64_Ehdr *elf,  // validated
                    const char *strtab,     // validated
                    Elf64_Word i) {         // foreign
   const char *e;
-  if (!i) return "";
+  if (!i)
+    return "";
   e = (const char *)elf;
-  if (!strtab) return 0;
-  if (i >= mapsize) return 0;
-  if (strtab + i >= e + mapsize) return 0;
-  if (!memchr(strtab + i, 0, (e + mapsize) - (strtab + i))) return 0;
+  if (!strtab)
+    return 0;
+  if (i >= mapsize)
+    return 0;
+  if (strtab + i >= e + mapsize)
+    return 0;
+  if (!memchr(strtab + i, 0, (e + mapsize) - (strtab + i)))
+    return 0;
   return (char *)strtab + i;
 }

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -27,7 +27,7 @@
  * - `SYS_gettid`
  * - `SYS_getrandom`
  *
- * @return negative errno on error
+ * @return system call result, or -1 w/ errno
  */
 long syscall(long number, ...) {
   switch (number) {
@@ -43,8 +43,15 @@ long syscall(long number, ...) {
       size_t buflen = va_arg(va, size_t);
       unsigned flags = va_arg(va, unsigned);
       va_end(va);
-      ssize_t rc = getrandom(buf, buflen, flags);
-      return rc;
+      return getrandom(buf, buflen, flags);
+    }
+    case SYS_getcpu: {
+      va_list va;
+      va_start(va, number);
+      unsigned *cpu = va_arg(va, unsigned *);
+      unsigned *node = va_arg(va, unsigned *);
+      va_end(va);
+      return getcpu(cpu, node);
     }
   }
 }

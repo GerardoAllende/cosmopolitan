@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -40,9 +40,13 @@ void *GetElfSegmentAddress(const Elf64_Ehdr *elf,     // validated
                            size_t mapsize,            // validated
                            const Elf64_Phdr *phdr) {  // foreign
   Elf64_Off last;
-  if (!phdr) return 0;
-  if (phdr->p_filesz <= 0) return 0;
-  if (ckd_add(&last, phdr->p_offset, phdr->p_filesz)) return 0;
-  if (last > mapsize) return 0;
+  if (!phdr)
+    return 0;
+  if (phdr->p_filesz <= 0)
+    return 0;
+  if (ckd_add(&last, phdr->p_offset, phdr->p_filesz))
+    return 0;
+  if (last > mapsize)
+    return 0;
   return (char *)elf + phdr->p_offset;
 }

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ This is free and unencumbered software released into the public domain.      │
 │                                                                              │
@@ -62,8 +62,8 @@ textstartup void _AcpiFadtInit(void) {
     _Static_assert(offsetof(AcpiTableFadt, Dsdt) == 40);
     _Static_assert(offsetof(AcpiTableFadt, BootFlags) == 109);
     _Static_assert(offsetof(AcpiTableFadt, XDsdt) == 140);
-    if (length >= offsetof(AcpiTableFadt, BootFlags) + sizeof(fadt->BootFlags))
-    {
+    if (length >=
+        offsetof(AcpiTableFadt, BootFlags) + sizeof(fadt->BootFlags)) {
       _AcpiBootFlags = flags = fadt->BootFlags;
       KINFOF("FADT: boot flags %#x", (unsigned)flags);
     }

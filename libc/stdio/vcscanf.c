@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -23,32 +23,39 @@
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/str/str.h"
-#include "libc/str/tab.internal.h"
+#include "libc/str/tab.h"
 #include "libc/str/tpdecodecb.internal.h"
 #include "libc/str/utf16.h"
 #include "libc/sysv/errfuns.h"
 #include "third_party/gdtoa/gdtoa.h"
 
-#define READ                 \
-  ({                         \
-    int c = callback(arg);   \
-    if (c != -1) ++consumed; \
-    c;                       \
+#define READ               \
+  ({                       \
+    int c = callback(arg); \
+    if (c != -1)           \
+      ++consumed;          \
+    c;                     \
   })
 
 #define FP_BUFFER_GROW 48
-#define BUFFER                                         \
-  ({                                                   \
-    int c = READ;                                      \
-    if (fpbufcur >= fpbufsize - 1) {                   \
-      fpbufsize = fpbufsize + FP_BUFFER_GROW;          \
-      fpbuf = realloc(fpbuf, fpbufsize);               \
-    }                                                  \
-    if (c != -1) {                                     \
-      fpbuf[fpbufcur++] = c;                           \
-      fpbuf[fpbufcur] = '\0';                          \
-    }                                                  \
-    c;                                                 \
+#define BUFFER                                \
+  ({                                          \
+    int c = READ;                             \
+    if (fpbufcur >= fpbufsize - 1) {          \
+      fpbufsize = fpbufsize + FP_BUFFER_GROW; \
+      fpbuf = realloc(fpbuf, fpbufsize);      \
+    }                                         \
+    if (c != -1) {                            \
+      fpbuf[fpbufcur++] = c;                  \
+      fpbuf[fpbufcur] = '\0';                 \
+    }                                         \
+    c;                                        \
+  })
+#define UNBUFFER                \
+  ({                            \
+    if (c != -1) {              \
+      fpbuf[--fpbufcur] = '\0'; \
+    }                           \
   })
 
 /**
@@ -144,7 +151,8 @@ int __vcscanf(int callback(void *),    //
               break;
             case 'c':
               rawmode = true;
-              if (!width) width = 1;
+              if (!width)
+                width = 1;
               // fallthrough
             case 's':
               while (isspace(c)) {
@@ -236,8 +244,9 @@ int __vcscanf(int callback(void *),    //
             case 'f':
             case 'F':
             case 'g':
-            case 'G': // floating point number
-              if (!(charbytes == sizeof(char) || charbytes == sizeof(wchar_t))) {
+            case 'G':  // floating point number
+              if (!(charbytes == sizeof(char) ||
+                    charbytes == sizeof(wchar_t))) {
                 items = -1;
                 goto Done;
               }
@@ -245,11 +254,15 @@ int __vcscanf(int callback(void *),    //
                 c = READ;
               }
               fpbufsize = FP_BUFFER_GROW;
-              fpbuf = malloc(fpbufsize);
-              fpbufcur = 0;
-              fpbuf[fpbufcur++] = c;
-              fpbuf[fpbufcur] = '\0';
-              goto ConsumeFloatingPointNumber;
+              if ((fpbuf = malloc(fpbufsize))) {
+                fpbufcur = 0;
+                fpbuf[fpbufcur++] = c;
+                fpbuf[fpbufcur] = '\0';
+                goto ConsumeFloatingPointNumber;
+              } else {
+                items = -1;
+                goto Done;
+              }
             default:
               items = einval();
               goto Done;
@@ -361,16 +374,18 @@ int __vcscanf(int callback(void *),    //
                 c = BUFFER;
                 do {
                   bool isdigit = c >= '0' && c <= '9';
-                  bool isletter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+                  bool isletter =
+                      (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
                   if (!(c == '_' || isdigit || isletter)) {
                     goto Done;
                   }
                 } while ((c = BUFFER) != -1 && c != ')');
                 if (c == ')') {
-                  c = BUFFER;
+                  c = READ;
                 }
                 goto GotFloatingPointNumber;
               } else {
+                UNBUFFER;
                 goto GotFloatingPointNumber;
               }
             } else {
@@ -408,9 +423,7 @@ int __vcscanf(int callback(void *),    //
                   goto Done;
                 }
               } else {
-                if (c != -1 && unget) {
-                  unget(c, arg);
-                }
+                UNBUFFER;
                 goto GotFloatingPointNumber;
               }
             } else {
@@ -420,84 +433,100 @@ int __vcscanf(int callback(void *),    //
             goto Done;
           }
         }
-        BufferFloatingPointNumber:
-          enum { INTEGER, FRACTIONAL, SIGN, EXPONENT } state = INTEGER;
-          do {
-            bool isdecdigit = c >= '0' && c <= '9';
-            bool ishexdigit = (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
-            bool ispoint = c == '.' || c == ',';
-            bool isdecexp = c == 'e' || c == 'E';
-            bool ishexp = c == 'p' || c == 'P';
-            bool issign = c == '+' || c == '-';
+      BufferFloatingPointNumber:
+        enum { INTEGER, FRACTIONAL, SIGN, EXPONENT } state = INTEGER;
+        do {
+          bool isdecdigit = c >= '0' && c <= '9';
+          bool ishexdigit = (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+          bool ispoint = c == '.' || c == ',';
+          bool isdecexp = c == 'e' || c == 'E';
+          bool ishexp = c == 'p' || c == 'P';
+          bool issign = c == '+' || c == '-';
 
-            switch (state) {
-              case INTEGER:
-              case FRACTIONAL:
-                if (isdecdigit || (hexadecimal && ishexdigit)) {
-                  goto Continue;
-                } else if (state == INTEGER && ispoint) {
-                  state = FRACTIONAL;
-                  goto Continue;
-                } else if (isdecexp || (hexadecimal && ishexp)) {
-                  state = SIGN;
-                  goto Continue;
-                } else {
-                  goto Break;
-                }
-              case SIGN:
-                if (issign) {
-                  state = EXPONENT;
-                  goto Continue;
-                }
-                state = EXPONENT;
-                // fallthrough
-              case EXPONENT:
-                if (isdecdigit) {
-                  goto Continue;
-                } else {
-                  goto Break;
-                }
-              default:
+          switch (state) {
+            case INTEGER:
+            case FRACTIONAL:
+              if (isdecdigit || (hexadecimal && ishexdigit)) {
+                goto Continue;
+              } else if (state == INTEGER && ispoint) {
+                state = FRACTIONAL;
+                goto Continue;
+              } else if (isdecexp || (hexadecimal && ishexp)) {
+                state = SIGN;
+                goto Continue;
+              } else {
                 goto Break;
-            }
-            Continue:
-              continue;
-            Break:
-              if (c != -1 && unget) {
-                unget(c, arg);
               }
-              break;
-          } while ((c = BUFFER) != -1);
-        GotFloatingPointNumber:
-          fp = strtod((char *)fpbuf, NULL);
-          if (!discard) {
-            ++items;
-            void *out = va_arg(va, void *);
-            if (charbytes == sizeof(char)) {
-              *(float *)out = (float)fp;
-            } else {
-              *(double *)out = (double)fp;
-            }
+            case SIGN:
+              if (issign) {
+                state = EXPONENT;
+                goto Continue;
+              }
+              state = EXPONENT;
+              // fallthrough
+            case EXPONENT:
+              if (isdecdigit) {
+                goto Continue;
+              } else {
+                goto Break;
+              }
+            default:
+              goto Break;
           }
+        Continue:
+          continue;
+        Break:
+          UNBUFFER;
+          break;
+        } while ((c = BUFFER) != -1);
+      GotFloatingPointNumber:
+        /* An empty buffer can't be a valid float; don't even bother parsing. */
+        bool valid = fpbufcur > 0;
+        if (valid) {
+          char *ep;
+          fp = strtod((char *)fpbuf, &ep);
+          /* We should have parsed the whole buffer. */
+          valid = ep == (char *)fpbuf + fpbufcur;
+        }
         free(fpbuf);
         fpbuf = NULL;
         fpbufcur = fpbufsize = 0;
+        if (!valid) {
+          goto Done;
+        }
+        if (!discard) {
+          ++items;
+          void *out = va_arg(va, void *);
+          if (charbytes == sizeof(char)) {
+            *(float *)out = (float)fp;
+          } else {
+            *(double *)out = (double)fp;
+          }
+        }
         continue;
       ReportConsumed:
         n_ptr = va_arg(va, int *);
-        *n_ptr = consumed - 1;  // minus lookahead
+        if (c != -1) {
+          *n_ptr = consumed - 1;  // minus lookahead
+        } else {
+          *n_ptr = consumed;
+        }
         continue;
       DecodeString:
         bufsize = !width ? 32 : rawmode ? width : width + 1;
         if (discard) {
           buf = NULL;
         } else if (ismalloc) {
-          buf = malloc(bufsize * charbytes);
-          struct FreeMe *entry;
-          if (buf && (entry = calloc(1, sizeof(struct FreeMe)))) {
-            entry->ptr = buf;
-            entry->next = freeme;
-            freeme = entry;
+          if ((buf = malloc(bufsize * charbytes))) {
+            struct FreeMe *entry;
+            if (buf && (entry = calloc(1, sizeof(struct FreeMe)))) {
+              entry->ptr = buf;
+              entry->next = freeme;
+              freeme = entry;
+            }
+          } else {
+            items = -1;
+            goto Done;
           }
         } else {
           buf = va_arg(va, void *);
@@ -531,6 +560,12 @@ int __vcscanf(int callback(void *),    //
               if (!j && c == -1 && !items) {
                 items = -1;
                 goto Done;
+              } else if (rawmode && j != width) {
+                /* The C standard says that %c "matches a sequence of characters
+                 * of
+                 * **exactly** the number specified by the field width". If we
+                 * have fewer characters, what we've just read is invalid. */
+                goto Done;
               } else if (!rawmode && j < bufsize) {
                 if (charbytes == sizeof(char)) {
                   buf[j] = '\0';
@@ -545,12 +580,13 @@ int __vcscanf(int callback(void *),    //
           }
           ++items;
           if (ismalloc) {
-            *va_arg(va, char **) = (void *) buf;
+            *va_arg(va, char **) = (void *)buf;
           }
           buf = NULL;
         } else {
           do {
-            if (isspace(c)) break;
+            if (isspace(c))
+              break;
           } while ((c = READ) != -1);
         }
         break;
@@ -565,9 +601,11 @@ Done:
   while (freeme) {
     struct FreeMe *entry = freeme;
     freeme = entry->next;
-    if (items == -1) free(entry->ptr);
+    if (items == -1)
+      free(entry->ptr);
     free(entry);
   }
-  if (fpbuf) free(fpbuf);
+  if (fpbuf)
+    free(fpbuf);
   return items;
 }

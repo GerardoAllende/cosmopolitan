@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -28,7 +28,7 @@
 #include "libc/runtime/clktck.h"
 #include "libc/runtime/sysconf.h"
 #include "libc/sysv/consts/rusage.h"
-#include "libc/time/time.h"
+#include "libc/time.h"
 
 static dontinline long ConvertMicros(struct timeval tv) {
   return tv.tv_sec * CLK_TCK + tv.tv_usec / (1000000 / CLK_TCK);
@@ -38,10 +38,12 @@ static dontinline long times2(struct tms *out_times, struct rusage *ru) {
   struct timeval tv;
   struct NtFileTime CreationTime, ExitTime, KernelTime, UserTime;
   if (!IsWindows()) {
-    if (getrusage(RUSAGE_SELF, ru) == -1) return -1;
+    if (getrusage(RUSAGE_SELF, ru) == -1)
+      return -1;
     out_times->tms_utime = ConvertMicros(ru->ru_utime);
     out_times->tms_stime = ConvertMicros(ru->ru_stime);
-    if (getrusage(RUSAGE_CHILDREN, ru) == -1) return -1;
+    if (getrusage(RUSAGE_CHILDREN, ru) == -1)
+      return -1;
     out_times->tms_cutime = ConvertMicros(ru->ru_utime);
     out_times->tms_cstime = ConvertMicros(ru->ru_stime);
   } else {
@@ -54,7 +56,8 @@ static dontinline long times2(struct tms *out_times, struct rusage *ru) {
     out_times->tms_cutime = 0;
     out_times->tms_cstime = 0;
   }
-  if (gettimeofday(&tv, NULL) == -1) return -1;
+  if (gettimeofday(&tv, NULL) == -1)
+    return -1;
   return ConvertMicros(tv);
 }
 

@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 
 PKGS += LIBC_NEXGEN32E
 
@@ -52,6 +52,7 @@ o/$(MODE)/libc/nexgen32e/ktolower.o			\
 o/$(MODE)/libc/nexgen32e/ktoupper.o			\
 o/$(MODE)/libc/nexgen32e/runlevel.o			\
 o/$(MODE)/libc/nexgen32e/pid.o				\
+o/$(MODE)/libc/nexgen32e/program_executable_name.o	\
 o/$(MODE)/libc/nexgen32e/program_invocation_name2.o	\
 o/$(MODE)/libc/nexgen32e/threaded.o: private		\
 		CFLAGS +=				\
@@ -69,8 +70,6 @@ o/$(MODE)/libc/nexgen32e/ksha256.o: libc/nexgen32e/ksha256.S
 o/$(MODE)/libc/nexgen32e/ksha512.o: libc/nexgen32e/ksha512.S
 	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<
 o/$(MODE)/libc/nexgen32e/kcp437.o: libc/nexgen32e/kcp437.S
-	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<
-o/$(MODE)/libc/nexgen32e/kreversebits.o: libc/nexgen32e/kreversebits.S
 	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<
 o/$(MODE)/libc/nexgen32e/ktensindex.o: libc/nexgen32e/ktensindex.S
 	@$(COMPILE) -AOBJECTIFY.S $(OBJECTIFY.S) $(OUTPUT_OPTION) -c $<

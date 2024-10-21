@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,7 +17,6 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
-#include "libc/intrin/asan.internal.h"
 #include "libc/nexgen32e/x86feature.h"
 #include "libc/runtime/runtime.h"
 #include "libc/stdckdint.h"
@@ -28,11 +27,6 @@ void djbsort_avx2(int32_t *, long);
  * D.J. Bernstein's outrageously fast integer sorting algorithm.
  */
 void djbsort(int32_t *a, size_t n) {
-  size_t m;
-  if (IsAsan()) {
-    if (ckd_mul(&m, n, 4)) m = -1;
-    __asan_verify(a, m);
-  }
   if (n > 1) {
 #if defined(__x86_64__) && !defined(__chibicc__)
     if (X86_HAVE(AVX2)) {

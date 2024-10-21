@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,7 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/math.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/testlib/ezbench.h"
 #include "libc/testlib/testlib.h"
 #include "libc/x/x.h"
@@ -99,8 +99,10 @@ TEST(hypotll, test) {
   EXPECT_STREQ("1.414213562373095", gc(xdtoal(_hypotl(-1, 1))));
   EXPECT_STREQ("1.414213626012708", gc(xdtoal(_hypotl(1.0000001, .99999999))));
   EXPECT_STREQ("1.414213626012708", gc(xdtoal(_hypotl(.99999999, 1.0000001))));
+#if LDBL_MANT_DIG > 64
   EXPECT_STREQ("1.414213562373095e+4931",
                gc(xdtoal(_hypotl(1e4931L, 1e4931L))));
+#endif
   EXPECT_STREQ("NAN", gc(xdtoal(_hypotl(0, NAN))));
   EXPECT_STREQ("NAN", gc(xdtoal(_hypotl(NAN, 0))));
   EXPECT_STREQ("NAN", gc(xdtoal(_hypotl(NAN, NAN))));

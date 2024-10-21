@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -33,9 +33,11 @@ static bool IsSymbolChar2(char c) {
 }
 
 static bool IsSymbolString(const char *s) {
-  if (!IsSymbolChar1(*s++)) return false;
+  if (!IsSymbolChar1(*s++))
+    return false;
   while (*s) {
-    if (!IsSymbolChar2(*s++)) return false;
+    if (!IsSymbolChar2(*s++))
+      return false;
   }
   return true;
 }

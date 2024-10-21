@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -29,6 +29,7 @@ char *GetSymbolByAddr(int64_t addr) {
   struct SymbolTable *st;
   st = GetSymbolTable();
   i = __get_symbol(st, addr);
-  if (i == -1) i = __get_symbol(st, addr - 1);
+  if (i == -1)
+    i = __get_symbol(st, addr - 1);
   return __get_symbol_name(st, i);
 }

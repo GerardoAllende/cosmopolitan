@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -23,14 +23,15 @@
 #include "libc/nexgen32e/nexgen32e.h"
 #include "libc/nexgen32e/stackframe.h"
 #include "libc/runtime/runtime.h"
-#include "libc/stdalign.internal.h"
+#include "libc/stdalign.h"
 #include "libc/str/str.h"
 #include "libc/thread/thread.h"
 
 typedef double vect __attribute__((__vector_size__(16), __aligned__(16)));
 
 struct Gadget {
-  void (*func)();
+  void (*func)(long, long, long, long, long, long,  //
+               vect, vect, vect, vect, vect, vect);
   long longs[6];
   vect vects[6];
 };
@@ -89,7 +90,7 @@ static void runcontext(struct Gadget *call, ucontext_t *link) {
  * @param argc is effectively ignored (see notes above)
  * @see setcontext(), getcontext(), swapcontext()
  */
-void makecontext(ucontext_t *uc, void func(), int argc, ...) {
+void makecontext(ucontext_t *uc, void *func, int argc, ...) {
   va_list va;
   long sp, sb;
   struct Gadget *call;

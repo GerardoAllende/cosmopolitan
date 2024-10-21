@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -28,11 +28,11 @@
 int i, *p;
 
 void SetUp(void) {
-  p = _mapshared(FRAMESIZE);
+  p = _mapshared(getpagesize());
 }
 
 void TearDown(void) {
-  munmap(p, FRAMESIZE);
+  munmap(p, getpagesize());
 }
 
 void AtExit3(void) {
@@ -73,7 +73,8 @@ TEST(exit, narrowing) {
 }
 
 TEST(exit, exitCode259_wontCauseParentProcessToHangForever) {
-  if (!IsWindows()) return;
+  if (!IsWindows())
+    return;
   SPAWN(vfork);
   _Exit(259);
   EXITS(259);
@@ -88,7 +89,8 @@ TEST(exit, sigkill) {
       pause();
     }
   }
-  while (!*ready) donothing;
+  while (!*ready)
+    donothing;
   ASSERT_EQ(0, kill(pid, SIGKILL));
   ASSERT_SYS(0, pid, wait(&ws));
   ASSERT_EQ(SIGKILL, ws);
@@ -107,7 +109,8 @@ TEST(exit, sigalrm) {
       pause();
     }
   }
-  while (!*ready) donothing;
+  while (!*ready)
+    donothing;
   ASSERT_EQ(0, kill(pid, SIGALRM));
   ASSERT_SYS(0, pid, wait(&ws));
   ASSERT_EQ(SIGALRM, ws);

@@ -1,5 +1,5 @@
 /*bin/echo   ' -*- mode:sh; indent-tabs-mode:nil; tab-width:8; coding:utf-8 -*-│
-│vi: set net ft=sh ts=2 sts=2 sw=2 fenc=utf-8                               :vi│
+│ vi: set et ft=sh ts=8 sts=2 sw=2 fenc=utf-8                              :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -32,11 +32,12 @@ scall() {
     amd=$2
     arm_linux=$(($3 + 0))
     arm_xnu=$((($amd & 0xfff000) >> 12))
+    arm_freebsd=$((($amd & 0x000000fff0000000) >> 28))
     if [ $arm_xnu != 4095 ]; then
       arm_xnu=$(($arm_xnu & 0xfff))
     fi
     shift 3
-    set -- "$name" "$amd" "$arm_linux" "$arm_xnu" "$*"
+    set -- "$name" "$amd" "$arm_linux" "$arm_xnu" "$arm_freebsd" "$*"
     echo "#include \"libc/sysv/macros.internal.h\""
     echo ".scall" "$*"
   } >"$dir/${1/$/-}.S"
@@ -65,7 +66,7 @@ errfun() {
   NAME="$1"
   ERRNO="$2"
   {
-    printf '#include "libc/macros.internal.h"\n.text.unlikely\n\n'
+    printf '#include "libc/macros.h"\n.text.unlikely\n\n'
     printf '\t.ftrace1\n'
     printf '%s:\n' "$NAME"
     printf '\t.ftrace2\n'

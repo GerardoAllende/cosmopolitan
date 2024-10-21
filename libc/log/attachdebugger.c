@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,7 +20,7 @@
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/dce.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/safemacros.internal.h"
+#include "libc/intrin/safemacros.h"
 #include "libc/log/color.internal.h"
 #include "libc/log/gdb.h"
 #include "libc/log/internal.h"
@@ -72,7 +72,8 @@ relegated int(AttachDebugger)(intptr_t continuetoaddr) {
   layout = "layout asm";
   if ((elf = FindDebugBinary())) {
     se = "-se";
-    if (fileexists(__FILE__)) layout = "layout src";
+    if (fileexists(__FILE__))
+      layout = "layout src";
   } else {
     se = "-q";
     elf = "-q";

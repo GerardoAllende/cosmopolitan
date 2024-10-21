@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,7 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/stdio/stdio.h"
 #include "libc/str/str.h"
-#include "libc/str/tab.internal.h"
+#include "libc/str/tab.h"
 
 #define COLS 8
 
@@ -33,7 +33,8 @@ int main(int argc, char *argv[]) {
       bzero(glyphs, sizeof(glyphs));
     }
     glyphs[col] = kCp437[c];
-    if (col) putchar(',');
+    if (col)
+      putchar(',');
     printf("0x%02x", c);
     if (++col == COLS) {
       col = 0;

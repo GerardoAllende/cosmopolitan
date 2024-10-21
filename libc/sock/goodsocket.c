@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -25,7 +25,8 @@
 #include "libc/sysv/consts/tcp.h"
 
 static bool Tune(int fd, int a, int b, int x) {
-  if (!b) return false;
+  if (!b)
+    return false;
   return setsockopt(fd, a, b, &x, sizeof(x)) != -1;
 }
 

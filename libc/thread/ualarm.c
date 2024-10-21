@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,6 +20,7 @@
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/itimerval.h"
 #include "libc/calls/struct/timeval.h"
+#include "libc/stdio/sysparam.h"
 #include "libc/sysv/consts/itimer.h"
 
 /**
@@ -36,5 +37,6 @@ unsigned ualarm(unsigned usecs, unsigned reload) {
   it.it_value = timeval_frommicros(usecs);
   it.it_interval = timeval_frommicros(reload);
   npassert(!setitimer(ITIMER_REAL, &it, &old));
-  return timeval_tomicros(old.it_value);
+  int64_t us = timeval_tomicros(old.it_value);
+  return MIN(us, -1u);
 }

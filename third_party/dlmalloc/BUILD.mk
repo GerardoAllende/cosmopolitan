@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 
 PKGS += THIRD_PARTY_DLMALLOC
 
@@ -55,9 +55,15 @@ $(THIRD_PARTY_DLMALLOC_A_OBJS): private				\
 			-ffreestanding				\
 			-fdata-sections				\
 			-ffunction-sections			\
-			-fno-sanitize=address			\
 			-Wframe-larger-than=4096		\
 			-Walloca-larger-than=4096
+
+# avoid the legacy sse decoding penalty on avx systems
+ifeq ($(MODE),)
+$(THIRD_PARTY_DLMALLOC_A_OBJS): private				\
+		COPTS +=					\
+			-mgeneral-regs-only
+endif
 
 THIRD_PARTY_DLMALLOC_LIBS = $(foreach x,$(THIRD_PARTY_DLMALLOC_ARTIFACTS),$($(x)))
 THIRD_PARTY_DLMALLOC_SRCS = $(foreach x,$(THIRD_PARTY_DLMALLOC_ARTIFACTS),$($(x)_SRCS))

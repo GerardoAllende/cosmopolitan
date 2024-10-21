@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -40,7 +40,8 @@ void SetUpOnce(void) {
   testlib_enable_tmp_setup_teardown();
 }
 
-static textstartup void TestInit(int argc, char **argv) {
+__attribute__((__constructor__)) static textstartup void TestInit(int argc,
+                                                                  char **argv) {
   int fd;
   if (argc == 2 && !strcmp(argv[1], "boop")) {
     if ((fd = open("/dev/null", O_RDWR | O_CLOEXEC)) == 3) {
@@ -50,8 +51,6 @@ static textstartup void TestInit(int argc, char **argv) {
     }
   }
 }
-
-const void *const TestCtor[] initarray = {TestInit};
 
 TEST(dup, ebadf) {
   ASSERT_SYS(EBADF, -1, dup(-1));
@@ -75,13 +74,22 @@ TEST(dup, bigNumber) {
   ASSERT_SYS(0, 0, close(100));
 }
 
-TEST(dup2, zipos) {
+TEST(dup2, ziposdest) {
   ASSERT_SYS(0, 3, creat("real", 0644));
   ASSERT_SYS(0, 4, open("/zip/libc/testlib/hyperion.txt", O_RDONLY));
   ASSERT_SYS(0, 2, write(3, "hi", 2));
   ASSERT_SYS(EBADF, -1, write(4, "hi", 2));
   ASSERT_SYS(0, 4, dup2(3, 4));
   ASSERT_SYS(0, 2, write(4, "hi", 2));
+  ASSERT_SYS(0, 0, close(4));
+  ASSERT_SYS(0, 0, close(3));
+}
+
+TEST(dup2, zipossrc) {
+  char b[8];
+  ASSERT_SYS(0, 3, open("/zip/libc/testlib/hyperion.txt", O_RDONLY));
+  ASSERT_SYS(0, 4, dup2(3, 4));
+  ASSERT_SYS(0, 8, read(4, b, 8));
   ASSERT_SYS(0, 0, close(4));
   ASSERT_SYS(0, 0, close(3));
 }

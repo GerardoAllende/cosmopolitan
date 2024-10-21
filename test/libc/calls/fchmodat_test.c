@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Stephen Gregoratto                                            │
 │                                                                              │
@@ -20,7 +20,7 @@
 #include "libc/calls/struct/stat.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/runtime/runtime.h"
 #include "libc/sysv/consts/at.h"
 #include "libc/sysv/consts/o.h"
@@ -34,7 +34,8 @@ void SetUpOnce(void) {
 }
 
 TEST(fchmodat, testFchmodat) {
-  if (IsWindows()) return;  // not advanced enough yet
+  if (IsWindows())
+    return;  // not advanced enough yet
   struct stat st;
   umask(022);
   ASSERT_SYS(0, 3,

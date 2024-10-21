@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,7 +20,8 @@
 #include "libc/stdio/stdio_ext.h"
 
 const char *__freadptr(FILE *f, size_t *sizep) {
-  if (f->beg == f->end) return 0;
+  if (f->beg == f->end)
+    return 0;
   *sizep = f->end - f->beg;
   return (const char *)f->buf + f->beg;
 }

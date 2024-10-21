@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,6 +17,7 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/intrin/atomic.h"
+#include "libc/intrin/strace.h"
 #include "libc/thread/thread.h"
 
 /**
@@ -29,6 +30,7 @@
  * @see pthread_spin_lock
  */
 errno_t pthread_spin_unlock(pthread_spinlock_t *spin) {
+  LOCKTRACE("pthread_spin_unlock(%t)", spin);
   atomic_store_explicit(&spin->_lock, 0, memory_order_release);
   return 0;
 }

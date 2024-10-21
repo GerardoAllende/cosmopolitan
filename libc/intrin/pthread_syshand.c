@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -27,7 +27,8 @@ intptr_t _pthread_syshand(struct PosixThread *pt) {
   unassert(IsWindows() || IsXnuSilicon());
   for (;;) {
     syshand = atomic_load_explicit(&pt->tib->tib_syshand, memory_order_acquire);
-    if (syshand) return syshand;
-    pthread_pause_np();
+    if (syshand)
+      return syshand;
+    pthread_yield_np();
   }
 }

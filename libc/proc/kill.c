@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,7 +20,7 @@
 #include "libc/calls/syscall-nt.internal.h"
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/dce.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/str/str.h"
 
 /**
@@ -28,6 +28,17 @@
  *
  * The impact of this action can be terminating the process, or
  * interrupting it to request something happen.
+ *
+ * On Windows, signals are delivered between processes using shared
+ * memory files stored in C:\ProgramData\cosmo\sig\x\y.pid which hold
+ * the process signal mask. Any process that can access these files can
+ * signal a cosmo process. The targeting process will then notice that a
+ * signal has been added and delivers to any thread as soon as possible.
+ *
+ * On Windows, the concept of a process group isn't fully implemented.
+ * Saying `kill(0, sig)` will deliver `sig` to all direct descendent
+ * processes. Saying `kill(-pid, sig)` will be the same as saying
+ * `kill(pid, sig)`.
  *
  * @param pid can be:
  *      >0 signals one process by id

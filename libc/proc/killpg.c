@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -24,7 +24,9 @@
  * Sends signal to process group.
  */
 int killpg(int pgrp, int sig) {
-  if (!(0 < sig && sig < NSIG)) return einval();
-  if (pgrp == 1 || pgrp < 0) return esrch();
+  if (!(0 < sig && sig < NSIG))
+    return einval();
+  if (pgrp == 1 || pgrp < 0)
+    return esrch();
   return kill(IsWindows() ? pgrp : -pgrp, sig);
 }

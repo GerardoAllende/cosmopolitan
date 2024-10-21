@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -33,14 +33,10 @@
  *     allocation would likely cause a stack overflow
  */
 privileged long __get_safe_size(long want, long extraspace) {
-  if (!__tls_enabled) return want;
+  if (!__tls_enabled)
+    return want;
   struct PosixThread *pt;
   struct CosmoTib *tib = __get_tls_privileged();
-  if (!IsAutoFrame((uintptr_t)tib >> 16) &&
-      !(__executable_start <= (const unsigned char *)tib &&
-        (const unsigned char *)tib < _end)) {
-    return want;
-  }
   long bottom, sp = GetStackPointer();
   if ((char *)sp >= tib->tib_sigstack_addr &&
       (char *)sp <= tib->tib_sigstack_addr + tib->tib_sigstack_size) {
@@ -52,6 +48,7 @@ privileged long __get_safe_size(long want, long extraspace) {
     return want;
   }
   long size = sp - bottom - extraspace;
-  if (size > want) size = want;
+  if (size > want)
+    size = want;
   return size;
 }

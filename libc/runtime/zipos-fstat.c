@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -26,7 +26,8 @@
  * @asyncsignalsafe
  */
 int __zipos_fstat(struct ZiposHandle *h, struct stat *st) {
-  if (__zipos_stat_impl(h->zipos, h->cfile, st)) return -1;
+  if (__zipos_stat_impl(h->zipos, h->cfile, st))
+    return -1;
   st->st_ino = __zipos_inode(h->zipos, h->cfile, h->data, h->size);
   return 0;
 }

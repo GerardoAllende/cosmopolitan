@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -50,7 +50,8 @@ FILE *fmemopen(void *buf, size_t size, const char *mode) {
   if (buf) {
     f->nofree = true;
   } else {
-    if (!size) size = BUFSIZ;
+    if (!size)
+      size = BUFSIZ;
     // TODO(jart): Why do we need calloc()?
     if (!_weaken(calloc) || !(buf = _weaken(calloc)(1, size))) {
       __stdio_free(f);

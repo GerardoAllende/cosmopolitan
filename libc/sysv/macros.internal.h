@@ -1,6 +1,6 @@
 #ifndef COSMOPOLITAN_LIBC_SYSV_MACROS_H_
 #define COSMOPOLITAN_LIBC_SYSV_MACROS_H_
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #ifdef __ASSEMBLER__
 /* clang-format off */
 
@@ -15,7 +15,7 @@
  * risk of slowing down builds too much with complicated headers.
  */
 
-.macro	.scall	name:req amd:req arm_linux:req arm_xnu:req kw1 kw2
+.macro	.scall	name:req amd:req arm_linux:req arm_xnu:req arm_freebsd:req kw1 kw2
 	.section .text.syscall,"ax",@progbits
 #ifdef __x86_64__
   .ifnb	\kw2
@@ -38,6 +38,7 @@
 	.ftrace1
 \name:	.ftrace2
 	mov	x8,#\arm_linux
+	mov	x9,#\arm_freebsd
 	mov	x16,#\arm_xnu
 	b	systemfive
 	.endfn	\name,\kw1,\kw2

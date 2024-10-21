@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -30,10 +30,6 @@ bool32 IsRunningUnderMake(void) {
   return g_isrunningundermake;
 }
 
-textstartup void g_isrunningundermake_init(void) {
+__attribute__((__constructor__(30))) textstartup void onmake_init(void) {
   g_isrunningundermake = !!getenv("MAKEFLAGS");
 }
-
-const void *const g_isrunningundermake_ctor[] initarray = {
-    g_isrunningundermake_init,
-};

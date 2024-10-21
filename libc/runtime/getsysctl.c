@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -23,7 +23,7 @@ long __get_sysctl(int x, int y) {
   int value;
   int mib[2] = {x, y};
   size_t len = sizeof(value);
-  if (sys_sysctl(mib, 2, &value, &len, 0, 0) != -1) {
+  if (sysctl(mib, 2, &value, &len, 0, 0) != -1) {
     return value;
   } else {
     return -1;

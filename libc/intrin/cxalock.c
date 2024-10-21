@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -16,7 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/intrin/cxaatexit.internal.h"
+#include "libc/intrin/cxaatexit.h"
 #include "libc/thread/thread.h"
 
 static pthread_mutex_t __cxa_lock_obj;
@@ -33,10 +33,6 @@ void __cxa_unlock(void) {
   pthread_mutex_unlock(&__cxa_lock_obj);
 }
 
-static textstartup void __cxa_init() {
+__attribute__((__constructor__(60))) static textstartup void __cxa_init() {
   pthread_atfork(__cxa_lock, __cxa_unlock, __cxa_wipe);
 }
-
-const void *const __cxa_ctor[] initarray = {
-    __cxa_init,
-};

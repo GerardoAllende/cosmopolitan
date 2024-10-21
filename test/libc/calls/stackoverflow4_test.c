@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -23,7 +23,7 @@
 #include "libc/calls/ucontext.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/limits.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/sysconf.h"
@@ -45,15 +45,14 @@ void CrashHandler(int sig) {
   pthread_exit((void *)123L);
 }
 
-int StackOverflow(int f(), int n) {
-  if (n < INT_MAX) {
-    return f(f, n + 1) - 1;
-  } else {
-    return INT_MAX;
-  }
+int StackOverflow(int d) {
+  char A[8];
+  for (int i = 0; i < sizeof(A); i++)
+    A[i] = d + i;
+  if (__veil("r", d))
+    return StackOverflow(d + 1) + A[d % sizeof(A)];
+  return 0;
 }
-
-int (*pStackOverflow)(int (*)(), int) = StackOverflow;
 
 void *MyPosixThread(void *arg) {
   struct sigaction sa;
@@ -67,7 +66,7 @@ void *MyPosixThread(void *arg) {
   sa.sa_handler = CrashHandler;
   sigaction(SIGBUS, &sa, 0);
   sigaction(SIGSEGV, &sa, 0);
-  exit(pStackOverflow(pStackOverflow, 0));
+  exit(StackOverflow(0));
   return 0;
 }
 

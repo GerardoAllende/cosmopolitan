@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -281,7 +281,7 @@ static int CompareDoxIndexEntry(const void *p1, const void *p2, void *arg) {
 }
 
 static unsigned long roundup2pow(unsigned long x) {
-  return x > 1 ? 2ul << _bsrl(x - 1) : x ? 1 : 0;
+  return x > 1 ? 2ul << bsrl(x - 1) : x ? 1 : 0;
 }
 
 static void IndexDox(struct Dox *dox) {

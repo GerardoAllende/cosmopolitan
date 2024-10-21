@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -35,7 +35,8 @@ void *Torturer(void *arg) {
   }
   for (i = 0; i < FDS; ++i) {
     ASSERT_EQ(2, write(fd[i], "hi", 2));
-    if (!vfork()) _Exit(0);
+    if (!vfork())
+      _Exit(0);
     wait(0);
   }
   for (i = 0; i < FDS; ++i) {

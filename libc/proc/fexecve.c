@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -27,11 +27,10 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/describeflags.internal.h"
+#include "libc/intrin/describeflags.h"
 #include "libc/intrin/kprintf.h"
-#include "libc/intrin/safemacros.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/safemacros.h"
+#include "libc/intrin/strace.h"
 #include "libc/intrin/weaken.h"
 #include "libc/limits.h"
 #include "libc/proc/execve.internal.h"
@@ -186,9 +185,7 @@ static int fd_to_mem_fd(const int infd, char *path) {
  */
 int fexecve(int fd, char *const argv[], char *const envp[]) {
   int rc = 0;
-  if (!argv || !envp ||
-      (IsAsan() &&
-       (!__asan_is_valid_strlist(argv) || !__asan_is_valid_strlist(envp)))) {
+  if (!argv || !envp) {
     rc = efault();
   } else {
     STRACE("fexecve(%d, %s, %s) → ...", fd, DescribeStringList(argv),
@@ -201,14 +198,14 @@ int fexecve(int fd, char *const argv[], char *const envp[]) {
       }
       if (!__isfdkind(fd, kFdZip)) {
         bool memfdReq;
-        BEGIN_CANCELATION_POINT;
         BLOCK_SIGNALS;
+        BLOCK_CANCELATION;
         strace_enabled(-1);
         memfdReq = ((rc = fcntl(fd, F_GETFD)) != -1) && (rc & FD_CLOEXEC) &&
                    IsAPEFd(fd);
         strace_enabled(+1);
+        ALLOW_CANCELATION;
         ALLOW_SIGNALS;
-        END_CANCELATION_POINT;
         if (rc == -1) {
           break;
         } else if (!memfdReq) {
@@ -221,18 +218,19 @@ int fexecve(int fd, char *const argv[], char *const envp[]) {
       }
       int newfd;
       char *path = alloca(PATH_MAX);
-      BEGIN_CANCELATION_POINT;
       BLOCK_SIGNALS;
+      BLOCK_CANCELATION;
       strace_enabled(-1);
       newfd = fd_to_mem_fd(fd, path);
       strace_enabled(+1);
+      ALLOW_CANCELATION;
       ALLOW_SIGNALS;
-      END_CANCELATION_POINT;
       if (newfd == -1) {
         break;
       }
       size_t numenvs;
-      for (numenvs = 0; envp[numenvs];) ++numenvs;
+      for (numenvs = 0; envp[numenvs];)
+        ++numenvs;
       // const size_t desenvs = min(500, max(numenvs + 1, 2));
       static _Thread_local char *envs[500];
       memcpy(envs, envp, numenvs * sizeof(char *));
@@ -242,13 +240,13 @@ int fexecve(int fd, char *const argv[], char *const envp[]) {
       if (!savedErr) {
         savedErr = errno;
       }
-      BEGIN_CANCELATION_POINT;
       BLOCK_SIGNALS;
+      BLOCK_CANCELATION;
       strace_enabled(-1);
       close(newfd);
       strace_enabled(+1);
+      ALLOW_CANCELATION;
       ALLOW_SIGNALS;
-      END_CANCELATION_POINT;
     } while (0);
     if (savedErr) {
       errno = savedErr;

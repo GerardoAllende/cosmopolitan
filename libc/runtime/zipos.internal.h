@@ -6,6 +6,12 @@ COSMOPOLITAN_C_START_
 
 #define ZIPOS_SYNTHETIC_DIRECTORY 0
 
+#ifndef __cplusplus
+#define _ZIPOS_ATOMIC(x) _Atomic(x)
+#else
+#define _ZIPOS_ATOMIC(x) x
+#endif
+
 struct stat;
 struct iovec;
 struct Zipos;
@@ -20,8 +26,9 @@ struct ZiposHandle {
   struct Zipos *zipos;
   size_t size;
   size_t mapsize;
-  size_t pos;
   size_t cfile;
+  _ZIPOS_ATOMIC(size_t) refs;
+  _ZIPOS_ATOMIC(size_t) pos;
   uint8_t *mem;
   uint8_t data[];
 };
@@ -33,11 +40,11 @@ struct Zipos {
   uint64_t dev;
   size_t *index;
   size_t records;
-  struct ZiposHandle *freelist;
 };
 
 int __zipos_close(int);
-void __zipos_free(struct ZiposHandle *);
+void __zipos_drop(struct ZiposHandle *);
+struct ZiposHandle *__zipos_keep(struct ZiposHandle *);
 struct Zipos *__zipos_get(void) pureconst;
 size_t __zipos_normpath(char *, const char *, size_t);
 ssize_t __zipos_find(struct Zipos *, struct ZiposUri *);
@@ -45,6 +52,7 @@ ssize_t __zipos_scan(struct Zipos *, struct ZiposUri *);
 ssize_t __zipos_parseuri(const char *, struct ZiposUri *);
 uint64_t __zipos_inode(struct Zipos *, int64_t, const void *, size_t);
 int __zipos_open(struct ZiposUri *, int);
+void __zipos_postdup(int, int);
 int __zipos_access(struct ZiposUri *, int);
 int __zipos_stat(struct ZiposUri *, struct stat *);
 int __zipos_fstat(struct ZiposHandle *, struct stat *);

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -33,7 +33,8 @@ static struct {
 
 static bool __is_linux_2_6_23_impl(void) {
   int rc;
-  if (IsGenuineBlink()) return true;
+  if (IsGenuineBlink())
+    return true;
   asm volatile("syscall"
                : "=a"(rc)
                : "0"(157), "D"(PR_GET_SECCOMP)

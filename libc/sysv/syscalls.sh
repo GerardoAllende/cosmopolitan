@@ -1,5 +1,5 @@
 /*bin/echo   ' -*- mode:sh; indent-tabs-mode:nil; tab-width:8; coding:utf-8 -*-│
-│vi: set net ft=sh ts=2 sts=2 sw=2 fenc=utf-8                               :vi│
+│ vi: set noet ft=sh ts=8 sts=8 sw=8 fenc=utf-8                            :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -59,7 +59,7 @@ scall	__sys_pipe		0x02a10721e202a016	0x03b	globl hidden # NOTE: pipe2() on FreeB
 scall	sys_select		0x9a184785d285d817	0xfff	globl hidden
 scall	sys_pselect		0x9b486ea0a298a90e	0x848	globl hidden # pselect6() on gnu/systemd
 scall	sys_sched_yield		0x15e12a14bf25d018	0x07c	globl hidden # select() on XNU (previously swtch() but removed in 12.4)
-scall	__sys_mremap		0x19bffffffffff019	0x0d8	globl hidden
+scall	sys_mremap		0x19bffffffffff019	0x0d8	globl hidden
 scall	sys_mincore		0x04e04e04e204e01b	0x0e8	globl hidden
 scall	sys_madvise		0x04b04b04b204b01c	0x0e9	globl hidden
 scall	sys_shmget		0x0e71210e7210901d	0x0c2	globl # no wrapper
@@ -86,7 +86,7 @@ scall	sys_shutdown		0x0860860862086030	0x0d2	globl hidden
 scall	__sys_bind		0x0680680682068031	0x0c8	globl hidden
 scall	sys_listen		0x06a06a06a206a032	0x0c9	globl hidden
 scall	__sys_getsockname	0x0200200202020033	0x0cc	globl hidden
-scall	__sys_getpeername	0x01f01f08d201f034	0x0cd	globl hidden
+scall	__sys_getpeername	0x01f01f01f201f034	0x0cd	globl hidden
 scall	__sys_socketpair	0x0870870872087035	0x0c7	globl hidden
 scall	sys_setsockopt		0x0690690692069036	0x0d0	globl hidden
 scall	sys_getsockopt		0x0760760762076037	0x0d1	globl hidden
@@ -201,7 +201,6 @@ scall	sys_modify_ldt		0xfffffffffffff09a	0xfff	globl # no wrapper
 scall	sys_pivot_root		0xfffffffffffff09b	0x029	globl hidden
 #scall	prctl			0xfffffffffffff09d	0x0a7	globl # wrapped manually
 scall	sys_arch_prctl		0x0a50a50a5ffff09e	0xfff	globl hidden # sysarch() on bsd
-scall	sys_set_tls		0x13d1490a5300309e	0xfff	globl hidden # arch_prctl on linux, sysarch on freebsd, _lwp_setprivate on netbsd, __set_tcb on openbsd, _lwp_setprivate on netbsd, thread_fast_set_cthread_self on xnu
 scall	sys_adjtimex		0xfffffffffffff09f	0x0ab	globl # no wrapper
 scall	sys_swapon		0xffffff05520550a7	0x0e0	globl # no wrapper
 scall	sys_swapoff		0xffffff1a8ffff0a8	0x0e1	globl # no wrapper
@@ -409,7 +408,7 @@ scall	__bsd_seteuid		0xfff0b70b720b7fff	0xfff	globl hidden # wrapped via setreui
 scall	__bsd_setegid		0xfff0b60b620b6fff	0xfff	globl hidden # wrapped via setregid()
 scall	sys_fpathconf		0x0c00c00c020c0fff	0xfff	globl # no wrapper
 scall	sys_fhopen		0x18c10812a20f8fff	0xfff	globl # no wrapper
-scall	sys_issetugid		0xfff0fd0fd2147fff	0xfff	globl hidden
+scall	sys_issetugid		0x1310fd0fd2147fff	0xfff	globl hidden
 scall	sys_minherit		0x1110fa0fa20fafff	0xfff	globl # no wrapper
 scall	sys_pathconf		0x0bf0bf0bf20bffff	0xfff	globl # no wrapper
 scall	sys_sysctl		0x0ca0ca0ca20cafff	0xfff	globl # no wrapper
@@ -680,7 +679,6 @@ scall	sys_getcontext		0x133fff1a5fffffff	0xfff	globl hidden
 #scall	gethostname		0xffff0057ffffffff	0xfff	globl
 #scall	getkerninfo		0xffffff03ffffffff	0xfff	globl
 #scall	getloginclass		0xffffff20bfffffff	0xfff	globl
-scall	getpagesize_freebsd	0xffffff040fffffff	0xfff	globl hidden
 #scall	gssd_syscall		0xffffff1f9fffffff	0xfff	globl
 #scall	jail			0xffffff152fffffff	0xfff	globl
 #scall	jail_attach		0xffffff1b4fffffff	0xfff	globl

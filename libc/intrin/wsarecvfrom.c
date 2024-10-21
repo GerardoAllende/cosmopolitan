@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,11 +17,13 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/syscall_support-nt.internal.h"
-#include "libc/intrin/describeflags.internal.h"
-#include "libc/intrin/describentoverlapped.internal.h"
+#include "libc/intrin/describeflags.h"
+#include "libc/intrin/describentoverlapped.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/intrin/likely.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
+#include "libc/nt/runtime.h"
+#include "libc/nt/struct/iovec.h"
 #include "libc/nt/thunk/msabi.h"
 #include "libc/nt/winsock.h"
 #include "libc/runtime/runtime.h"
@@ -39,7 +41,7 @@ textwindows int WSARecvFrom(
     struct NtOverlapped *opt_inout_lpOverlapped,
     const NtWsaOverlappedCompletionRoutine opt_lpCompletionRoutine) {
   int rc;
-#if defined(SYSDEBUG) && _NTTRACE
+#if SYSDEBUG && _NTTRACE
   uint32_t NumberOfBytesRecvd;
   if (opt_out_lpNumberOfBytesRecvd) {
     NumberOfBytesRecvd = *opt_out_lpNumberOfBytesRecvd;
@@ -53,12 +55,12 @@ textwindows int WSARecvFrom(
   }
   if (UNLIKELY(__strace > 0) && strace_enabled(0) > 0) {
     kprintf(STRACE_PROLOGUE "WSARecvFrom(%lu, [", s);
-    DescribeIovNt(inout_lpBuffers, dwBufferCount,
-                  rc != -1 ? NumberOfBytesRecvd : 0);
-    kprintf("], %u, [%'u], %p, %p, %p, %s, %p) → %d% lm\n", dwBufferCount,
+    _DescribeIovNt(inout_lpBuffers, dwBufferCount,
+                   rc != -1 ? NumberOfBytesRecvd : 0);
+    kprintf("], %u, [%'u], %p, %p, %p, %s, %p) → %d %d\n", dwBufferCount,
             NumberOfBytesRecvd, opt_out_fromsockaddr, opt_inout_fromsockaddrlen,
             inout_lpFlags, DescribeNtOverlapped(opt_inout_lpOverlapped),
-            opt_lpCompletionRoutine, rc);
+            opt_lpCompletionRoutine, rc, GetLastError());
   }
 #else
   rc = __imp_WSARecvFrom(s, inout_lpBuffers, dwBufferCount,

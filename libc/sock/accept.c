@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -21,6 +21,9 @@
 
 /**
  * Creates client socket file descriptor for incoming connection.
+ *
+ * On Windows, when this function blocks, there may be a 10 millisecond
+ * delay on the handling of signals or thread cancelation.
  *
  * @param fd is the server socket file descriptor
  * @param opt_out_addr will receive the remote address

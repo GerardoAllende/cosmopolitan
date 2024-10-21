@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -23,9 +23,8 @@
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/describeflags.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/describeflags.h"
+#include "libc/intrin/strace.h"
 #include "libc/intrin/weaken.h"
 #include "libc/log/log.h"
 #include "libc/mem/alloca.h"
@@ -35,7 +34,8 @@
 #include "libc/sysv/errfuns.h"
 
 static inline const char *__strace_fstatat_flags(char buf[12], int flags) {
-  if (flags == AT_SYMLINK_NOFOLLOW) return "AT_SYMLINK_NOFOLLOW";
+  if (flags == AT_SYMLINK_NOFOLLOW)
+    return "AT_SYMLINK_NOFOLLOW";
   FormatInt32(buf, flags);
   return buf;
 }
@@ -75,10 +75,7 @@ int fstatat(int dirfd, const char *path, struct stat *st, int flags) {
   // execve() depends on this
   int rc;
   struct ZiposUri zipname;
-  if (IsAsan() && (!__asan_is_valid_str(path) ||  //
-                   !__asan_is_valid(st, sizeof(*st)))) {
-    rc = efault();
-  } else if (flags & ~AT_SYMLINK_NOFOLLOW) {
+  if (flags & ~AT_SYMLINK_NOFOLLOW) {
     return einval();
   } else if (__isfdkind(dirfd, kFdZip)) {
     STRACE("zipos dirfd not supported yet");
@@ -102,4 +99,4 @@ int fstatat(int dirfd, const char *path, struct stat *st, int flags) {
   return rc;
 }
 
-__strong_reference(fstatat, fstatat64);
+__weak_reference(fstatat, fstatat64);

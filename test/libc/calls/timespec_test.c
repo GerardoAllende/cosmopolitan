@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -94,7 +94,8 @@ TEST(timeval_toseconds, test) {
 }
 
 static long mod(long x, long y) {
-  if (y == -1) return 0;
+  if (y == -1)
+    return 0;
   return x - y * (x / y - (x % y && (x ^ y) < 0));
 }
 

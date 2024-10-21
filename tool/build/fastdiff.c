@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -53,8 +53,10 @@ int main(int argc, char *argv[]) {
     if (!l1 && !l2) {
       exit(0);
     }
-    if (l1) chomp(l1);
-    if (l2) chomp(l2);
+    if (l1)
+      chomp(l1);
+    if (l2)
+      chomp(l2);
     if (!l1 || !l2) {
       printf("> %s\n", l1 ? l1 : "EOF");
       printf("< %s\n", l2 ? l2 : "EOF");

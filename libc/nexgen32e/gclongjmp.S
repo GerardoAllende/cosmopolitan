@@ -1,5 +1,5 @@
 /*-*- mode:unix-assembly; indent-tabs-mode:t; tab-width:8; coding:utf-8     -*-│
-│vi: set et ft=asm ts=8 sw=8 fenc=utf-8                                     :vi│
+│ vi: set noet ft=asm ts=8 sw=8 fenc=utf-8                                 :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -16,7 +16,7 @@
 │ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR             │
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 
 //	Jumps up stack to previous setjmp() invocation.
 //
@@ -30,12 +30,12 @@
 //	@see	examples/ctrlc.c
 //	@noreturn
 	.ftrace1
-_gclongjmp:
+gclongjmp:
 	.ftrace2
 #ifdef __x86_64__
 	push	%rbp
 	mov	%rsp,%rbp
-	mov	%fs:0,%r12			// __get_tls()
+	mov	%gs:0x30,%r12			// __get_tls()
 	mov	0x18(%r12),%r12			// Tls::garbages
 	test	%r12,%r12
 	jz	0f
@@ -65,4 +65,4 @@ _gclongjmp:
 #else
 #error "unsupported architecture"
 #endif /* __x86_64__ */
-	.endfn	_gclongjmp,globl
+	.endfn	gclongjmp,globl

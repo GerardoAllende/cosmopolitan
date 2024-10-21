@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -33,8 +33,9 @@ static const uint16_t kTpEnc[32 - 7] = {
 uint64_t tpenc(uint32_t c) {
   int e, n;
   uint64_t w;
-  if (0 <= c && c <= 127) return c;
-  e = kTpEnc[_bsr(c) - 7];
+  if (0 <= c && c <= 127)
+    return c;
+  e = kTpEnc[bsr(c) - 7];
   n = e & 0xff;
   w = 0;
   do {

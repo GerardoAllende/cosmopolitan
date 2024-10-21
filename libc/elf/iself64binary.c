@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -29,7 +29,9 @@
  * @return true if elf header looks legit
  */
 bool32 IsElf64Binary(const Elf64_Ehdr *elf, size_t mapsize) {
-  if (mapsize < sizeof(Elf64_Ehdr)) return false;
-  if (READ32LE(elf->e_ident) != READ32LE(ELFMAG)) return false;
+  if (mapsize < sizeof(Elf64_Ehdr))
+    return false;
+  if (READ32LE(elf->e_ident) != READ32LE(ELFMAG))
+    return false;
   return elf->e_ident[EI_CLASS] != ELFCLASS32;
 }

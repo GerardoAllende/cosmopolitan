@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,7 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/describeflags.internal.h"
+#include "libc/intrin/describeflags.h"
 #include "libc/sysv/consts/o.h"
 
 #define O_TMPFILE_LINUX 0x00410000
@@ -28,7 +28,7 @@ static bool IsCreatingFile(int flags) {
          (IsLinux() && (flags & O_TMPFILE_LINUX) == O_TMPFILE_LINUX);
 }
 
-const char *(DescribeOpenMode)(char buf[15], int flags, int mode) {
+const char *_DescribeOpenMode(char buf[15], int flags, int mode) {
   if (!IsCreatingFile(flags)) {
     return "";
   }

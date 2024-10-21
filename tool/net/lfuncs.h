@@ -18,6 +18,7 @@ int LuaCategorizeIp(lua_State *);
 int LuaCompress(lua_State *);
 int LuaCrc32(lua_State *);
 int LuaCrc32c(lua_State *);
+int LuaCurve25519(lua_State *);
 int LuaDecimate(lua_State *);
 int LuaDecodeBase32(lua_State *);
 int LuaDecodeBase64(lua_State *);
@@ -89,10 +90,14 @@ int LuaSleep(lua_State *);
 int LuaSlurp(lua_State *);
 int LuaUncompress(lua_State *);
 int LuaUnderlong(lua_State *);
+int LuaUuidV4(lua_State *);
+int LuaUuidV7(lua_State *);
 int LuaVisualizeControlCodes(lua_State *);
 
 void LuaPushUrlView(lua_State *, struct UrlView *);
 char *FormatUnixHttpDateTime(char *, int64_t);
+
+void launch_browser(const char *);
 
 COSMOPOLITAN_C_END_
 #endif /* COSMOPOLITAN_TOOL_NET_LFUNCS_H_ */

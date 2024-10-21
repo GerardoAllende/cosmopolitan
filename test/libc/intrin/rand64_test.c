@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,7 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/sigaction.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/runtime/internal.h"
 #include "libc/stdio/rand.h"
 #include "libc/str/str.h"
@@ -64,7 +64,8 @@ TEST(_rand64, testLcg_doesntProduceIdenticalValues) {
   for (i = 0; i < ARRAYLEN(A); ++i) {
     EXPECT_NE(0, A[i], "i=%d", i);
     for (j = 0; j < ARRAYLEN(A); ++j) {
-      if (i == j) continue;
+      if (i == j)
+        continue;
       EXPECT_NE(A[i], A[j], "i=%d j=%d", i, j);
     }
   }
@@ -93,7 +94,8 @@ TEST(_rand64, testThreadSafety_doesntProduceIdenticalValues) {
   for (i = 0; i < ARRAYLEN(A); ++i) {
     EXPECT_NE(0, A[i], "i=%d", i);
     for (j = 0; j < ARRAYLEN(A); ++j) {
-      if (i == j) continue;
+      if (i == j)
+        continue;
       EXPECT_NE(A[i], A[j], "i=%d j=%d", i, j);
     }
   }

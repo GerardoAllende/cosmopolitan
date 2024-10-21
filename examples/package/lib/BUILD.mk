@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 #
 # SYNOPSIS
 #
@@ -71,6 +71,7 @@ EXAMPLES_PACKAGE_LIB_A_CHECKS =					\
 EXAMPLES_PACKAGE_LIB_A_DIRECTDEPS =				\
 	LIBC_INTRIN						\
 	LIBC_NEXGEN32E						\
+	LIBC_MEM						\
 	LIBC_STDIO
 
 # Evaluates variable as set of transitive package dependencies.

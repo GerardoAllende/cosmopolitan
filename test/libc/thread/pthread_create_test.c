@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -21,21 +21,20 @@
 #include "libc/calls/calls.h"
 #include "libc/calls/struct/sched_param.h"
 #include "libc/calls/struct/sigaction.h"
-#include "libc/calls/struct/sigaltstack.h"
 #include "libc/calls/struct/siginfo.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
 #include "libc/intrin/kprintf.h"
 #include "libc/limits.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/mem/gc.h"
-#include "libc/mem/gc.internal.h"
 #include "libc/mem/mem.h"
 #include "libc/nexgen32e/nexgen32e.h"
 #include "libc/nexgen32e/vendor.internal.h"
 #include "libc/runtime/runtime.h"
 #include "libc/runtime/stack.h"
 #include "libc/runtime/sysconf.h"
+#include "libc/stdio/rand.h"
 #include "libc/sysv/consts/prot.h"
 #include "libc/sysv/consts/sa.h"
 #include "libc/sysv/consts/sched.h"
@@ -48,7 +47,7 @@
 #include "libc/thread/thread.h"
 #include "libc/thread/thread2.h"
 
-void OnUsr1(int sig, struct siginfo *si, void *vctx) {
+void OnUsr1(int sig, siginfo_t *si, void *vctx) {
 }
 
 void SetUp(void) {
@@ -177,8 +176,8 @@ TEST(pthread_create, testCustomStack_withReallySmallSize) {
 void *JoinMainWorker(void *arg) {
   void *rc;
   pthread_t main_thread = (pthread_t)arg;
-  _gc(malloc(32));
-  _gc(malloc(32));
+  gc(malloc(32));
+  gc(malloc(32));
   ASSERT_EQ(0, pthread_join(main_thread, &rc));
   ASSERT_EQ(123, (intptr_t)rc);
   return 0;
@@ -186,8 +185,8 @@ void *JoinMainWorker(void *arg) {
 
 TEST(pthread_join, mainThread) {
   pthread_t id;
-  _gc(malloc(32));
-  _gc(malloc(32));
+  gc(malloc(32));
+  gc(malloc(32));
   SPAWN(fork);
   ASSERT_EQ(0, pthread_create(&id, 0, JoinMainWorker, (void *)pthread_self()));
   pthread_exit((void *)123);
@@ -196,8 +195,8 @@ TEST(pthread_join, mainThread) {
 
 TEST(pthread_join, mainThreadDelayed) {
   pthread_t id;
-  _gc(malloc(32));
-  _gc(malloc(32));
+  gc(malloc(32));
+  gc(malloc(32));
   SPAWN(fork);
   ASSERT_EQ(0, pthread_create(&id, 0, JoinMainWorker, (void *)pthread_self()));
   usleep(10000);
@@ -281,11 +280,10 @@ static void CreateDetached(void) {
   ASSERT_EQ(0, pthread_attr_destroy(&attr));
 }
 
-BENCH(pthread_create, bench) {
+TEST(pthread_create, bench) {
   EZBENCH2("CreateJoin", donothing, CreateJoin());
   EZBENCH2("CreateDetach", donothing, CreateDetach());
   EZBENCH2("CreateDetached", donothing, CreateDetached());
-  while (!pthread_orphan_np()) {
-    _pthread_decimate();
-  }
+  while (!pthread_orphan_np())
+    pthread_decimate_np();
 }

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,15 +17,20 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/describeflags.internal.h"
+#include "libc/intrin/describeflags.h"
 #include "libc/thread/thread.h"
 
-const char *(DescribeCancelState)(char buf[12], int err, int *state) {
-  if (err) return "n/a";
-  if (!state) return "NULL";
-  if (*state == PTHREAD_CANCEL_ENABLE) return "PTHREAD_CANCEL_ENABLE";
-  if (*state == PTHREAD_CANCEL_DISABLE) return "PTHREAD_CANCEL_DISABLE";
-  if (*state == PTHREAD_CANCEL_MASKED) return "PTHREAD_CANCEL_MASKED";
+const char *_DescribeCancelState(char buf[12], int err, int *state) {
+  if (err)
+    return "n/a";
+  if (!state)
+    return "NULL";
+  if (*state == PTHREAD_CANCEL_ENABLE)
+    return "PTHREAD_CANCEL_ENABLE";
+  if (*state == PTHREAD_CANCEL_DISABLE)
+    return "PTHREAD_CANCEL_DISABLE";
+  if (*state == PTHREAD_CANCEL_MASKED)
+    return "PTHREAD_CANCEL_MASKED";
   FormatInt32(buf, *state);
   return buf;
 }

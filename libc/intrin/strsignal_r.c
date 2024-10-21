@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -57,8 +57,10 @@ privileged const char *strsignal_r(int sig, char buf[21]) {
   } else {
     p = buf;
   }
-  if (sig >= 100) *p++ = '0' + (unsigned char)sig / 100 % 10;
-  if (sig >= 10) *p++ = '0' + (unsigned char)sig / 10 % 10;
+  if (sig >= 100)
+    *p++ = '0' + (unsigned char)sig / 100 % 10;
+  if (sig >= 10)
+    *p++ = '0' + (unsigned char)sig / 10 % 10;
   *p++ = '0' + (unsigned char)sig % 10;
   *p = 0;
   return buf;

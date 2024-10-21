@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:4;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=4 sts=4 sw=4 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=4 sts=4 sw=4 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Python 3                                                                     │
 │ https://docs.python.org/3/license.html                                       │
@@ -3155,6 +3155,37 @@ PyUnicode_AsWideCharString(PyObject *unicode,
     }
     if (size != NULL)
         *size = buflen;
+    return buffer;
+}
+
+wchar_t*
+_PyUnicode_AsWideCharString(PyObject *unicode)
+{
+    const wchar_t *wstr;
+    wchar_t *buffer;
+    Py_ssize_t buflen;
+
+    if (unicode == NULL) {
+        PyErr_BadInternalCall();
+        return NULL;
+    }
+
+    wstr = PyUnicode_AsUnicodeAndSize(unicode, &buflen);
+    if (wstr == NULL) {
+        return NULL;
+    }
+    if (wcslen(wstr) != (size_t)buflen) {
+        PyErr_SetString(PyExc_ValueError,
+                        "embedded null character");
+        return NULL;
+    }
+
+    buffer = PyMem_NEW(wchar_t, buflen + 1);
+    if (buffer == NULL) {
+        PyErr_NoMemory();
+        return NULL;
+    }
+    memcpy(buffer, wstr, (buflen + 1) * sizeof(wchar_t));
     return buffer;
 }
 

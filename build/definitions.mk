@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set et ft=make ts=8 sw=8 fenc=utf-8 :vi ──────────────────────┘
 #
 # SYNOPSIS
 #
@@ -53,107 +53,16 @@
 #     OVERRIDE_FOO set ~/.cosmo.mk and target-specific (use rarely)
 #
 
-LC_ALL = C
-SOURCE_DATE_EPOCH = 0
-
-ARFLAGS = rcsD
-ZFLAGS ?=
-XARGS ?= xargs -P4 -rs8000
-DOT ?= dot
-CLANG = clang
-TMPDIR = o/tmp
-
-AR = build/bootstrap/ar.com
-CP = build/bootstrap/cp.com
-RM = build/bootstrap/rm.com -f
-GZIP = build/bootstrap/gzip.com
-ECHO = build/bootstrap/echo.com
-CHMOD = build/bootstrap/chmod.com
-TOUCH = build/bootstrap/touch.com
-PKG = build/bootstrap/package.com
-MKDEPS = build/bootstrap/mkdeps.com
-ZIPOBJ = build/bootstrap/zipobj.com
-ZIPCOPY = build/bootstrap/zipcopy.com
-PECHECK = build/bootstrap/pecheck.com
-FIXUPOBJ = build/bootstrap/fixupobj.com
-MKDIR = build/bootstrap/mkdir.com -p
-COMPILE = build/bootstrap/compile.com -V9 -P4096 $(QUOTA)
-
-COMMA := ,
-PWD := $(shell build/bootstrap/pwd.com)
-
-IGNORE := $(shell $(MKDIR) $(TMPDIR))
-
-ifneq ($(findstring aarch64,$(MODE)),)
-ARCH = aarch64
-HOSTS ?= pi silicon
-else
-ARCH = x86_64
-HOSTS ?= freebsd rhel7 xnu win10 openbsd netbsd
-endif
-
-ZIPOBJ_FLAGS += -a$(ARCH)
-
-ifeq ($(PREFIX),)
-ifeq ($(USE_SYSTEM_TOOLCHAIN),)
-ifeq ($(ARCH),x86_64)
-ifneq ("$(wildcard o/third_party/gcc/bin/x86_64-linux-cosmo-*)","")
-PREFIX = o/third_party/gcc/bin/x86_64-linux-cosmo-
-else
-IGNORE := $(shell build/bootstrap/unbundle.com)
-PREFIX = o/third_party/gcc/bin/x86_64-linux-musl-
-endif
-endif # ($(ARCH),x86_64))
-ifeq ($(ARCH),aarch64)
-ifneq ("$(wildcard o/third_party/gcc/bin/aarch64-linux-cosmo-*)","")
-PREFIX = o/third_party/gcc/bin/aarch64-linux-cosmo-
-else
-IGNORE := $(shell build/bootstrap/unbundle.com)
-PREFIX = o/third_party/gcc/bin/aarch64-linux-musl-
-endif
-endif # ($(ARCH),aarch64)
-endif # ($(USE_SYSTEM_TOOLCHAIN),)
-endif # ($(PREFIX),)
-
-AS = $(PREFIX)as
-CC = $(PREFIX)gcc
-CXX = $(PREFIX)g++
-CXXFILT = $(PREFIX)c++filt
-LD = $(PREFIX)ld.bfd
-NM = $(PREFIX)nm
-GCC = $(PREFIX)gcc
-STRIP = $(PREFIX)strip
-OBJCOPY = $(PREFIX)objcopy
-OBJDUMP = $(PREFIX)objdump
-ifneq ($(wildcard $(PWD)/$(PREFIX)addr2line),)
-ADDR2LINE = $(PWD)/$(PREFIX)addr2line
-else
-ADDR2LINE = $(PREFIX)addr2line
-endif
-
-export ADDR2LINE
-export LC_ALL
-export MKDIR
-export MODE
-export SOURCE_DATE_EPOCH
-export TMPDIR
-
 ifeq ($(LANDLOCKMAKE_VERSION),)
-TMPSAFE = $(join $(TMPDIR),$(subst /,_,$@)).tmp
+TMPSAFE = $(join $(TMPDIR)/,$(subst /,_,$@)).tmp
 else
 TMPSAFE = $(TMPDIR)/
 endif
 
 BACKTRACES =								\
+	-fno-schedule-insns2						\
 	-fno-optimize-sibling-calls					\
 	-mno-omit-leaf-frame-pointer
-
-ifneq ($(ARCH), aarch64)
-BACKTRACES += -fno-schedule-insns2
-endif
-
-SANITIZER =								\
-	-fsanitize=address
 
 NO_MAGIC =								\
 	-ffreestanding							\
@@ -178,16 +87,12 @@ DEFAULT_CCFLAGS +=							\
 	-frecord-gcc-switches
 
 DEFAULT_COPTS ?=							\
-	-fno-math-errno							\
 	-fno-ident							\
 	-fno-common							\
 	-fno-gnu-unique							\
 	-fstrict-aliasing						\
 	-fstrict-overflow						\
-	-fno-semantic-interposition					\
-	-fno-dwarf2-cfi-asm						\
-	-fno-unwind-tables						\
-	-fno-asynchronous-unwind-tables
+	-fno-semantic-interposition
 
 ifeq ($(ARCH), x86_64)
 # Microsoft says "[a]ny memory below the stack beyond the red zone
@@ -207,13 +112,10 @@ ifeq ($(ARCH), aarch64)
 # - Cosmopolitan Libc uses x28 for thread-local storage because Apple
 #   forbids us from using tpidr_el0 too.
 #
-# - Cosmopolitan currently lacks an implementation of the runtime
-#   libraries needed by the -moutline-atomics flag
-#
 DEFAULT_COPTS +=							\
 	-ffixed-x18							\
 	-ffixed-x28							\
-	-mno-outline-atomics
+	-fsigned-char
 endif
 
 MATHEMATICAL =								\
@@ -223,20 +125,22 @@ MATHEMATICAL =								\
 DEFAULT_CPPFLAGS +=							\
 	-D_COSMO_SOURCE							\
 	-DMODE='"$(MODE)"'						\
+	-Wno-prio-ctor-dtor						\
+	-Wno-unknown-pragmas						\
 	-nostdinc							\
 	-iquote.							\
 	-isystem libc/isystem
 
 DEFAULT_CFLAGS =							\
-	-std=gnu2x
+	-std=gnu23
 
 DEFAULT_CXXFLAGS =							\
-	-fno-rtti							\
-	-fno-exceptions							\
+	-std=gnu++23							\
 	-fuse-cxa-atexit						\
 	-Wno-int-in-bool-context					\
 	-Wno-narrowing							\
-	-Wno-literal-suffix
+	-Wno-literal-suffix						\
+	-isystem third_party/libcxx
 
 DEFAULT_ASFLAGS =							\
 	-W								\
@@ -248,6 +152,7 @@ DEFAULT_LDFLAGS =							\
 	-nostdlib							\
 	-znorelro							\
 	--gc-sections							\
+	-z noexecstack							\
 	--build-id=none							\
 	--no-dynamic-linker
 
@@ -342,12 +247,12 @@ LD.libs =								\
 	$(LIBS)
 
 COMPILE.c.flags = $(cc.flags) $(copt.flags) $(cpp.flags) $(c.flags)
-COMPILE.cxx.flags = $(cc.flags) $(copt.flags) $(cpp.flags) $(cxx.flags)
+COMPILE.cxx.flags = $(cc.flags) $(copt.flags) $(cxx.flags) $(cpp.flags)
 COMPILE.i.flags = $(cc.flags) $(copt.flags) $(c.flags)
 COMPILE.ii.flags = $(cc.flags) $(copt.flags) $(cxx.flags)
 LINK.flags = $(DEFAULT_LDFLAGS) $(CONFIG_LDFLAGS) $(LDFLAGS)
 OBJECTIFY.c.flags = $(cc.flags) $(o.flags) $(S.flags) $(cpp.flags) $(copt.flags) $(c.flags)
-OBJECTIFY.cxx.flags = $(cc.flags) $(o.flags) $(S.flags) $(cpp.flags) $(copt.flags) $(cxx.flags)
+OBJECTIFY.cxx.flags = $(cc.flags) $(o.flags) $(S.flags) $(cxx.flags) $(cpp.flags) $(copt.flags)
 OBJECTIFY.s.flags = $(ASONLYFLAGS) $(s.flags)
 OBJECTIFY.S.flags = $(cc.flags) $(o.flags) $(S.flags) $(cpp.flags)
 PREPROCESS.flags = -E $(copt.flags) $(cc.flags) $(cpp.flags)

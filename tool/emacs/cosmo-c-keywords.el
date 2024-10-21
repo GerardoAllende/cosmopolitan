@@ -9,6 +9,18 @@
            "_Pragma"
            "_Complex"))
 
+        (cuda
+         '("gridDim"
+           "blockIdx"
+           "blockDim"
+           "threadIdx"
+           "__device__"
+           "__forceinline__"
+           "__global__"
+           "__shared__"
+           "__host__"
+           "__constant__"))
+
         (c11
          '("_Atomic"
            "alignas"
@@ -71,15 +83,12 @@
            "hasatleast"
            "nodebuginfo"
            "wontreturn"
-           "dontasan"
-           "nomsan"
            "dontubsan"
            "nostackprotector"
-           "initarray"
            "mayalias"
            "dontinstrument"
            "interruptfn"
-           "nocallback"
+           "dontcallback"
            "textstartup"
            "warnifused"
            "attributeallocsize"
@@ -194,6 +203,9 @@
            "__section__"
            "__sentinel__"
            "__simd__"
+           "__vex"
+           "__avx2"
+           "__target_clones"
            "__target_clones__"
            "__unused__"
            "__used__"
@@ -206,7 +218,20 @@
            "__sysv_abi__"
            "__mode__"
            "__seg_fs"
-           "__seg_gs"))
+           "__seg_gs"
+           "__access__"
+           "__read_only__"
+           "__write_only__"
+           "__read_write__"
+           "__read_only"
+           "__write_only"
+           "__read_write"
+           "__fd_arg__"
+           "__fd_arg"
+           "__copy__"
+           "__retain__"
+           "__tainted_args__"
+           "__zero_call_used_regs__"))
 
         (clang
          '("__optnone__"
@@ -217,6 +242,7 @@
         )
     (concat "\\_<"
             (regexp-opt (append
+                         cuda
                          c11
                          gnu
                          clang

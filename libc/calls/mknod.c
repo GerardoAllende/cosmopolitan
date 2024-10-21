@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,8 +20,7 @@
 #include "libc/calls/syscall-sysv.internal.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/sysv/consts/at.h"
 #include "libc/sysv/consts/s.h"
 #include "libc/sysv/errfuns.h"
@@ -42,10 +41,12 @@
  */
 int mknod(const char *path, uint32_t mode, uint64_t dev) {
   int e, rc;
-  if (IsAsan() && !__asan_is_valid_str(path)) return efault();
-  if (mode & S_IFREG) return creat(path, mode & ~S_IFREG);
-  if (mode & S_IFDIR) return mkdir(path, mode & ~S_IFDIR);
-  if (mode & S_IFIFO) return enosys();  // no named pipes!
+  if (mode & S_IFREG)
+    return creat(path, mode & ~S_IFREG);
+  if (mode & S_IFDIR)
+    return mkdir(path, mode & ~S_IFDIR);
+  if (mode & S_IFIFO)
+    return enosys();  // no named pipes!
   if (!IsWindows()) {
     // TODO(jart): Whys there code out there w/ S_xxx passed via dev?
     e = errno;

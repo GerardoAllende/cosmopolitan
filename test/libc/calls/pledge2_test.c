@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -22,7 +22,7 @@
 #include "libc/calls/syscall_support-sysv.internal.h"
 #include "libc/dce.h"
 #include "libc/errno.h"
-#include "libc/intrin/promises.internal.h"
+#include "libc/intrin/promises.h"
 #include "libc/runtime/runtime.h"
 #include "libc/sock/sock.h"
 #include "libc/stdio/stdio.h"
@@ -41,7 +41,8 @@ void SetUp(void) {
 }
 
 TEST(pledge, testSoftError) {
-  if (IsOpenbsd()) return;
+  if (IsOpenbsd())
+    return;
   SPAWN(fork);
   __pledge_mode = PLEDGE_PENALTY_RETURN_EPERM;
   ASSERT_SYS(0, 0, pledge("stdio", 0));
@@ -67,7 +68,8 @@ TEST(pledge, testKillProcessMode) {
 }
 
 TEST(pledge, testLogMessage_inSoftyMode) {
-  if (IsOpenbsd()) return;
+  if (IsOpenbsd())
+    return;
   int fds[2];
   char msg[256] = {0};
   ASSERT_SYS(0, 0, pipe(fds));

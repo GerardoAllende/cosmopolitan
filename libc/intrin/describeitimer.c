@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -17,13 +17,16 @@
 │ PERFORMANCE OF THIS SOFTWARE.                                                │
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/fmt/itoa.h"
-#include "libc/intrin/describeflags.internal.h"
+#include "libc/intrin/describeflags.h"
 #include "libc/sysv/consts/itimer.h"
 
-const char *(DescribeItimer)(char buf[12], int which) {
-  if (which == ITIMER_REAL) return "ITIMER_REAL";
-  if (which == ITIMER_VIRTUAL) return "ITIMER_VIRTUAL";
-  if (which == ITIMER_PROF) return "ITIMER_PROF";
+const char *_DescribeItimer(char buf[12], int which) {
+  if (which == ITIMER_REAL)
+    return "ITIMER_REAL";
+  if (which == ITIMER_VIRTUAL)
+    return "ITIMER_VIRTUAL";
+  if (which == ITIMER_PROF)
+    return "ITIMER_PROF";
   FormatInt32(buf, which);
   return buf;
 }

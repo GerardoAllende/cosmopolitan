@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -30,7 +30,7 @@
 #include "libc/fmt/conv.h"
 #include "libc/log/check.h"
 #include "libc/log/log.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/mem/mem.h"
 #include "libc/runtime/runtime.h"
 #include "libc/stdio/stdio.h"
@@ -66,8 +66,8 @@ static struct Flags {
 
 struct winsize g_winsize;
 
-static wontreturn void PrintUsage(int rc, FILE *f) {
-  fprintf(f, "Usage: %s%s", program_invocation_name, "\
+static wontreturn void PrintUsage(int rc, int fd) {
+  tinyprint(fd, "Usage: ", program_invocation_name, "\
  [FLAGS] [PATH]\n\
 \n\
 FLAGS\n\
@@ -93,8 +93,9 @@ FLAGS\n\
 \n\
 EXAMPLES\n\
 \n\
-  printimage.com -sxd lemurs.jpg  # 256-color dither unsharp\n\
-\n");
+  printimage -sxd lemurs.jpg  # 256-color dither unsharp\n\
+\n",
+            NULL);
   exit(rc);
 }
 
@@ -114,7 +115,7 @@ static void GetOpts(int *argc, char *argv[]) {
   g_flags.blocks = IsWindows() ? kTtyBlocksCp437 : kTtyBlocksUnicode;
   if (*argc == 2 &&
       (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-help") == 0)) {
-    PrintUsage(EXIT_SUCCESS, stdout);
+    PrintUsage(EXIT_SUCCESS, STDOUT_FILENO);
   }
   while ((opt = getopt(*argc, argv, "?vpmfirtxads234o:w:h:")) != -1) {
     switch (opt) {
@@ -170,9 +171,12 @@ static void GetOpts(int *argc, char *argv[]) {
         ++__log_level;
         break;
       case '?':
-        PrintUsage(EXIT_SUCCESS, stdout);
       default:
-        PrintUsage(EX_USAGE, stderr);
+        if (opt == optopt) {
+          PrintUsage(EXIT_SUCCESS, STDOUT_FILENO);
+        } else {
+          PrintUsage(EX_USAGE, STDERR_FILENO);
+        }
     }
   }
   g_winsize.ws_col = 80;
@@ -224,7 +228,8 @@ static void PrintImageImpl(long syn, long sxn, unsigned char RGB[3][syn][sxn],
   unsigned char a[3], b[3];
   didhalfy = false;
   for (y = y0; y < yn; y += dy) {
-    if (y) printf("\e[0m\n");
+    if (y)
+      printf("\e[0m\n");
     for (x = x0; x < xn; x += dx) {
       a[0] = RGB[0][y][x];
       a[1] = RGB[1][y][x];
@@ -324,8 +329,10 @@ static void PrintImageSerious(long yn, long xn, unsigned char RGB[3][yn][xn],
   long y, x;
   struct TtyRgb bg = {0x12, 0x34, 0x56, 0};
   struct TtyRgb fg = {0x12, 0x34, 0x56, 0};
-  if (g_flags.unsharp) unsharp(3, yn, xn, RGB, yn, xn);
-  if (g_flags.dither) dither(yn, xn, RGB, yn, xn);
+  if (g_flags.unsharp)
+    unsharp(3, yn, xn, RGB, yn, xn);
+  if (g_flags.dither)
+    dither(yn, xn, RGB, yn, xn);
   if (yn && xn) {
     for (y = 0; y < tyn; ++y) {
       for (x = 0; x < txn; ++x) {
@@ -392,8 +399,10 @@ void WithImageFile(const char *path,
     wyn = g_winsize.ws_row * 2;
     wxn = g_winsize.ws_col;
     if (g_flags.ignoreaspect) {
-      if (!dyn) dyn = wyn;
-      if (!dxn) dxn = wxn * (1 + !g_flags.half);
+      if (!dyn)
+        dyn = wyn;
+      if (!dxn)
+        dxn = wxn * (1 + !g_flags.half);
     }
     if (!dyn && !dxn) {
       if (sxn * wyn > syn * wxn) {
@@ -435,7 +444,8 @@ int main(int argc, char *argv[]) {
   int i;
   ShowCrashReports();
   GetOpts(&argc, argv);
-  if (optind == argc) PrintUsage(0, stdout);
+  if (optind == argc)
+    PrintUsage(EXIT_SUCCESS, STDOUT_FILENO);
   stbi_set_unpremultiply_on_load(true);
   for (i = optind; i < argc; ++i) {
     WithImageFile(argv[i], ProcessImage);

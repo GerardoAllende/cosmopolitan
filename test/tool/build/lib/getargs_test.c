@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -55,7 +55,8 @@ void GetAllArgs(char **args) {
   size_t i = 0;
   struct GetArgs ga;
   getargs_init(&ga, args);
-  while (getargs_next(&ga)) ++i;
+  while (getargs_next(&ga))
+    ++i;
   getargs_destroy(&ga);
   ASSERT_EQ(2 + 13790, i);
 }

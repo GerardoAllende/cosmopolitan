@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,7 +18,7 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/calls/calls.h"
 #include "libc/errno.h"
-#include "libc/macros.internal.h"
+#include "libc/macros.h"
 #include "libc/stdio/internal.h"
 #include "libc/stdio/stdio.h"
 #include "libc/sysv/consts/o.h"
@@ -40,7 +40,8 @@ int fseek_unlocked(FILE *f, int64_t offset, int whence) {
   int res;
   int64_t pos;
   if (f->fd != -1) {
-    if (__fflush_impl(f) == -1) return -1;
+    if (__fflush_impl(f) == -1)
+      return -1;
     if (whence == SEEK_CUR && f->beg < f->end) {
       offset -= f->end - f->beg;
     }

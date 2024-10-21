@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -57,15 +57,14 @@ static textwindows bool IsDirectorySymlink(const char16_t *path) {
 static textwindows int sys_rmdir_nt(const char16_t *path) {
   int ms;
   for (ms = 1;; ms *= 2) {
-    if (RemoveDirectory(path)) {
+    if (RemoveDirectory(path))
       return 0;
-    }
     // Files can linger, for absolutely no reason.
     // Possibly some Windows Defender bug on Win7.
     // Sleep for up to one second w/ expo backoff.
     // Alternative is use Microsoft internal APIs.
     // Never could have imagined it'd be this bad.
-    if (GetLastError() == kNtErrorDirNotEmpty && ms <= 2048) {
+    if (GetLastError() == kNtErrorDirNotEmpty && ms <= 1024) {
       Sleep(ms);
       continue;
     } else {

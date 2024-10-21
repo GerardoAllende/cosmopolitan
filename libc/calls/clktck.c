@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2021 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -20,7 +20,7 @@
 #include "libc/calls/calls.h"
 #include "libc/dce.h"
 #include "libc/fmt/wintime.internal.h"
-#include "libc/intrin/getauxval.internal.h"
+#include "libc/intrin/getauxval.h"
 #include "libc/runtime/runtime.h"
 #include "libc/sysv/consts/auxv.h"
 
@@ -53,7 +53,7 @@ static dontinline int __clk_tck_init(void) {
     cmd[0] = 1;   // CTL_KERN
     cmd[1] = 12;  // KERN_CLOCKRATE
     len = sizeof(clock);
-    if (sys_sysctl(cmd, 2, &clock, &len, NULL, 0) != -1) {
+    if (sysctl(cmd, 2, &clock, &len, NULL, 0) != -1) {
       x = clock.hz;
     } else {
       x = -1;
@@ -61,7 +61,8 @@ static dontinline int __clk_tck_init(void) {
   } else {
     x = __getauxval(AT_CLKTCK).value;
   }
-  if (x < 1) x = 100;
+  if (x < 1)
+    x = 100;
   clk_tck = x;
   return x;
 }

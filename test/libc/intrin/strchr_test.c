@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -72,8 +72,10 @@ TEST(strchrnul, notFound_returnsPointerToNulByte) {
 
 char *strchr_pure(const char *s, int c) {
   for (c &= 0xff;; ++s) {
-    if ((*s & 0xff) == c) return (char *)s;
-    if (!*s) return NULL;
+    if ((*s & 0xff) == c)
+      return (char *)s;
+    if (!*s)
+      return NULL;
   }
 }
 
@@ -106,7 +108,8 @@ BENCH(strchr, bench) {
 char *memchr_pure(const char *m, int c, size_t n) {
   const unsigned char *p, *pe;
   for (c &= 0xff, p = (const unsigned char *)m, pe = p + n; p < pe; ++p) {
-    if (*p == c) return (void *)p;
+    if (*p == c)
+      return (void *)p;
   }
   return NULL;
 }
@@ -126,8 +129,10 @@ TEST(memchr, fuzz) {
 
 char *strchrnul_pure(const char *s, int c) {
   for (c &= 0xff;; ++s) {
-    if ((*s & 0xff) == c) return (char *)s;
-    if (!*s) return (void *)s;
+    if ((*s & 0xff) == c)
+      return (char *)s;
+    if (!*s)
+      return (void *)s;
   }
 }
 
@@ -147,7 +152,8 @@ TEST(strchrnul, fuzz) {
 void *rawmemchr_pure(const void *m, int c) {
   const unsigned char *s;
   for (c &= 255, s = m;; ++s) {
-    if (*s == c) return (void *)s;
+    if (*s == c)
+      return (void *)s;
   }
 }
 

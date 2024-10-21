@@ -9,7 +9,7 @@
 #endif
 #include "libc/errno.h"
 #include "libc/log/log.h"
-#include "libc/mem/gc.internal.h"
+#include "libc/mem/gc.h"
 #include "libc/runtime/runtime.h"
 #include "libc/stdio/stdio.h"
 #include "libc/x/x.h"
@@ -36,7 +36,8 @@ void PrintUsage(int rc, FILE *f) {
 void PrintUri(const char *path) {
   size_t n;
   void *img;
-  if (!(img = gc(xslurp(path, &n)))) exit(2);
+  if (!(img = gc(xslurp(path, &n))))
+    exit(2);
   fputs("data:", stdout);
   fputs(FindContentType(path, -1), stdout);
   fputs(";base64,", stdout);

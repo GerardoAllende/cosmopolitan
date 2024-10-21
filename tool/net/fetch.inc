@@ -15,7 +15,7 @@ static int LuaFetch(lua_State *L) {
   bool usingssl;
   uint32_t ip;
   struct Url url;
-  int t, ret, sock = -1, methodidx, hdridx;
+  int t, ret, sock = -1, hdridx;
   const char *host, *port;
   char *request;
   struct TlsBio *bio;
@@ -34,7 +34,9 @@ static int LuaFetch(lua_State *L) {
   size_t urlarglen, requestlen, paylen, bodylen;
   size_t i, g, hdrsize;
   int keepalive = kaNONE;
-  int imethod, numredirects = 0, maxredirects = 5;
+  char canmethod[9] = {0};
+  uint64_t imethod;
+  int numredirects = 0, maxredirects = 5;
   bool followredirect = true;
   struct addrinfo hints = {.ai_family = AF_INET,
                            .ai_socktype = SOCK_STREAM,
@@ -54,14 +56,16 @@ static int LuaFetch(lua_State *L) {
     body = luaL_optlstring(L, -1, "", &bodylen);
     lua_getfield(L, 2, "method");
     // use GET by default if no method is provided
-    method = luaL_optstring(L, -1, kHttpMethod[kHttpGet]);
-    if ((imethod = GetHttpMethod(method, -1))) {
-      method = kHttpMethod[imethod];
+    method = luaL_optstring(L, -1, "GET");
+    if ((imethod = ParseHttpMethod(method, -1))) {
+      WRITE64LE(canmethod, imethod);
+      method = canmethod;
     } else {
       return LuaNilError(L, "bad method");
     }
     lua_getfield(L, 2, "followredirect");
-    if (lua_isboolean(L, -1)) followredirect = lua_toboolean(L, -1);
+    if (lua_isboolean(L, -1))
+      followredirect = lua_toboolean(L, -1);
     lua_getfield(L, 2, "maxredirects");
     maxredirects = luaL_optinteger(L, -1, maxredirects);
     lua_getfield(L, 2, "numredirects");
@@ -95,7 +99,7 @@ static int LuaFetch(lua_State *L) {
             return LuaNilError(L, "invalid header name: %s", key);
 
           val = lua_tolstring(L, -1, &vallen);
-          if (!(hdr = _gc(EncodeHttpHeaderValue(val, vallen, 0))))
+          if (!(hdr = gc(EncodeHttpHeaderValue(val, vallen, 0))))
             return LuaNilError(L, "invalid header %s value encoding", key);
 
           // Content-Length will be overwritten; skip it to avoid duplicates;
@@ -123,24 +127,28 @@ static int LuaFetch(lua_State *L) {
   } else if (lua_isnoneornil(L, 2)) {
     body = "";
     bodylen = 0;
-    method = kHttpMethod[kHttpGet];
+    method = "GET";
   } else {
     body = luaL_checklstring(L, 2, &bodylen);
-    method = kHttpMethod[kHttpPost];
+    method = "POST";
   }
   // provide Content-Length header unless it's zero and not expected
-  methodidx = GetHttpMethod(method, -1);
-  if (bodylen > 0 || !(methodidx == kHttpGet || methodidx == kHttpHead ||
-                       methodidx == kHttpTrace || methodidx == kHttpDelete ||
-                       methodidx == kHttpConnect)) {
-    conlenhdr = _gc(xasprintf("Content-Length: %zu\r\n", bodylen));
+  imethod = ParseHttpMethod(method, -1);
+  if (bodylen > 0 ||
+      !(imethod == kHttpGet || imethod == kHttpHead || imethod == kHttpTrace ||
+        imethod == kHttpDelete || imethod == kHttpConnect)) {
+    conlenhdr = gc(xasprintf("Content-Length: %zu\r\n", bodylen));
   }
 
   /*
    * Parse URL.
    */
-  _gc(ParseUrl(urlarg, urlarglen, &url, true));
-  _gc(url.params.p);
+  gc(ParseUrl(urlarg, urlarglen, &url, true));
+  gc(url.params.p);
+  DEBUGF("(ftch) client fetching %`'s (host=%`'.*s, port=%.*s, path=%`'.*s)",
+         urlarg, url.host.n, url.host.p, url.port.n, url.port.p, url.path.n,
+         url.path.p);
+
   usingssl = false;
   if (url.scheme.n) {
 #ifndef UNSECURE
@@ -155,14 +163,16 @@ static int LuaFetch(lua_State *L) {
   }
 
 #ifndef UNSECURE
-  if (usingssl) keepalive = kaNONE;
-  if (usingssl && !sslinitialized) TlsInit();
+  if (usingssl)
+    keepalive = kaNONE;
+  if (usingssl && !sslinitialized)
+    TlsInit();
 #endif
 
   if (url.host.n) {
-    host = _gc(strndup(url.host.p, url.host.n));
+    host = gc(strndup(url.host.p, url.host.n));
     if (url.port.n) {
-      port = _gc(strndup(url.port.p, url.port.n));
+      port = gc(strndup(url.port.p, url.port.n));
 #ifndef UNSECURE
     } else if (usingssl) {
       port = "443";
@@ -179,7 +189,11 @@ static int LuaFetch(lua_State *L) {
   if (!IsAcceptableHost(host, -1)) {
     return LuaNilError(L, "invalid host");
   }
-  if (!hosthdr) hosthdr = _gc(xasprintf("%s:%s", host, port));
+  if (!IsAcceptablePort(port, -1)) {
+    return LuaNilError(L, "invalid port");
+  }
+  if (!hosthdr)
+    hosthdr = gc(xasprintf("%s:%s", host, port));
 
   // check if hosthdr is in keepalive table
   if (keepalive && lua_istable(L, 2)) {
@@ -207,7 +221,7 @@ static int LuaFetch(lua_State *L) {
   url.host.p = 0, url.host.n = 0;
   url.port.p = 0, url.port.n = 0;
   if (!url.path.n || url.path.p[0] != '/') {
-    void *p = _gc(xmalloc(1 + url.path.n));
+    void *p = gc(xmalloc(1 + url.path.n));
     mempcpy(mempcpy(p, "/", 1), url.path.p, url.path.n);
     url.path.p = p;
     ++url.path.n;
@@ -224,21 +238,21 @@ static int LuaFetch(lua_State *L) {
           "User-Agent: %s\r\n"
           "%s%s"
           "\r\n",
-          method, _gc(EncodeUrl(&url, 0)), hosthdr,
+          method, gc(EncodeUrl(&url, 0)), hosthdr,
           (keepalive == kaNONE || keepalive == kaCLOSE)
               ? "close"
               : (connhdr ? connhdr : "keep-alive"),
           agenthdr, conlenhdr, headers ? headers : "");
   appendd(&request, body, bodylen);
   requestlen = appendz(request).i;
-  _gc(request);
+  gc(request);
 
   if (keepalive == kaNONE || keepalive == kaOPEN) {
     /*
      * Perform DNS lookup.
      */
     DEBUGF("(ftch) client resolving %s", host);
-    if ((rc = getaddrinfo(host, port, &hints, &addr)) != EAI_SUCCESS) {
+    if ((rc = getaddrinfo(host, port, &hints, &addr)) != 0) {
       return LuaNilError(L, "getaddrinfo(%s:%s) error: EAI_%s %s", host, port,
                          gai_strerror(rc), strerror(errno));
     }
@@ -274,7 +288,7 @@ static int LuaFetch(lua_State *L) {
     if (!evadedragnetsurveillance) {
       mbedtls_ssl_set_hostname(&sslcli, host);
     }
-    bio = _gc(malloc(sizeof(struct TlsBio)));
+    bio = gc(malloc(sizeof(struct TlsBio)));
     bio->fd = sock;
     bio->a = 0;
     bio->b = 0;
@@ -307,7 +321,8 @@ static int LuaFetch(lua_State *L) {
     if (usingssl) {
       rc = mbedtls_ssl_write(&sslcli, request + i, requestlen - i);
       if (rc <= 0) {
-        if (rc == MBEDTLS_ERR_X509_CERT_VERIFY_FAILED) goto VerifyFailed;
+        if (rc == MBEDTLS_ERR_X509_CERT_VERIFY_FAILED)
+          goto VerifyFailed;
         close(sock);
         return LuaNilTlsError(L, "write", rc);
       }
@@ -363,7 +378,7 @@ static int LuaFetch(lua_State *L) {
           WARNF("(ftch) HTTP client %s error", "EOF headers");
           goto TransportError;
         }
-        rc = ParseHttpMessage(&msg, inbuf.p, inbuf.n);
+        rc = ParseHttpMessage(&msg, inbuf.p, inbuf.n, SHRT_MAX);
         if (rc == -1) {
           WARNF("(ftch) HTTP client %s error", "ParseHttpMessage");
           goto TransportError;
@@ -444,7 +459,8 @@ static int LuaFetch(lua_State *L) {
           WARNF("(ftch) HTTP client %s error", "Unchunk");
           goto TransportError;
         }
-        if (rc) goto Finished;
+        if (rc)
+          goto Finished;
         break;
       default:
         __builtin_unreachable();
@@ -452,7 +468,8 @@ static int LuaFetch(lua_State *L) {
   }
 
 Finished:
-  if (paylen && logbodies) LogBody("received", inbuf.p + hdrsize, paylen);
+  if (paylen && logbodies)
+    LogBody("received", inbuf.p + hdrsize, paylen);
   VERBOSEF("(ftch) completed %s HTTP%02d %d %s %`'.*s", method, msg.version,
            msg.status, urlarg, FetchHeaderLength(kHttpServer),
            FetchHeaderData(kHttpServer));
@@ -481,7 +498,7 @@ Finished:
     if (msg.status == 303) {
       body = "";
       bodylen = 0;
-      method = kHttpMethod[kHttpGet];
+      method = "GET";
     }
     // create table if needed
     if (!lua_istable(L, 2)) {
@@ -496,14 +513,53 @@ Finished:
 
     lua_pushinteger(L, numredirects + 1);
     lua_setfield(L, -2, "numredirects");
-    // replace URL with Location header
-    lua_pushlstring(L, FetchHeaderData(kHttpLocation),
-                    FetchHeaderLength(kHttpLocation));
+    // replace URL with Location header, which
+    // can be a relative or absolute URL:
+    // https://www.rfc-editor.org/rfc/rfc3986#section-4.2
+    gc(ParseUrl(FetchHeaderData(kHttpLocation),
+                FetchHeaderLength(kHttpLocation), &url, true));
+    free(url.params.p);
+    VERBOSEF("(ftch) client redirecting %`'.*s "
+             "(scheme=%`'.*s, host=%`'.*s, port=%.*s, path=%`'.*s)",
+             FetchHeaderLength(kHttpLocation), FetchHeaderData(kHttpLocation),
+             url.scheme.n, url.scheme.p, url.host.n, url.host.p, url.port.n,
+             url.port.p, url.path.n, url.path.p);
+    // while it's possible to check for IsAcceptableHost/IsAcceptablePort
+    // it's not clear what to do if they are not;
+    // if they are invalid, redirect returns "invalid host" message
+    if (url.host.n && url.scheme.n) {
+      lua_pushlstring(L, FetchHeaderData(kHttpLocation),
+                      FetchHeaderLength(kHttpLocation));
+    } else {
+      gc(ParseUrl(urlarg, urlarglen, &url, true));
+      free(url.params.p);
+      // remove user/pass/fragment for the redirect
+      url.fragment.p = 0, url.fragment.n = 0;
+      url.user.p = 0, url.user.n = 0;
+      url.pass.p = 0, url.pass.n = 0;
+      if (FetchHeaderData(kHttpLocation)[0] == '/') {
+        // if the path is absolute, then use it
+        // so `/redir/more` -> `/less` becomes `/less`
+        url.path.n = 0;  // replace the path
+      } else {
+        // if the path is relative, then merge it,
+        // so `/redir/more` -> `less` becomes `/redir/less`
+        while (url.path.n > 0 && url.path.p[url.path.n - 1] != '/') {
+          --url.path.n;
+        }
+      }
+      url.path.p = gc(xasprintf("%.*s%.*s", url.path.n, url.path.p,
+                                FetchHeaderLength(kHttpLocation),
+                                FetchHeaderData(kHttpLocation)));
+      url.path.n = strlen(url.path.p);
+      lua_pushstring(L, gc(EncodeUrl(&url, 0)));
+    }
     lua_replace(L, -3);
 
     DestroyHttpMessage(&msg);
     free(inbuf.p);
-    if (!keepalive || keepalive == kaCLOSE) close(sock);
+    if (!keepalive || keepalive == kaCLOSE)
+      close(sock);
     return LuaFetch(L);
   } else {
     lua_pushinteger(L, msg.status);
@@ -511,7 +567,8 @@ Finished:
     lua_pushlstring(L, inbuf.p + hdrsize, paylen);
     DestroyHttpMessage(&msg);
     free(inbuf.p);
-    if (!keepalive || keepalive == kaCLOSE) close(sock);
+    if (!keepalive || keepalive == kaCLOSE)
+      close(sock);
     return 3;
   }
 TransportError:
@@ -524,7 +581,7 @@ VerifyFailed:
   LockInc(&shared->c.sslverifyfailed);
   close(sock);
   return LuaNilTlsError(
-      L, _gc(DescribeSslVerifyFailure(sslcli.session_negotiate->verify_result)),
+      L, gc(DescribeSslVerifyFailure(sslcli.session_negotiate->verify_result)),
       ret);
 #endif
 #undef ssl

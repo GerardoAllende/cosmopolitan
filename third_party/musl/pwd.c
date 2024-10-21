@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:t;c-basic-offset:8;tab-width:8;coding:utf-8   -*-│
-│vi: set et ft=c ts=8 tw=8 fenc=utf-8                                       :vi│
+│ vi: set noet ft=c ts=8 sw=8 fenc=utf-8                                   :vi │
 ╚──────────────────────────────────────────────────────────────────────────────╝
 │                                                                              │
 │  Musl Libc                                                                   │
@@ -38,11 +38,7 @@
 #include "libc/str/str.h"
 #include "libc/thread/thread.h"
 #include "third_party/musl/passwd.h"
-
-asm(".ident\t\"\\n\\n\
-Musl libc (MIT License)\\n\
-Copyright 2005-2014 Rich Felker, et. al.\"");
-asm(".include \"libc/disclaimer.inc\"");
+__static_yoink("musl_libc_notice");
 
 #ifdef FTRACE
 // if the default mode debugging tools are enabled, and we're linking
@@ -95,12 +91,13 @@ __fopen_passwd(void)
 {
 	FILE *f;
 	char *s;
-	// MacOS has a fake /etc/passwd file without any user details.
-	if (!IsXnu() && (f = fopen("/etc/passwd", "rbe")))
+	// MacOS has a fake /etc/passwd file without any user details
+	// GetFileAttributes(u"\\etc\\passwd") takes 2 seconds sometimes
+	if (!IsXnu() && !IsWindows() && (f = fopen("/etc/passwd", "rbe")))
 		return f;
 	if (!(s = __create_synthetic_passwd_file()))
 		return 0;
-	if (!(f = fmemopen(s, strlen(s), "rb")))
+	if (!(f = fmemopen(s, strlen(s), "rbe")))
 		free(s);
 	return f;
 }
@@ -115,7 +112,7 @@ atou(char **s)
 	return x;
 }
 
-static int
+int
 __getpwent_a(FILE *f, struct passwd *pw, char **line, size_t *size,
 	     struct passwd **res)
 {
@@ -161,7 +158,7 @@ __getpwent_a(FILE *f, struct passwd *pw, char **line, size_t *size,
 	return rv;
 }
 
-static int
+int
 __getpw_a(const char *name, uid_t uid, struct passwd *pw, char **buf,
 	  size_t *size, struct passwd **res)
 {

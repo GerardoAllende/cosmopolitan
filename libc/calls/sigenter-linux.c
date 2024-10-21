@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -31,7 +31,7 @@
 
 #ifdef __x86_64__
 
-privileged void __sigenter_wsl(int sig, struct siginfo *info, ucontext_t *ctx) {
+privileged void __sigenter_wsl(int sig, siginfo_t *info, ucontext_t *ctx) {
   int rva, flags;
   rva = __sighandrvas[sig];
   if (rva >= kSigactionMinRva) {

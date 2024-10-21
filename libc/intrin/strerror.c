@@ -1,5 +1,5 @@
 /*-*- mode:c; indent-tabs-mode:nil; tab-width:2; coding:utf-8               -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -18,9 +18,10 @@
 ╚─────────────────────────────────────────────────────────────────────────────*/
 #include "libc/dce.h"
 #include "libc/fmt/magnumstrs.internal.h"
+#include "libc/stdalign.h"
 #include "libc/str/str.h"
 
-_Alignas(1) static char strerror_buf[128];
+alignas(1) static char strerror_buf[128];
 
 /**
  * Returns string describing `err`.

@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -29,8 +29,6 @@ void SetUpOnce(void) {
 
 TEST(chdir, efault) {
   ASSERT_SYS(EFAULT, -1, chdir(0));
-  if (IsWindows() || !IsAsan()) return;  // not possible
-  ASSERT_SYS(EFAULT, -1, chdir((void *)77));
 }
 
 TEST(chdir, enoent) {

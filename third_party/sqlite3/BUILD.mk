@@ -1,5 +1,5 @@
 #-*-mode:makefile-gmake;indent-tabs-mode:t;tab-width:8;coding:utf-8-*-┐
-#───vi: set et ft=make ts=8 tw=8 fenc=utf-8 :vi───────────────────────┘
+#── vi: set noet ft=make ts=8 sw=8 fenc=utf-8 :vi ────────────────────┘
 #
 # OVERVIEW
 #
@@ -36,7 +36,7 @@ THIRD_PARTY_SQLITE3_SHELL_OBJS =					\
 	$(filter %shell.o,$(THIRD_PARTY_SQLITE3_A_SRCS_C:%.c=o/$(MODE)/%.o))
 
 THIRD_PARTY_SQLITE3_COMS =						\
-	o/$(MODE)/third_party/sqlite3/sqlite3.com
+	o/$(MODE)/third_party/sqlite3/sqlite3
 
 THIRD_PARTY_SQLITE3_A_CHECKS =						\
 	$(THIRD_PARTY_SQLITE3_A).pkg					\
@@ -55,19 +55,19 @@ THIRD_PARTY_SQLITE3_A_DIRECTDEPS =					\
 	LIBC_SYSV							\
 	LIBC_SYSV_CALLS							\
 	LIBC_THREAD							\
-	LIBC_TIME							\
 	LIBC_TINYMATH							\
 	THIRD_PARTY_COMPILER_RT						\
 	THIRD_PARTY_GDTOA						\
 	THIRD_PARTY_LINENOISE						\
 	THIRD_PARTY_MUSL						\
+	THIRD_PARTY_TZ							\
 	THIRD_PARTY_ZLIB						\
 	TOOL_ARGS
 
 THIRD_PARTY_SQLITE3_A_DEPS :=						\
 	$(call uniq,$(foreach x,$(THIRD_PARTY_SQLITE3_A_DIRECTDEPS),$($(x))))
 
-o/$(MODE)/third_party/sqlite3/sqlite3.com.dbg:				\
+o/$(MODE)/third_party/sqlite3/sqlite3.dbg:				\
 		$(THIRD_PARTY_SQLITE3_A_DEPS)				\
 		$(THIRD_PARTY_SQLITE3_SHELL_OBJS)			\
 		o/$(MODE)/third_party/sqlite3/shell.o			\
@@ -75,14 +75,6 @@ o/$(MODE)/third_party/sqlite3/sqlite3.com.dbg:				\
 		$(CRT)							\
 		$(APE_NO_MODIFY_SELF)
 	@$(APELINK)
-
-o/$(MODE)/third_party/sqlite3/sqlite3.com:				\
-		o/$(MODE)/third_party/sqlite3/sqlite3.com.dbg		\
-		o/$(MODE)/third_party/zip/zip.com			\
-		o/$(MODE)/tool/build/symtab.com
-	@$(MAKE_OBJCOPY)
-	@$(MAKE_SYMTAB_CREATE)
-	@$(MAKE_SYMTAB_ZIP)
 
 $(THIRD_PARTY_SQLITE3_A):						\
 		third_party/sqlite3/					\
@@ -187,11 +179,9 @@ o/$(MODE)/third_party/sqlite3/parse.o: private				\
 		CFLAGS +=						\
 			-fpie
 
-o/$(MODE)/third_party/sqlite3/shell.o: private QUOTA = -M512m -C32 -L180
-o/$(MODE)/third_party/sqlite3/vdbe.o: private QUOTA = -M1024m
-o/$(MODE)/third_party/sqlite3/vdbe.shell.o: private QUOTA = -M1024m
-o/$(MODE)/third_party/sqlite3/fts5.o: private QUOTA = -M512m -C32
-o/$(MODE)/third_party/sqlite3/fts5.shell.o: private QUOTA = -M512m -C32 -L180
+o/$(MODE)/third_party/sqlite3/shell.o: private QUOTA = -C32 -L180
+o/$(MODE)/third_party/sqlite3/fts5.o: private QUOTA = -C32
+o/$(MODE)/third_party/sqlite3/fts5.shell.o: private QUOTA = -C32 -L180
 
 o/$(MODE)/third_party/sqlite3/rtree.o:					\
 		third_party/sqlite3/rtree.c				\

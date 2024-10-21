@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -95,9 +95,9 @@ TEST(GetDosArgv, realWorldUsage) {
   size_t size = ARG_MAX / 2;
   char *buf = malloc(size * sizeof(char));
   char **argv = malloc(max * sizeof(char *));
-  EXPECT_EQ(5, GetDosArgv(u"C:\\Users\\jtunn\\printargs.com oh yes yes yes",
-                          buf, size, argv, max));
-  EXPECT_STREQ("C:\\Users\\jtunn\\printargs.com", argv[0]);
+  EXPECT_EQ(5, GetDosArgv(u"C:\\Users\\jtunn\\printargs oh yes yes yes", buf,
+                          size, argv, max));
+  EXPECT_STREQ("C:\\Users\\jtunn\\printargs", argv[0]);
   EXPECT_STREQ("oh", argv[1]);
   EXPECT_STREQ("yes", argv[2]);
   EXPECT_STREQ("yes", argv[3]);

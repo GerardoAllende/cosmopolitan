@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2020 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -24,8 +24,7 @@
 #include "libc/calls/termios.internal.h"
 #include "libc/calls/ttydefaults.h"
 #include "libc/dce.h"
-#include "libc/intrin/asan.internal.h"
-#include "libc/intrin/strace.internal.h"
+#include "libc/intrin/strace.h"
 #include "libc/str/str.h"
 #include "libc/sysv/errfuns.h"
 
@@ -91,7 +90,7 @@ int tcgetattr(int fd, struct termios *tio) {
   int rc;
   if (fd < 0) {
     rc = einval();
-  } else if (!tio || (IsAsan() && !__asan_is_valid(tio, sizeof(*tio)))) {
+  } else if (!tio) {
     rc = efault();
   } else if (fd < g_fds.n && g_fds.p[fd].kind == kFdZip) {
     rc = enotty();

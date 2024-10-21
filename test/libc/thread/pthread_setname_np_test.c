@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2022 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -85,7 +85,8 @@ atomic_char sync1, sync2;
 static void *GetNameOfOtherThreadWorker(void *arg) {
   pthread_setname_np(pthread_self(), "justine");
   atomic_store(&sync1, 1);
-  while (!atomic_load(&sync2)) pthread_yield();
+  while (!atomic_load(&sync2))
+    pthread_yield();
   return 0;
 }
 
@@ -97,10 +98,13 @@ TEST(pthread_setname_np, GetNameOfOtherThread) {
     return;
   }
   ASSERT_EQ(0, pthread_create(&id, 0, GetNameOfOtherThreadWorker, 0));
-  while (!atomic_load(&sync1)) pthread_yield();
+  while (!atomic_load(&sync1))
+    pthread_yield();
   errno_t e = pthread_getname_np(id, me, sizeof(me));
-  if (IsLinux() && e == ENOENT) goto GiveUp;  // bah old kernel
-  if (IsLinux() && e == EACCES) goto GiveUp;  // meh landlock
+  if (IsLinux() && e == ENOENT)
+    goto GiveUp;  // bah old kernel
+  if (IsLinux() && e == EACCES)
+    goto GiveUp;  // meh landlock
   ASSERT_EQ(0, e);
   EXPECT_STREQ("justine", me);
   ASSERT_EQ(0, pthread_setname_np(id, "tunney"));

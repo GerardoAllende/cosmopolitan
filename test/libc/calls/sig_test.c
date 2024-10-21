@@ -1,5 +1,5 @@
 /*-*- mode:c;indent-tabs-mode:nil;c-basic-offset:2;tab-width:8;coding:utf-8 -*-│
-│vi: set net ft=c ts=2 sts=2 sw=2 fenc=utf-8                                :vi│
+│ vi: set et ft=c ts=2 sts=2 sw=2 fenc=utf-8                               :vi │
 ╞══════════════════════════════════════════════════════════════════════════════╡
 │ Copyright 2023 Justine Alexandra Roberts Tunney                              │
 │                                                                              │
@@ -64,9 +64,11 @@ void *Worker(void *arg) {
 
 TEST(SetThreadContext, test) {
   pthread_t th;
-  if (!IsWindows()) return;
+  if (!IsWindows())
+    return;
   ASSERT_EQ(0, pthread_create(&th, 0, Worker, 0));
-  while (!ready) donothing;
+  while (!ready)
+    donothing;
   usleep(1000);
   int64_t hand = _pthread_syshand((struct PosixThread *)th);
   ASSERT_EQ(0, SuspendThread(hand));
